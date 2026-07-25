@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>TranscriTranslator</title>
+<style>
+  /* Visual do painel do Stream Deck, escrito a mao: sem CDN, sem dependencia de
+     rede para configurar uma tecla. */
+  :root {
+    --bg: #2d2d2d; --fg: #d8d8d8; --muted: #969696; --line: #3d3d3d;
+    --field: #3d3d3d; --accent: #77f; --ok: #4caf50; --warn: #d6a00a; --err: #d96a6a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 8px 12px 24px;
+    background: var(--bg); color: var(--fg);
+    font: 9pt/1.5 "Segoe UI", Arial, sans-serif;
+  }
+  details {
+    border: 1px solid var(--line); border-radius: 5px;
+    margin-bottom: 6px; background: #333;
+  }
+  details[open] { background: #313131; }
+  summary {
+    cursor: pointer; padding: 7px 10px; font-weight: 600;
+    letter-spacing: .04em; text-transform: uppercase; font-size: 8pt;
+    color: #bfbfbf; user-select: none; list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "▸ "; color: var(--muted); }
+  details[open] > summary::before { content: "▾ "; }
+  details[open] > summary { border-bottom: 1px solid var(--line); }
+  .body { padding: 8px 10px 10px; }
+
+  .row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .row > label:first-child {
+    flex: 0 0 92px; text-align: right; color: var(--muted); font-size: 8.5pt;
+  }
+  .row > .ctl { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: center; }
+  .stack { display: block; }
+  .stack > label { display: block; color: var(--muted); font-size: 8.5pt; margin-bottom: 3px; }
+
+  input[type=text], input[type=password], input[type=number], select, textarea {
+    background: var(--field); color: var(--fg); border: 1px solid #4a4a4a;
+    border-radius: 4px; padding: 4px 6px; font: inherit; width: 100%; min-width: 0;
+  }
+  textarea { resize: vertical; min-height: 46px; font-size: 8.5pt; }
+  input[type=number] { width: 62px; flex: 0 0 62px; }
+  input[type=color] {
+    width: 34px; height: 24px; padding: 1px; border: 1px solid #4a4a4a;
+    border-radius: 4px; background: var(--field); flex: 0 0 34px;
+  }
+  input:focus, select:focus, textarea:focus { outline: 1px solid var(--accent); }
+
+  button {
+    background: #4a4a4a; color: var(--fg); border: 1px solid #565656;
+    border-radius: 4px; padding: 4px 9px; font: inherit; cursor: pointer; white-space: nowrap;
+  }
+  button:hover { background: #565656; }
+  button.primary { background: #46617f; border-color: #557293; }
+  button.danger:hover { background: #7a3a3a; }
+
+  .check { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
+  .check input { accent-color: var(--accent); }
+  .check label { cursor: pointer; }
+
+  .hint { color: var(--muted); font-size: 8pt; margin: -3px 0 8px 100px; }
+  .hint.full { margin-left: 0; }
+  .status { font-size: 8pt; margin-top: 4px; min-height: 14px; }
+  .status.ok { color: var(--ok); }
+  .status.warn { color: var(--warn); }
+  .status.err { color: var(--err); }
+
+  .swatches { display: flex; gap: 3px; flex-wrap: wrap; }
+  .sw { width: 17px; height: 17px; border-radius: 3px; border: 1px solid #00000055; cursor: pointer; }
+
+  .meter { height: 5px; background: #4a4a4a; border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .meter > i { display: block; height: 100%; background: var(--ok); width: 0; transition: width .2s; }
+  .meter.over > i { background: var(--err); }
+
+  .global { border-color: #4a5a6a; }
+  .global > summary { color: #9dbad6; }
+  .badge {
+    background: #46617f; color: #dceaf7; border-radius: 3px;
+    padding: 1px 5px; font-size: 7.5pt; margin-left: 6px; text-transform: none; letter-spacing: 0;
+  }
+</style>
+</head>
+<body>
+
+<details open>
+  <summary>Preset e essencial</summary>
+  <div class="body">
+    <div class="row">
+      <label>Preset</label>
+      <div class="ctl">
+        <select id="presetList"></select>
+        <button id="presetApply">Aplicar</button>
+      </div>
+    </div>
+    <div class="row">
+      <label></label>
+      <div class="ctl">
+        <button id="presetSave">Salvar como…</button>
+        <button id="presetDelete" class="danger">Excluir</button>
+      </div>
+    </div>
+    <div class="hint">Aplicar copia os valores para esta tecla. Depois disso ela segue independente.</div>
+
+    <div class="row">
+      <label>Rótulo</label>
+      <div class="ctl"><input type="text" data-setting="label" data-type="str" placeholder="Ditado"></div>
+    </div>
+
+    <div class="row">
+      <label>Microfone</label>
+      <div class="ctl">
+        <select id="micList" data-setting="micDevice" data-type="str"></select>
+        <button id="micTest">Testar</button>
+      </div>
+    </div>
+    <div class="status" id="micStatus"></div>
+  </div>
+</details>
+
+<details>
+  <summary>Captura</summary>
+  <div class="body">
+    <div class="row">
+      <label>Modo</label>
+      <div class="ctl">
+        <select data-setting="mode" data-type="str">
+          <option value="toggle">Toggle — aperta grava, aperta para</option>
+          <option value="ptt">Segurar — grava enquanto pressiona</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint">No modo toggle, segurar a tecla durante a gravação cancela sem gastar API.</div>
+
+    <div class="check">
+      <input type="checkbox" id="silenceStop" data-setting="silenceStop" data-type="bool">
+      <label for="silenceStop">Parar sozinho após silêncio</label>
+    </div>
+    <div class="row">
+      <label>Silêncio (s)</label>
+      <div class="ctl"><input type="number" data-setting="silenceSeconds" data-type="num" min="0.5" max="10" step="0.5"></div>
+    </div>
+    <div class="hint">Só arma depois que você começa a falar — a pausa inicial não encerra nada. Ignorado no modo Segurar.</div>
+
+    <div class="row">
+      <label>Limite (min)</label>
+      <div class="ctl"><input type="number" data-setting="maxMinutes" data-type="num" min="0" max="60" step="1"></div>
+    </div>
+    <div class="hint">Corte automático. 0 desliga. O teto da API são 25 MB, ~70 min.</div>
+
+    <div class="check">
+      <input type="checkbox" id="beep" data-setting="beep" data-type="bool">
+      <label for="beep">Bip ao iniciar e parar</label>
+    </div>
+    <div class="hint full">O bip de início toca quando o microfone está de fato capturando — é o sinal de "pode falar".</div>
+  </div>
+</details>
+
+<details>
+  <summary>Transcrição — o que você fala</summary>
+  <div class="body">
+    <div class="check">
+      <input type="checkbox" id="transcribeOn" data-setting="transcribeOn" data-type="bool">
+      <label for="transcribeOn">Gravar e transcrever</label>
+    </div>
+    <div class="hint full">Desligue para uma tecla que só reescreve o texto selecionado, sem gravar nada.</div>
+
+    <div class="row">
+      <label>Modelo</label>
+      <div class="ctl">
+        <input type="text" list="tModels" data-setting="transcribeModel" data-type="str">
+        <datalist id="tModels"></datalist>
+      </div>
+    </div>
+    <div class="row">
+      <label>Idioma falado</label>
+      <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
+    </div>
+
+    <div class="stack">
+      <label>Contexto para o modelo de áudio</label>
+      <textarea data-setting="transcribeContext" data-type="str"
+        placeholder="Ex.: Reunião técnica sobre infraestrutura de rede."></textarea>
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="useCanonPrompt" data-setting="useCanonPrompt" data-type="bool">
+      <label for="useCanonPrompt">Enviar também o dicionário de palavras canônicas</label>
+    </div>
+    <div class="meter" id="budgetMeter"><i></i></div>
+    <div class="status" id="budgetStatus"></div>
+    <div class="hint full">
+      A API descarta o que passar de 224 tokens — e descarta o <em>começo</em>, então o dicionário é
+      cortado antes do contexto. A grafia certa é garantida de qualquer jeito pela correção automática.
+    </div>
+  </div>
+</details>
+
+<details>
+  <summary>Texto — o que fazer com a transcrição</summary>
+  <div class="body">
+    <div class="check">
+      <input type="checkbox" id="textOn" data-setting="textOn" data-type="bool">
+      <label for="textOn">Processar o texto</label>
+    </div>
+
+    <div class="row">
+      <label>Modelo</label>
+      <div class="ctl">
+        <input type="text" list="xModels" data-setting="textModel" data-type="str">
+        <datalist id="xModels"></datalist>
+      </div>
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="cleanup" data-setting="cleanup" data-type="bool">
+      <label for="cleanup"><b>Limpeza de ditado</b></label>
+    </div>
+    <div class="hint full">
+      Pontua, tira hesitações ("né", "tipo"), respeita autocorreções ("quer dizer…"), converte
+      comandos falados ("vírgula", "novo parágrafo") e formata números e datas. Não troca as suas palavras.
+    </div>
+
+    <div class="stack">
+      <label>Estilo / instrução livre</label>
+      <textarea data-setting="style" data-type="str"
+        placeholder="Ex.: Traduza para o inglês. / Reescreva como e-mail formal. / Resuma em tópicos."></textarea>
+    </div>
+    <div class="hint full">Vazio = não muda o estilo. Com a limpeza ligada, as duas coisas acontecem numa chamada só.</div>
+  </div>
+</details>
+
+<details>
+  <summary>Saída</summary>
+  <div class="body">
+    <div class="check">
+      <input type="checkbox" id="autoPaste" data-setting="autoPaste" data-type="bool">
+      <label for="autoPaste">Colar no campo focado (Ctrl+V)</label>
+    </div>
+    <div class="hint full">
+      Se você trocar de janela enquanto o texto é processado, o plugin não cola — copia e avisa na tecla.
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="history" data-setting="history" data-type="bool">
+      <label for="history">Guardar histórico (.md por mês)</label>
+    </div>
+    <div class="row">
+      <label>Pasta</label>
+      <div class="ctl"><input type="text" data-setting="historyDir" data-type="str" placeholder="padrão: %LOCALAPPDATA%\transcritranslator\historico"></div>
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="keepAudio" data-setting="keepAudio" data-type="bool">
+      <label for="keepAudio">Guardar os áudios gravados</label>
+    </div>
+    <div class="hint full">Áudio de envio que falhou é preservado de qualquer forma, mesmo com isto desligado.</div>
+  </div>
+</details>
+
+<details>
+  <summary>Aparência</summary>
+  <div class="body">
+    <div class="row">
+      <label>Ocioso</label>
+      <div class="ctl">
+        <input type="color" data-setting="colorIdle" data-type="str">
+        <div class="swatches" data-for="colorIdle"></div>
+      </div>
+    </div>
+    <div class="row">
+      <label>Gravando</label>
+      <div class="ctl">
+        <input type="color" data-setting="colorRec" data-type="str">
+        <div class="swatches" data-for="colorRec"></div>
+      </div>
+    </div>
+    <div class="row">
+      <label>Pronto</label>
+      <div class="ctl">
+        <input type="color" data-setting="colorDone" data-type="str">
+        <div class="swatches" data-for="colorDone"></div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Ícone</label>
+      <div class="ctl">
+        <select data-setting="icon" data-type="str">
+          <option value="mic">Microfone</option>
+          <option value="globe">Globo</option>
+          <option value="bubble">Balão de fala</option>
+          <option value="pen">Caneta</option>
+          <option value="none">Nenhum</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="check">
+      <input type="checkbox" id="showLabel" data-setting="showLabel" data-type="bool">
+      <label for="showLabel">Mostrar rótulo</label>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="showTimer" data-setting="showTimer" data-type="bool">
+      <label for="showTimer">Mostrar cronômetro</label>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="showWave" data-setting="showWave" data-type="bool">
+      <label for="showWave">Mostrar as barras de voz</label>
+    </div>
+  </div>
+</details>
+
+<details class="global">
+  <summary>Configuração da máquina <span class="badge">vale para todas as teclas</span></summary>
+  <div class="body">
+    <div class="row">
+      <label>Chave OpenAI</label>
+      <div class="ctl">
+        <input type="password" id="apiKey" placeholder="sk-…" autocomplete="off">
+        <button id="keySave" class="primary">Salvar</button>
+      </div>
+    </div>
+    <div class="status" id="keyStatus"></div>
+    <div class="hint full">
+      Guardada cifrada por DPAPI (só abre nesta conta do Windows), nunca nas configurações do Stream Deck,
+      que ficam em texto plano no disco. <button id="keyClear" class="danger">Remover chave</button>
+    </div>
+
+    <div class="stack">
+      <label>Palavras canônicas — suas siglas e termos, separados por vírgula</label>
+      <textarea id="canonTerms" placeholder="Ex.: SRVDRU, EdgeRouter, WireGuard, Grafana, n8n"></textarea>
+    </div>
+    <div class="hint full">
+      A grafia é corrigida no texto final por comparação exata — sem limite de quantidade e sem custo.
+      Termos em MAIÚSCULAS são tratados como siglas.
+    </div>
+
+    <div class="row">
+      <label>ffmpeg</label>
+      <div class="ctl"><input type="text" id="ffmpegPath" placeholder="vazio = procura no PATH"></div>
+    </div>
+    <div class="status" id="globalStatus"></div>
+  </div>
+</details>
+
+<script>
+// ---------------------------------------------------------------------------
+// Protocolo do Property Inspector, escrito a mao (o Stream Deck chama esta
+// funcao global ao abrir o painel).
+// ---------------------------------------------------------------------------
+let ws, uuid, actionInfo, settings = {}, ready = false;
+
+function send(event, payload) {
+  if (!ws || ws.readyState !== 1) return;
+  const msg = { event, context: uuid };
+  if (payload !== undefined) msg.payload = payload;
+  ws.send(JSON.stringify(msg));
+}
+
+const toPlugin = (payload) => send("sendToPlugin", payload);
+
+let saveTimer;
+function saveSettings() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => send("setSettings", settings), 150);
+}
+
+window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, _info, inActionInfo) {
+  uuid = inUUID;
+  actionInfo = JSON.parse(inActionInfo);
+  settings = actionInfo?.payload?.settings ?? {};
+
+  ws = new WebSocket("ws://127.0.0.1:" + port);
+  ws.onopen = () => {
+    // O registro e' o unico frame com `uuid` em vez de `context`.
+    ws.send(JSON.stringify({ event: registerEvent, uuid: inUUID }));
+    toPlugin({ cmd: "init" });
+  };
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.event === "didReceiveSettings") {
+      settings = msg.payload?.settings ?? {};
+      applyToForm();
+    } else if (msg.event === "sendToPropertyInspector") {
+      handlePlugin(msg.payload || {});
+    }
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Binding: cada campo com data-setting le e escreve direto em `settings`.
+// ---------------------------------------------------------------------------
+const DEFAULTS = {
+  label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 2.5,
+  maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-4o-mini-transcribe",
+  language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
+  textModel: "gpt-4.1-mini", cleanup: true, style: "", autoPaste: true, history: true,
+  historyDir: "", keepAudio: false, colorIdle: "#404650", colorRec: "#C44040",
+  colorDone: "#2E8C3C", icon: "mic", showLabel: true, showTimer: true, showWave: true,
+};
+
+const fields = () => document.querySelectorAll("[data-setting]");
+
+function applyToForm() {
+  for (const el of fields()) {
+    const key = el.dataset.setting;
+    const val = settings[key] !== undefined ? settings[key] : DEFAULTS[key];
+    if (el.type === "checkbox") el.checked = !!val;
+    else el.value = val ?? "";
+  }
+  refreshBudget();
+}
+
+function bind() {
+  for (const el of fields()) {
+    const evt = el.tagName === "SELECT" || el.type === "checkbox" || el.type === "color" ? "change" : "input";
+    el.addEventListener(evt, () => {
+      const key = el.dataset.setting;
+      if (el.type === "checkbox") settings[key] = el.checked;
+      else if (el.dataset.type === "num") settings[key] = parseFloat(el.value) || 0;
+      else settings[key] = el.value;
+      saveSettings();
+      if (key === "transcribeContext") refreshBudget();
+    });
+  }
+}
+
+function fill(select, items, value) {
+  select.innerHTML = "";
+  for (const it of items) {
+    const o = document.createElement("option");
+    o.value = it.value; o.textContent = it.label;
+    select.appendChild(o);
+  }
+  if (value !== undefined) select.value = value;
+}
+
+function status(el, text, cls) {
+  el.textContent = text || "";
+  el.className = "status" + (cls ? " " + cls : "");
+}
+
+// ---------------------------------------------------------------------------
+// Respostas do plugin
+// ---------------------------------------------------------------------------
+function handlePlugin(p) {
+  switch (p.event) {
+    case "init": {
+      const mic = document.getElementById("micList");
+      const devices = (p.devices || []).map((d) => ({ value: d, label: d }));
+      fill(mic, [{ value: "", label: "Padrão do sistema (primeiro da lista)" }, ...devices], settings.micDevice ?? "");
+
+      fill(document.getElementById("langList"),
+        (p.languages || []).map((l) => ({ value: l.code, label: l.label })),
+        settings.language ?? DEFAULTS.language);
+
+      for (const [id, list] of [["tModels", p.transcribeModels], ["xModels", p.textModels]]) {
+        const dl = document.getElementById(id);
+        dl.innerHTML = "";
+        for (const m of list || []) {
+          const o = document.createElement("option");
+          o.value = m.id; o.label = m.label;
+          dl.appendChild(o);
+        }
+      }
+
+      renderPresets(p.presets || []);
+      buildSwatches(p.swatches || []);
+      document.getElementById("canonTerms").value = p.canonTerms || "";
+      document.getElementById("ffmpegPath").value = p.ffmpegPath || "";
+      showKeyState(p.hasKey);
+      ready = true;
+      applyToForm();
+      break;
+    }
+    case "presets": renderPresets(p.presets || []); status(document.getElementById("micStatus"), "preset salvo", "ok"); break;
+    case "presetApplied": settings = p.settings || settings; applyToForm(); break;
+    case "keySaved": showKeyState(p.hasKey); document.getElementById("apiKey").value = ""; break;
+    case "globalSaved": status(document.getElementById("globalStatus"), "salvo", "ok"); break;
+    case "micResult":
+      status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err");
+      break;
+    case "budget": {
+      const pct = Math.min(100, Math.round((p.used / p.limit) * 100));
+      const meter = document.getElementById("budgetMeter");
+      meter.classList.toggle("over", p.used > p.limit);
+      meter.firstElementChild.style.width = pct + "%";
+      status(document.getElementById("budgetStatus"),
+        `${p.used} de ${p.limit} tokens` + (p.used > p.limit ? " — o excedente será descartado" : ""),
+        p.used > p.limit ? "warn" : "");
+      break;
+    }
+    case "error": status(document.getElementById("globalStatus"), p.message, "err"); break;
+  }
+}
+
+function showKeyState(has) {
+  status(document.getElementById("keyStatus"),
+    has ? "Chave configurada no cofre." : "Nenhuma chave — a tecla vai mostrar erro.",
+    has ? "ok" : "warn");
+}
+
+function renderPresets(list) {
+  const sel = document.getElementById("presetList");
+  fill(sel, list.map((p) => ({ value: p.id, label: p.name + (p.builtin ? "" : " *") })), settings.presetId);
+  sel.dataset.builtins = JSON.stringify(list.filter((p) => p.builtin).map((p) => p.id));
+}
+
+function buildSwatches(swatches) {
+  for (const box of document.querySelectorAll(".swatches")) {
+    const target = box.dataset.for;
+    box.innerHTML = "";
+    for (const s of swatches) {
+      const b = document.createElement("div");
+      b.className = "sw"; b.style.background = s.hex; b.title = s.name;
+      b.onclick = () => {
+        settings[target] = s.hex;
+        document.querySelector(`[data-setting="${target}"]`).value = s.hex;
+        saveSettings();
+      };
+      box.appendChild(b);
+    }
+  }
+}
+
+function refreshBudget() {
+  if (!ready) return;
+  toPlugin({ cmd: "budget", context: settings.transcribeContext ?? "" });
+}
+
+// ---------------------------------------------------------------------------
+// Botoes
+// ---------------------------------------------------------------------------
+document.addEventListener("DOMContentLoaded", () => {
+  bind();
+
+  document.getElementById("presetApply").onclick = () =>
+    toPlugin({ cmd: "applyPreset", id: document.getElementById("presetList").value });
+
+  document.getElementById("presetSave").onclick = () => {
+    const name = prompt("Nome do preset:");
+    if (name) toPlugin({ cmd: "savePreset", name });
+  };
+
+  document.getElementById("presetDelete").onclick = () => {
+    const sel = document.getElementById("presetList");
+    const builtins = JSON.parse(sel.dataset.builtins || "[]");
+    if (builtins.includes(sel.value)) {
+      status(document.getElementById("micStatus"), "presets de fábrica não podem ser excluídos", "warn");
+      return;
+    }
+    toPlugin({ cmd: "deletePreset", id: sel.value });
+  };
+
+  document.getElementById("micTest").onclick = () => {
+    status(document.getElementById("micStatus"), "gravando 3 segundos — fale alguma coisa…");
+    toPlugin({ cmd: "testMic", device: document.getElementById("micList").value });
+  };
+
+  document.getElementById("keySave").onclick = () => {
+    const key = document.getElementById("apiKey").value.trim();
+    if (!key) { showKeyState(false); return; }
+    toPlugin({ cmd: "setKey", key });
+  };
+
+  document.getElementById("keyClear").onclick = () => toPlugin({ cmd: "clearKey" });
+
+  let gTimer;
+  const saveGlobal = () => {
+    clearTimeout(gTimer);
+    gTimer = setTimeout(() => {
+      toPlugin({
+        cmd: "setGlobal",
+        canonTerms: document.getElementById("canonTerms").value,
+        ffmpegPath: document.getElementById("ffmpegPath").value,
+      });
+      refreshBudget();
+    }, 400);
+  };
+  document.getElementById("canonTerms").addEventListener("input", saveGlobal);
+  document.getElementById("ffmpegPath").addEventListener("input", saveGlobal);
+});
+</script>
+</body>
+</html>
