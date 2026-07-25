@@ -43,6 +43,15 @@ O `build.mjs` **sincroniza o manifest sozinho** a partir daí e injeta os valore
 versão do painel e versão do Stream Deck não têm como divergir. Ele também recusa o build se o
 formato não for `a.b.c.d`.
 
+### E o commit? Só com autorização
+
+Bumpar é automático. **Commitar e dar push, não.** Deixe a mudança pronta e verificada, diga o
+que está pendente e espere o aval — ou pergunte, quando a alteração for significativa o
+bastante para justificar a interrupção.
+
+O motivo é de histórico, não de segurança: dez commits de ajuste fino são piores que um commit
+coeso, e quem decide o recorte é quem vai conviver com o repositório.
+
 Instalação inicial (uma vez): `npm install`, `render-images.ps1`, `streamdeck dev`,
 `streamdeck link com.felipe.transcritranslator.sdPlugin`.
 
@@ -249,12 +258,18 @@ quando o `i18n.js` faltava.
 
 ---
 
-## Pendente
+## Estado
 
-- **Teste com voz de ponta a ponta** — nunca foi feito. Falta configurar a chave e ditar de
-  verdade: transcrição, colagem, waveform ao vivo, auto-stop por silêncio, cancelamento.
-- Roteiro completo de verificação manual no plano
-  ([docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md), seção *Verificação*).
+**O caminho principal funciona** — validado com voz real em 25/07/2026 (v1.0.1.1): gravar,
+transcrever e colar, de ponta a ponta.
+
+O que falta são os **casos de borda**, que não se exercitam no uso normal e falham em silêncio:
+trocar de janela durante o processamento, trocar de página no XL durante a gravação, e a
+blindagem anti-eco (apertar e parar sem falar). Lista completa em
+[docs/ROADMAP.md](docs/ROADMAP.md) item 0; roteiro detalhado em
+[docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md), seção *Verificação*.
+
+O que vem depois está em [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Fora de escopo (fase 2)
 

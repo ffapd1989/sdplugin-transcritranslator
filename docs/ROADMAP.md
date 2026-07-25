@@ -8,25 +8,30 @@ Ao mexer em qualquer item: subir [version.json](../version.json) antes de commit
 
 ---
 
-## 0. Teste com voz de ponta a ponta — **bloqueia tudo**
+## 0. Teste com voz — ✅ caminho principal FUNCIONANDO
 
-Nada abaixo importa se o básico não estiver provado. **O plugin nunca transcreveu uma frase
-real.** Todo o resto foi verificado (102 asserções, gravação contra o hardware, render do
-painel), mas o caminho completo — falar → transcrever → colar — nunca rodou.
+**Validado em 25/07/2026, v1.0.1.1.** O plugin transcreve fala real e entrega o texto: gravar →
+transcrever → colar funciona de ponta a ponta. Era o item que bloqueava todos os outros, e não
+bloqueia mais.
 
-Roteiro completo em [PLANO-ORIGINAL.md](PLANO-ORIGINAL.md), seção *Verificação*. O essencial:
+Faltam os **casos de borda**, que não se exercitam usando normalmente — cada um existe para uma
+situação que só aparece quando dá errado:
 
-- [ ] Configurar a chave e ditar num Bloco de Notas em `toggle`; conferir acentuação
-- [ ] Repetir em `ptt` (segurar)
-- [ ] Waveform mexe ao falar e fica parada no silêncio
+- [x] Ditar e colar (caminho principal)
+- [ ] Modo `ptt` (segurar para gravar)
 - [ ] Auto-parar: falar e ficar 3 s calado
 - [ ] Segurar durante a gravação → `SOLTE P/ CANCELAR`, nada é enviado
-- [ ] Trocar de janela durante o processamento → **não cola**, avisa "copiado"
-- [ ] Trocar de página no XL durante a gravação → entrega mesmo assim
-- [ ] Apertar e parar sem falar → "sem fala", nada colado (blindagem anti-eco)
-- [ ] Dicionário: cadastrar sigla, ditar, conferir grafia canônica
+- [ ] **Trocar de janela durante o processamento** → não cola, avisa "copiado"
+- [ ] **Trocar de página no XL durante a gravação** → entrega mesmo assim
+- [ ] **Apertar e parar sem falar** → "sem fala", nada colado (blindagem anti-eco)
+- [ ] Dicionário: cadastrar sigla, ditar, conferir a grafia canônica
 - [ ] Comandos falados: "vírgula", "novo parágrafo"
+- [ ] Guardrail: ditar algo que a política recuse → deve colar o **texto cru**, não perder a fala
 
+> Os três em negrito são os que envolvem lógica que ninguém testou ainda e que falha em
+> silêncio — se o anti-eco não funcionar, um toque acidental cola a sua lista de siglas dentro
+> do documento. Roteiro completo em [PLANO-ORIGINAL.md](PLANO-ORIGINAL.md), seção *Verificação*.
+>
 > Anotar aqui o que sair torto, em vez de corrigir de imediato — o padrão de falha é mais
 > informativo que o primeiro sintoma.
 
@@ -235,7 +240,50 @@ campo tem de estar **ali**.
 > ([dictation.html](../com.felipe.transcritranslator.sdPlugin/ui/dictation.html)), tem efeito
 > visível e serve para reentrar no código sem risco.
 
-### 3.1 Refinamento visual
+### 3.1 Revisão completa dos textos da interface
+
+Os textos foram escritos junto com o código, um de cada vez, e nunca lidos como conjunto.
+Aparecem jargão, inconsistência e pelo menos um rótulo que **não se entende** — o que só
+descobrimos porque o usuário disse "nem entendi isso direito".
+
+Tudo em [ui/i18n.js](../com.felipe.transcritranslator.sdPlugin/ui/i18n.js), nos três blocos.
+Reescrever pt e depois traduzir; não traduzir texto ruim.
+
+#### Casos já identificados
+
+- [ ] **"Segue o idioma falado da tecla"** — opção automática do seletor *Presets e prompts*.
+      Ninguém entende, e é culpa do rótulo, não de quem lê. O que ela faz: os prompts saem no
+      idioma que você declarou em *Eu vou falar em*; se aquilo estiver em *Detectar*, cai para o
+      idioma do painel. Existe porque a limpeza usa exemplos da língua falada ("vírgula", "né").
+      Algo como **"Automático — acompanha o que eu falo"** já diria mais
+- [ ] **Placeholder do dicionário canônico.** Hoje: `SRVDRU, EdgeRouter, WireGuard, Grafana,
+      n8n, PostgreSQL, Kubernetes`. `SRVDRU` é o servidor de **uma** pessoa — não significa nada
+      para mais ninguém, e o plugin é para a loja. Trocar por exemplos que qualquer um
+      reconheça e que ilustrem o *tipo* de termo (nome de produto com grafia particular, sigla,
+      jargão): `GitHub, JavaScript, PostgreSQL, PDF, API, e-mail`. Adaptar por idioma, já que
+      siglas comuns variam
+- [ ] Revisar **todos** os outros placeholders pelo mesmo critério: exemplo ilustra, não
+      dá instrução nem assume o contexto de ninguém
+- [ ] **"Prompt" é jargão.** Aparece em *Presets e prompts*, *Ver o que será enviado*, *prompt
+      de transcrição*. Quem nunca usou API não sabe o que é. Ver se dá para dizer "instruções"
+      sem perder precisão — e onde a precisão importa, manter e explicar uma vez
+- [ ] Inconsistências de forma: *"Limpar o ditado"* (verbo) e *"Limpeza de ditado"* (substantivo)
+      para a mesma coisa; *"Segue o Stream Deck"* e *"Segue o idioma falado da tecla"* no mesmo
+      seletor, com estruturas diferentes
+- [ ] `"pal."` abreviado na tecla de confirmação (ver 2.3) — decidir junto com a quebra de linha
+- [ ] Termos inevitáveis (`ffmpeg`, `tokens`, `DPAPI`) precisam aparecer explicados **na primeira
+      vez**, não em toda menção
+
+#### Como fazer
+
+- [ ] Ler o painel inteiro de cima a baixo, nos três idiomas, **como quem nunca viu** — é assim
+      que a inconsistência aparece; campo a campo ela se esconde
+- [ ] Fixar vocabulário antes de reescrever: uma palavra por conceito, e a mesma sempre
+- [ ] Rodar o render headless dos três idiomas e conferir se algum texto reescrito estourou o
+      layout (o alemão não existe aqui, mas o espanhol já é ~15% mais longo que o português)
+- [ ] Conferir a paridade de chaves ao final (comando no [CLAUDE.md](../CLAUDE.md))
+
+### 3.2 Refinamento visual
 
 O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
