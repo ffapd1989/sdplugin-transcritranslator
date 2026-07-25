@@ -704,6 +704,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
             if (v !== undefined) (next as any)[k] = v;
           }
           await a.setSettings(next);
+          // Redesenha AQUI, na mão: quando é o plugin que grava as configurações, o
+          // Stream Deck avisa o painel mas não devolve `didReceiveSettings` para o
+          // próprio plugin. Como a tecla ociosa fica fora do ciclo de animação, ela
+          // continuava com o desenho antigo — e o preset só "pegava" no clique
+          // seguinte, quando outro evento acabava forçando o redesenho.
+          if (a.isKey()) await this.render(a, next);
           reply({ event: "presetApplied", settings: next });
           break;
         }

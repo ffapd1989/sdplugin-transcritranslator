@@ -32,7 +32,11 @@ Roteiro completo em [PLANO-ORIGINAL.md](PLANO-ORIGINAL.md), seção *Verificaç�
 
 ---
 
-## 1. Discovery — o prompt de transcrição serve para alguma coisa?
+## 1. Discovery
+
+Duas perguntas que não se resolvem discutindo — precisam de experimento.
+
+### 1.1 O prompt de transcrição serve para alguma coisa?
 
 **Questão em aberto que nunca foi medida.** Mantivemos o `prompt` na etapa 1 por raciocínio,
 não por evidência: a doc diz que ele existe, e os modelos GPT-4o "seguem instrução" ao
@@ -51,7 +55,7 @@ O que se sabe hoje:
 - Ele **custa**: entra como tokens de entrada e pode pesar na latência, que numa tecla de
   ditado é o que mais se sente.
 
-### Protocolo
+#### Protocolo
 
 - [ ] Gravar um conjunto fixo de ~10 áudios curtos com **siglas ditas por extenso**
       (`cê-pê-cê`, `és-érre-vê-dê-érre-u`), nomes próprios e jargão técnico. Guardar os `.wav`
@@ -65,7 +69,7 @@ O que se sabe hoje:
 - [ ] Testar o **eco** de propósito: áudio de 0,5 s, áudio só com respiração, áudio mudo — as
       blindagens pegam? Com que frequência?
 
-### O que decidir com o resultado
+#### O que decidir com o resultado
 
 | Se… | Então |
 |---|---|
@@ -76,6 +80,49 @@ O que se sabe hoje:
 
 > Escrever o resultado aqui, com os números. A decisão atual é uma **aposta**; o que fixa uma
 > aposta é medição, não mais discussão.
+
+### 1.2 Mostrar a tradução num popup, sem colar
+
+**Ideia:** em vez de entregar o texto no campo em foco, exibir numa janelinha na tela. Serve
+para o caso "quero só **ler** o que isso quer dizer" — legenda de um trecho estrangeiro,
+conferir a tradução antes de usar, entender um áudio sem escrever nada em lugar nenhum.
+
+O Stream Deck **não tem** API para desenhar fora da tecla: `showOk`, `showAlert` e `setImage`
+param nos 72×72. A janela teria de vir do sistema operacional, e é isso que precisa ser
+investigado antes de prometer.
+
+#### Caminhos a testar (do mais provável ao menos)
+
+- [ ] **WinForms via PowerShell**, que é a infra que o projeto já usa em
+      [deliver.ts](../src/lib/deliver.ts). Janela sem borda, `TopMost`, semitransparente, que
+      fecha por clique/ESC ou sozinha após N segundos. O plugin da VPN já faz janela desse jeito
+      (`Vpn-Settings.ps1` no SRVDRU), então há precedente funcionando na mesma máquina
+- [ ] **Toast do Windows** (notificação nativa). Mais elegante e não rouba foco, mas o texto é
+      curto e some rápido — talvez sirva só para frases, não para parágrafos
+- [ ] **Janela HTML** (`chrome --app` ou similar): dá o visual bonito, mas é peso grande para
+      exibir um parágrafo, e sobe um processo inteiro
+- [ ] Descartar de saída: usar o Property Inspector como visor. Ele só existe enquanto a tecla
+      está **selecionada no app** Stream Deck — não serve para uso normal
+
+#### O que precisa ser verdade para valer a pena
+
+- [ ] **Não roubar o foco.** Se a janela ativar, quebra o Ctrl+V das outras teclas e atrapalha o
+      que a pessoa estava fazendo. Precisa de `WS_EX_NOACTIVATE` / `ShowWithoutActivation` —
+      **este é o ponto que decide a viabilidade**, testar primeiro
+- [ ] Aparecer rápido. Subir um PowerShell custa ~200 ms; medir se some no tempo da API ou se
+      incomoda
+- [ ] Texto selecionável, para copiar manualmente se der vontade
+- [ ] Fechar sem esforço: ESC, clique fora, ou tempo proporcional ao tamanho do texto
+- [ ] Posição previsível — perto do cursor ou num canto fixo? Decidir depois de ver funcionando
+
+#### Como isso entraria na configuração
+
+Seria um terceiro destino de saída, ao lado de *copiar* e *colar*: **mostrar**. Combinável —
+"mostrar e copiar" cobre o caso de ler primeiro e usar depois. O modelo de configuração já
+suporta (a seção *Saída* do painel), então o trabalho é a janela em si, não o encaixe.
+
+> Fazer um protótipo descartável do PowerShell **antes** de mexer no plugin: uma janela topmost
+> sem foco com texto. Se ela roubar foco ou piscar, a ideia morre aí e não se gasta mais.
 
 ---
 
@@ -121,6 +168,48 @@ palavras     palavras
 
 > **Cuidado:** o teste `ícone e texto não se sobrepõem` trava a geometria, não a estética.
 > Ao mexer, renderize e olhe — há um harness pronto descrito no CLAUDE.md (*Como testar*).
+
+### 2.4 Biblioteca de ícones — mais opções, e melhores
+
+Hoje são **cinco** (`mic`, `globe`, `bubble`, `pen`, `none`), desenhados à mão em SVG dentro de
+[icons.ts](../src/lib/icons.ts). Poucos para diferenciar 32 teclas de um XL — e desenhados para
+fundo colorido, não para o fundo escuro que o item 2.1 vai trazer.
+
+**Ampliar e reestilizar são o mesmo trabalho**, e nessa ordem: definir o estilo primeiro,
+depois desenhar o conjunto inteiro nele. Ampliar no estilo atual é retrabalho garantido.
+
+#### Estilo, antes de desenhar
+
+- [ ] Decidir entre **contorno** (como hoje) e **preenchimento sólido**. Em fundo escuro, sólido
+      tem mais presença e sofre menos com escala; contorno é mais leve mas exige traço grosso
+- [ ] **Traço que sobrevive ao encolhimento** — armadilha já conhecida deste código: quando o
+      glifo é reduzido para dar lugar ao texto (`scale(k)` em `keyImage`), o `stroke-width`
+      encolhe junto. Com `k ≈ 0.4`, um traço de 3 px vira 1,2 px e quase some. Testar
+      `vector-effect="non-scaling-stroke"`; se o renderizador do Stream Deck ignorar, compensar
+      o traço em função de `k` na hora de montar
+- [ ] Grade e peso comuns: mesmo tamanho óptico, mesma espessura, mesmo raio de canto. Ícone
+      solto em estilo diferente estraga o conjunto todo
+- [ ] Contraste conferido **em fundo escuro e claro** — a cor é configurável por tecla, então o
+      ícone precisa aguentar de `#0d0d0f` a um âmbar claro. Branco puro nem sempre é a melhor
+      resposta; considerar um branco levemente frio ou opacidade
+
+#### Conjunto a cobrir
+
+- [ ] Captura: microfone, microfone cortado (mudo), ondas sonoras, fone
+- [ ] Texto: documento, parágrafo, lista, aspas, teclado
+- [ ] Ação: tradução (setas opostas, ou `A` ↔ `文`), varinha/limpeza, raio (rápido/cru),
+      lápis, verificação
+- [ ] Contexto: e-mail, chat, código, calendário
+- [ ] Manter `none` — tecla só com rótulo é legítima e às vezes a mais legível
+
+#### Cuidados
+
+- [ ] Cada ícone novo é opção no painel: rever se o `<select>` ainda serve ou se vira uma grade
+      visual de miniaturas (o preview do item 3 ajudaria aqui)
+- [ ] `IconName` em [settings.ts](../src/lib/settings.ts) e o `switch` em `glyph()` crescem
+      juntos — vale uma tabela `nome → path` em vez do switch, quando passarem de ~10
+- [ ] Ícone é identidade: se algum dia o plugin for para a loja, o conjunto vira parte da cara
+      dele. Vale desenhar pensando nisso
 
 ---
 
