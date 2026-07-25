@@ -108,15 +108,26 @@ function waveGlyph(levels: number[]): string {
     .join("");
 }
 
+/** Largura útil para texto dentro da tecla, em px. */
+const TEXT_WIDTH = 62;
+/** Largura média de um caractere, em fração do corpo da fonte (Segoe UI semibold). */
+const CHAR_RATIO = 0.56;
+
+/**
+ * Uma linha de texto que CABE.
+ *
+ * Reduz o corpo da fonte em vez de espremer os glifos com `textLength`: numa tecla de
+ * 72 px o texto comprimido fica ilegível bem antes de o texto menor ficar. A quebra em
+ * linhas (wrapLabel) resolve a maioria dos casos; isto é a rede para uma palavra única
+ * comprida, que não tem onde quebrar.
+ */
 function textEl(s: string, y: number, size = 14): string {
   const t = esc(s);
-  // Quantos caracteres cabem na largura útil (~62 px) neste corpo de fonte. Acima
-  // disso o texto é comprimido em vez de vazar da tecla.
-  const fitsAt = Math.max(4, Math.floor(62 / (size * 0.56)));
-  const fit = t.length > fitsAt ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
+  const width = s.length * size * CHAR_RATIO;
+  const fitted = width > TEXT_WIDTH ? Math.max(7, (size * TEXT_WIDTH) / width) : size;
   return (
     `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
-    `font-size="${f(size)}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`
+    `font-size="${f(fitted)}" font-weight="600" fill="#ffffff">${t}</text>`
   );
 }
 

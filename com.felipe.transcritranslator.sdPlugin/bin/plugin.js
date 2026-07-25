@@ -18445,11 +18445,13 @@ function waveGlyph(levels) {
     return `<rect x="${f(x)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${f(h)}" rx="${f(w / 2)}" fill="#ffffff" opacity="${f(op)}"/>`;
   }).join("");
 }
+var TEXT_WIDTH = 62;
+var CHAR_RATIO = 0.56;
 function textEl(s, y, size = 14) {
   const t = esc2(s);
-  const fitsAt = Math.max(4, Math.floor(62 / (size * 0.56)));
-  const fit = t.length > fitsAt ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
-  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(size)}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`;
+  const width = s.length * size * CHAR_RATIO;
+  const fitted = width > TEXT_WIDTH ? Math.max(7, size * TEXT_WIDTH / width) : size;
+  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(fitted)}" font-weight="600" fill="#ffffff">${t}</text>`;
 }
 function wrapLabel(text, size, maxLines = 3) {
   const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);

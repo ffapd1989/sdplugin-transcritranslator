@@ -33,7 +33,8 @@ window.TT_I18N = {
 
     label: "Rótulo",
     labelHint: "Duas ou três palavras. Quebre a linha para controlar como aparece na tecla — se não quebrar, ele quebra sozinho quando não couber.",
-    labelSize: "Tamanho",
+    labelSize: "Tamanho da fonte",
+    labelGap: "Espaço entre linhas",
     langDetect: "Detectar (ou misturo idiomas)",
     labelPh: "Ditado",
     mic: "Microfone",
@@ -260,7 +261,8 @@ window.TT_I18N = {
 
     label: "Label",
     labelHint: "Two or three words. Break the line to control how it sits on the key — if you do not, it wraps on its own when it does not fit.",
-    labelSize: "Size",
+    labelSize: "Font size",
+    labelGap: "Line spacing",
     langDetect: "Detect (or I mix languages)",
     labelPh: "Dictate",
     mic: "Microphone",
@@ -480,7 +482,8 @@ window.TT_I18N = {
 
     label: "Etiqueta",
     labelHint: "Dos o tres palabras. Salta de línea para controlar cómo queda en la tecla — si no lo haces, se ajusta solo cuando no cabe.",
-    labelSize: "Tamaño",
+    labelSize: "Tamaño de fuente",
+    labelGap: "Espacio entre líneas",
     langDetect: "Detectar (o mezclo idiomas)",
     labelPh: "Dictado",
     mic: "Micrófono",

@@ -196,6 +196,11 @@ O histórico completo dessas decisões está no plano em
   de parâmetro. Sempre entre parênteses: `(Mix-Channel $r (-0.42))`.
 - **Acentuação completa em português** em comentários, prompts e interface. Os prompts vão para
   a API em português correto — não em ASCII.
+- **A tecla demora a refletir o novo build.** Depois de `streamdeck restart`, a imagem na tecla
+  física pode continuar a antiga por alguns segundos. Já custou um diagnóstico errado: um
+  rótulo cortado parecia bug de layout e era só o desenho velho ainda na tela. Antes de sair
+  investigando, confirme gerando o SVG direto (`keyImage(...)` num script) e comparando com o
+  que a tecla mostra — se divergirem, é cache, não código.
 
 ---
 

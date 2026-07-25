@@ -67,6 +67,20 @@
   /* O rótulo da tecla cabe em duas ou três linhas curtas — não precisa de caixa grande. */
   textarea.short { min-height: 44px; }
   input[type=range] { flex: 1 1 auto; min-width: 60px; accent-color: var(--accent); padding: 0; }
+  /* Linha subordinada: indentada e com marcador, para ler como "isto pertence ao
+     campo de cima" em vez de virar mais uma configuração solta.
+     Classe própria — `.sub` já é usada pelos blocos de tradução e instrução. */
+  .subrow { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .subrow > label:first-child {
+    flex: 0 0 108px; text-align: right; font-size: 8pt;
+    color: var(--muted); opacity: .9;
+  }
+  .subrow > label:first-child::before { content: "↳ "; opacity: .55; }
+  .subrow > .ctl { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: center; }
+  .subrow output {
+    flex: 0 0 22px; text-align: right; font-size: 8pt;
+    color: var(--muted); font-variant-numeric: tabular-nums;
+  }
   input[type=number] { width: 62px; flex: 0 0 62px; }
   input[type=color] {
     width: 34px; height: 24px; padding: 1px; border: 1px solid #4a4a4a;
@@ -260,11 +274,20 @@
       </div>
     </div>
     <div class="hint" data-i18n="labelHint"></div>
-    <div class="row adv">
-      <label data-i18n="labelSize">Tamanho</label>
-      <div class="ctl">
-        <input type="range" data-setting="labelSize" data-type="num" min="9" max="22" step="1">
-        <input type="range" data-setting="labelGap" data-type="num" min="0" max="8" step="1" title="espaçamento">
+    <div class="adv">
+      <div class="subrow">
+        <label data-i18n="labelSize">Tamanho da fonte</label>
+        <div class="ctl">
+          <input type="range" data-setting="labelSize" data-type="num" min="9" max="22" step="1">
+          <output id="outLabelSize"></output>
+        </div>
+      </div>
+      <div class="subrow">
+        <label data-i18n="labelGap">Espaço entre linhas</label>
+        <div class="ctl">
+          <input type="range" data-setting="labelGap" data-type="num" min="0" max="8" step="1">
+          <output id="outLabelGap"></output>
+        </div>
       </div>
     </div>
 
@@ -722,11 +745,20 @@ function applyToForm() {
     if (el.type === "checkbox") el.checked = !!val;
     else el.value = val ?? "";
   }
+  showSliderValues();
   const sm = settings.styleMode ?? DEFAULTS.styleMode;
   const radio = document.getElementById("sm_" + sm) || document.getElementById("sm_none");
   radio.checked = true;
   syncVisibility();
   refreshBudget();
+}
+
+/** Número ao lado de cada slider — sem ele não dá para saber onde se está. */
+function showSliderValues() {
+  for (const [key, id] of [["labelSize", "outLabelSize"], ["labelGap", "outLabelGap"]]) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(settings[key] ?? DEFAULTS[key]);
+  }
 }
 
 /** Mostra só o que faz sentido para a configuração atual. */
@@ -764,6 +796,7 @@ function bind() {
       else if (el.dataset.type === "num") settings[key] = parseFloat(el.value) || 0;
       else settings[key] = el.value;
       saveSettings();
+      if (key === "labelSize" || key === "labelGap") showSliderValues();
       if (key === "transcribeOn" || key === "textOn" || key === "language") syncVisibility();
       if (key === "transcribeContext") refreshBudget();
       refreshPromptIfOpen();
