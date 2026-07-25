@@ -32,14 +32,61 @@ Roteiro completo em [PLANO-ORIGINAL.md](PLANO-ORIGINAL.md), seção *Verificaç�
 
 ---
 
-## 1. A tecla: fundo preto e mais elegância
+## 1. Discovery — o prompt de transcrição serve para alguma coisa?
+
+**Questão em aberto que nunca foi medida.** Mantivemos o `prompt` na etapa 1 por raciocínio,
+não por evidência: a doc diz que ele existe, e os modelos GPT-4o "seguem instrução" ao
+contrário do whisper. Mas ninguém verificou se, no `gpt-4o-mini-transcribe`, ele **melhora
+alguma coisa que a correção por regex já não resolva**.
+
+O que se sabe hoje:
+
+- A doc da OpenAI diz apenas que o prompt "guia o estilo" e "deve estar no idioma do áudio".
+  Não promete ganho de acurácia em vocabulário.
+- O FALA TU **tirou** o prompt de transcrição em produção — o modelo alucinava a lista inteira
+  em áudio curto ou silencioso. Nós mantivemos com três blindagens, mas nunca testamos se o
+  benefício compensa o risco que estamos administrando.
+- A regex do dicionário corrige a **grafia** (`cpc` → `CPC`) e não corrige o **som**
+  (`cê-pê-cê` → `CPC`). O prompt só se justifica se resolver esse segundo caso.
+- Ele **custa**: entra como tokens de entrada e pode pesar na latência, que numa tecla de
+  ditado é o que mais se sente.
+
+### Protocolo
+
+- [ ] Gravar um conjunto fixo de ~10 áudios curtos com **siglas ditas por extenso**
+      (`cê-pê-cê`, `és-érre-vê-dê-érre-u`), nomes próprios e jargão técnico. Guardar os `.wav`
+      como material de teste versionado
+- [ ] Transcrever cada um em **quatro condições**: sem prompt · só dicionário · só contexto ·
+      dicionário + contexto
+- [ ] Medir, por condição: acerto das siglas-alvo, erro geral (WER aproximado), **latência** e
+      tokens de entrada
+- [ ] Rodar também o caminho completo com a regex ligada, para separar o que é mérito do prompt
+      do que a regex já corrigia sozinha
+- [ ] Testar o **eco** de propósito: áudio de 0,5 s, áudio só com respiração, áudio mudo — as
+      blindagens pegam? Com que frequência?
+
+### O que decidir com o resultado
+
+| Se… | Então |
+|---|---|
+| O prompt não muda o acerto de sigla falada | **Tirar da etapa 1.** Fica só a regex, e some o risco de eco |
+| Ajuda só com o dicionário, não com o contexto | Manter o dicionário, tornar o contexto opt-in explícito |
+| Ajuda, mas custa latência sensível | Manter, com um interruptor no painel e a medição documentada |
+| Ajuda pouco e o eco é frequente | Tirar — a regex é determinística e não tem contrapartida |
+
+> Escrever o resultado aqui, com os números. A decisão atual é uma **aposta**; o que fixa uma
+> aposta é medição, não mais discussão.
+
+---
+
+## 2. A tecla: fundo preto e mais elegância
 
 Hoje o fundo inteiro é a cor do estado (vermelho ao gravar), com barras e texto brancos por
 cima. Fica saturado e "de protótipo". A direção: **fundo preto, e a cor só no que informa.**
 
 Tudo em [src/lib/icons.ts](../src/lib/icons.ts) — SVG gerado em runtime, sem dependência.
 
-### 1.1 Barras de voz
+### 2.1 Barras de voz
 
 - [ ] Fundo quase-preto (`#0d0d0f`), a cor do estado migra para as **barras**
 - [ ] Barras com gradiente vertical e brilho sutil; considerar as centrais mais altas por
@@ -48,7 +95,7 @@ Tudo em [src/lib/icons.ts](../src/lib/icons.ts) — SVG gerado em runtime, sem d
       simular com uma barra semitransparente por baixo, mais larga
 - [ ] Manter as 9 barras rolantes: o valor está em ver a voz **andando**, não pulsando
 
-### 1.2 Estado de processamento (hoje "enviando" / "escrevendo")
+### 2.2 Estado de processamento (hoje "enviando" / "escrevendo")
 
 - [ ] Trocar os três pontinhos por algo que sugira trabalho contínuo — barra indeterminada,
       linhas de texto surgindo, ou um traço que varre a tecla
@@ -57,7 +104,7 @@ Tudo em [src/lib/icons.ts](../src/lib/icons.ts) — SVG gerado em runtime, sem d
       `revisando` quando só há limpeza, `reescrevendo` quando há instrução livre.
       Precisa das três traduções (ver regra trilíngue no CLAUDE.md)
 
-### 1.3 Confirmação final
+### 2.3 Confirmação final
 
 - [ ] Número e palavra em **linhas separadas**, número grande:
 
@@ -77,7 +124,7 @@ palavras     palavras
 
 ---
 
-## 2. Painel mais high-tech
+## 3. Painel mais high-tech
 
 O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
@@ -94,9 +141,9 @@ O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
 ---
 
-## 3. Tradução
+## 4. Tradução
 
-### 3.0 Ampliar os idiomas de destino
+### 4.0 Ampliar os idiomas de destino
 
 Hoje são **12** destinos (`TARGET_CODES` em [languages.ts](../src/lib/languages.ts)) contra
 **30** idiomas falados (`SPOKEN_CODES`). A assimetria não tem razão de ser: quem fala 30 pode
@@ -114,7 +161,7 @@ querer traduzir para mais que 12.
 - [ ] Conferir o badge de 2 letras da tecla: com muitos idiomas surgem siglas ambíguas para
       quem lê (`ko`, `hu`, `he`). Talvez valha o nome curto em vez do código
 
-### 3.1 Tradução de seleção: fluxo mais direto
+### 4.1 Tradução de seleção: fluxo mais direto
 
 Hoje, para traduzir um texto selecionado é preciso entender que "desligar Ouvir + ligar
 Escrever com tradução" faz isso. Funciona, mas exige entender o modelo antes de usar.
@@ -131,7 +178,7 @@ Escrever com tradução" faz isso. Funciona, mas exige entender o modelo antes d
 
 ---
 
-## 4. Backlog maior (fase 2)
+## 5. Backlog maior (fase 2)
 
 Já discutido e deliberadamente fora do escopo inicial:
 
@@ -146,7 +193,7 @@ Já discutido e deliberadamente fora do escopo inicial:
 
 ---
 
-## 5. Dívidas técnicas conhecidas
+## 6. Dívidas técnicas conhecidas
 
 - [ ] [dictation.ts](../src/actions/dictation.ts) passou de 800 linhas e acumula máquina de
       estados + ponte com o painel. A ponte (`onSendToPlugin`) sairia limpa para um módulo

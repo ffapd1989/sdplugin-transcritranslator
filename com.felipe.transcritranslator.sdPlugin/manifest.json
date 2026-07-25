@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "TranscriTranslator",
-  "Version": "1.0.0.1",
+  "Version": "1.0.0.2",
   "Author": "Felipe Drummond",
   "Description": "Ditado por voz: grava o microfone, transcreve na OpenAI e cola o texto no campo focado. Cada tecla é configurável — limpeza, tradução, reescrita, dicionário próprio e aparência.",
   "Category": "TranscriTranslator",
