@@ -196,17 +196,45 @@ export const TEXT_MODELS = [
   { id: "gpt-4o-mini", label: "GPT-4o mini" },
 ];
 
-/** Idiomas que você PODE FALAR. O vazio deixa o modelo detectar. */
+/**
+ * Idiomas que você PODE FALAR. O vazio deixa o modelo detectar.
+ *
+ * Informar o idioma "will improve accuracy and latency" (documentação da OpenAI) — é
+ * a configuração de maior efeito por clique do painel, e por isso ela mora na seção
+ * essencial, não no avançado.
+ */
 export const LANGUAGES = [
-  { code: "", label: "Detectar automaticamente" },
+  { code: "", label: "Detectar (ou misturo idiomas)" },
   { code: "pt", label: "Português" },
   { code: "en", label: "Inglês" },
   { code: "es", label: "Espanhol" },
   { code: "fr", label: "Francês" },
   { code: "de", label: "Alemão" },
   { code: "it", label: "Italiano" },
+  { code: "nl", label: "Holandês" },
+  { code: "ca", label: "Catalão" },
+  { code: "gl", label: "Galego" },
   { code: "ja", label: "Japonês" },
   { code: "zh", label: "Chinês" },
+  { code: "ko", label: "Coreano" },
+  { code: "ru", label: "Russo" },
+  { code: "uk", label: "Ucraniano" },
+  { code: "pl", label: "Polonês" },
+  { code: "tr", label: "Turco" },
+  { code: "ar", label: "Árabe" },
+  { code: "he", label: "Hebraico" },
+  { code: "hi", label: "Híndi" },
+  { code: "id", label: "Indonésio" },
+  { code: "sv", label: "Sueco" },
+  { code: "no", label: "Norueguês" },
+  { code: "da", label: "Dinamarquês" },
+  { code: "fi", label: "Finlandês" },
+  { code: "el", label: "Grego" },
+  { code: "cs", label: "Tcheco" },
+  { code: "ro", label: "Romeno" },
+  { code: "hu", label: "Húngaro" },
+  { code: "vi", label: "Vietnamita" },
+  { code: "th", label: "Tailandês" },
 ];
 
 /** Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido. */

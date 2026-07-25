@@ -91,7 +91,9 @@ window.TT_I18N = {
     beep: "Bip ao iniciar e parar",
     beepHint: "O bip de início toca quando o microfone está de fato capturando — é o sinal de “pode falar”.",
 
-    spokenLang: "Idioma falado",
+    spokenLang: "Eu vou falar em",
+    spokenHint: "Informar o idioma melhora a precisão e a velocidade — a própria OpenAI diz isso. Só deixe em Detectar se você realmente varia de idioma.",
+    mixedHint: "Fala misturada: palavras soltas em outro idioma (deploy, commit, workshop) saem certas mesmo com um idioma fixo — o idioma é uma dica, não um filtro. Para garantir a grafia delas, cadastre-as no dicionário de palavras canônicas.",
     context: "Contexto para o modelo de áudio",
     contextPh: "Ex.: Reunião técnica sobre infraestrutura de rede. Fala rápida, com nomes de servidores.",
     contextHint:
@@ -310,7 +312,9 @@ window.TT_I18N = {
     beep: "Beep on start and stop",
     beepHint: "The start beep fires when the microphone is actually capturing — that is your “speak now”.",
 
-    spokenLang: "Spoken language",
+    spokenLang: "I will speak in",
+    spokenHint: "Telling it the language improves accuracy and speed — OpenAI says so itself. Only leave it on Detect if you genuinely switch languages.",
+    mixedHint: "Mixed speech: stray words from another language (deploy, commit, workshop) come out right even with a fixed language — the language is a hint, not a filter. To lock their spelling, add them to the canonical word dictionary.",
     context: "Context for the audio model",
     contextPh: "E.g. Technical meeting about network infrastructure. Fast speech, server names.",
     contextHint:
@@ -525,7 +529,9 @@ window.TT_I18N = {
     beep: "Bip al iniciar y parar",
     beepHint: "El bip inicial suena cuando el micrófono ya está capturando — es tu señal de “habla”.",
 
-    spokenLang: "Idioma hablado",
+    spokenLang: "Voy a hablar en",
+    spokenHint: "Indicar el idioma mejora la precisión y la velocidad — lo dice la propia OpenAI. Deja Detectar solo si realmente cambias de idioma.",
+    mixedHint: "Habla mezclada: palabras sueltas de otro idioma (deploy, commit, workshop) salen bien aunque fijes un idioma — el idioma es una pista, no un filtro. Para asegurar su grafía, añádelas al diccionario de palabras canónicas.",
     context: "Contexto para el modelo de audio",
     contextPh: "Ej.: Reunión técnica sobre infraestructura de red. Habla rápida, nombres de servidores.",
     contextHint:

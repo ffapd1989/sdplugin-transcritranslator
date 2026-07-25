@@ -260,6 +260,16 @@
       </div>
     </div>
     <div class="status" id="micStatus"></div>
+
+    <!-- Fica aqui, e não no avançado, porque é a configuração de maior impacto do
+         painel: a documentação da OpenAI diz que informar o idioma melhora acurácia
+         E latência. -->
+    <div class="row" id="spokenRow">
+      <label data-i18n="spokenLang">Eu vou falar em</label>
+      <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
+    </div>
+    <div class="hint" id="spokenHint" data-i18n="spokenHint"></div>
+    <div class="hint" id="mixedHint" style="display:none" data-i18n="mixedHint"></div>
   </div>
 </details>
 
@@ -280,11 +290,7 @@
       </div>
       <div class="inner" id="step1Inner">
         <div class="row adv">
-          <label data-i18n="spokenLang">Idioma falado</label>
-          <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
-        </div>
-        <div class="row adv">
-          <label>Modelo</label>
+          <label data-i18n="model">Modelo</label>
           <div class="ctl">
             <input type="text" list="tModels" data-setting="transcribeModel" data-type="str">
             <datalist id="tModels"></datalist>
@@ -722,6 +728,15 @@ function syncVisibility() {
 
   document.getElementById("translateBox").style.display = sm === "translate" ? "" : "none";
   document.getElementById("customBox").style.display = sm === "custom" ? "" : "none";
+
+  // Sem gravação não há idioma falado a declarar.
+  const spokenVisible = t1;
+  document.getElementById("spokenRow").style.display = spokenVisible ? "" : "none";
+  document.getElementById("spokenHint").style.display = spokenVisible ? "" : "none";
+
+  // A dica sobre fala misturada só interessa a quem escolheu detecção automática.
+  const auto = (document.getElementById("langList").value || "") === "";
+  document.getElementById("mixedHint").style.display = spokenVisible && auto ? "" : "none";
 }
 
 function bind() {
@@ -733,7 +748,7 @@ function bind() {
       else if (el.dataset.type === "num") settings[key] = parseFloat(el.value) || 0;
       else settings[key] = el.value;
       saveSettings();
-      if (key === "transcribeOn" || key === "textOn") syncVisibility();
+      if (key === "transcribeOn" || key === "textOn" || key === "language") syncVisibility();
       if (key === "transcribeContext") refreshBudget();
       refreshPromptIfOpen();
     });

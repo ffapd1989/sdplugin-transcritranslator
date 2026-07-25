@@ -17856,15 +17856,37 @@ var TEXT_MODELS = [
   { id: "gpt-4o-mini", label: "GPT-4o mini" }
 ];
 var LANGUAGES = [
-  { code: "", label: "Detectar automaticamente" },
+  { code: "", label: "Detectar (ou misturo idiomas)" },
   { code: "pt", label: "Portugu\xEAs" },
   { code: "en", label: "Ingl\xEAs" },
   { code: "es", label: "Espanhol" },
   { code: "fr", label: "Franc\xEAs" },
   { code: "de", label: "Alem\xE3o" },
   { code: "it", label: "Italiano" },
+  { code: "nl", label: "Holand\xEAs" },
+  { code: "ca", label: "Catal\xE3o" },
+  { code: "gl", label: "Galego" },
   { code: "ja", label: "Japon\xEAs" },
-  { code: "zh", label: "Chin\xEAs" }
+  { code: "zh", label: "Chin\xEAs" },
+  { code: "ko", label: "Coreano" },
+  { code: "ru", label: "Russo" },
+  { code: "uk", label: "Ucraniano" },
+  { code: "pl", label: "Polon\xEAs" },
+  { code: "tr", label: "Turco" },
+  { code: "ar", label: "\xC1rabe" },
+  { code: "he", label: "Hebraico" },
+  { code: "hi", label: "H\xEDndi" },
+  { code: "id", label: "Indon\xE9sio" },
+  { code: "sv", label: "Sueco" },
+  { code: "no", label: "Noruegu\xEAs" },
+  { code: "da", label: "Dinamarqu\xEAs" },
+  { code: "fi", label: "Finland\xEAs" },
+  { code: "el", label: "Grego" },
+  { code: "cs", label: "Tcheco" },
+  { code: "ro", label: "Romeno" },
+  { code: "hu", label: "H\xFAngaro" },
+  { code: "vi", label: "Vietnamita" },
+  { code: "th", label: "Tailand\xEAs" }
 ];
 var TARGET_LANGUAGES = [
   { code: "en", label: "Ingl\xEAs" },
