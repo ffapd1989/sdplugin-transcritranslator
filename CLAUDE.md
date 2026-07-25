@@ -1,0 +1,206 @@
+# TranscriTranslator — guia para quem for mexer no código
+
+Plugin do Stream Deck: uma tecla grava o microfone, transcreve na OpenAI e cola o texto no
+campo em foco, opcionalmente limpando, traduzindo ou reescrevendo antes.
+
+Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [README.md](README.md).
+
+> **Leia a seção [Decisões que não devem ser revertidas](#decisões-que-não-devem-ser-revertidas)
+> antes de mexer em `recorder.ts`, `openai.ts` ou `canon.ts`.** Várias escolhas ali parecem
+> tortas e são consequência de medição ou de bug em produção — inclusive de outro projeto.
+
+---
+
+## Comandos
+
+```powershell
+npm run check     # tipos (tsc --noEmit)
+npm run test      # 80 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
+npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
+npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
+npm run watch     # rebuild automático
+
+streamdeck restart com.felipe.transcritranslator   # recarrega no app
+```
+
+Ciclo normal de trabalho: `check` → `test` → `build` → `restart`. Mexeu em `recorder.ts`,
+rode `npm run mic` também — é o único teste que exercita o comando do ffmpeg de verdade.
+
+Instalação inicial (uma vez): `npm install`, `render-images.ps1`, `streamdeck dev`,
+`streamdeck link com.felipe.transcritranslator.sdPlugin`.
+
+---
+
+## Arquitetura
+
+```
+apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
+        → ffmpeg dshow — 1 processo, 2 saídas simultâneas
+               ├─ MP3 16 kHz mono 48 kbps → %LOCALAPPDATA%\transcritranslator\audio\
+               └─ medidor de nível (RMS) pelo stderr → waveform da tecla + auto-stop
+        → parar: "q" no stdin
+        → [etapa 1] POST /v1/audio/transcriptions
+        → regex do dicionário canônico
+        → [etapa 2] POST /v1/chat/completions   (limpeza + estilo, em camadas)
+        → regex do dicionário canônico
+        → histórico .md → clipboard → cola se o foco não mudou
+```
+
+| Arquivo | Papel |
+|---|---|
+| [src/plugin.ts](src/plugin.ts) | Boot: cria pastas, mata ffmpeg órfão, aquece o cofre, conecta |
+| [src/actions/dictation.ts](src/actions/dictation.ts) | Máquina de estados da tecla + ponte com o painel. É o arquivo grande (~800 linhas) |
+| [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
+| [src/lib/openai.ts](src/lib/openai.ts) | As duas chamadas, retries, detecção de recusa, anti-eco |
+| [src/lib/prompts.ts](src/lib/prompts.ts) | Composição do system prompt em camadas |
+| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | **Texto** dos prompts em pt/en/es — é o que a IA lê |
+| [src/lib/preset-text.ts](src/lib/preset-text.ts) | Nomes e instruções dos presets em pt/en/es |
+| [src/lib/presets.ts](src/lib/presets.ts) | Moldes de fábrica + salvar/aplicar os do usuário |
+| [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: orçamento de 224 tokens + correção por regex |
+| [src/lib/deliver.ts](src/lib/deliver.ts) | Foco, clipboard, colagem, histórico |
+| [src/lib/sessions.ts](src/lib/sessions.ts) | Estado global das teclas, trava de gravação única, PIDs órfãos |
+| [src/lib/icons.ts](src/lib/icons.ts) | A tecla desenhada em SVG (ícones, waveform, badges) |
+| [src/lib/settings.ts](src/lib/settings.ts) | Tipos, defaults e a cascata de resolução de idioma |
+| [src/lib/vault.ts](src/lib/vault.ts) | Cofre DPAPI da chave da OpenAI |
+| [src/lib/theme.ts](src/lib/theme.ts), [beep.ts](src/lib/beep.ts), [paths.ts](src/lib/paths.ts) | Cores derivadas, bipes por ffplay, caminhos |
+| [`…sdPlugin/ui/dictation.html`](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | Painel inteiro: HTML+CSS+JS à mão, sem dependência externa |
+| [`…sdPlugin/ui/i18n.js`](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | Textos da **interface** em pt/en/es — é o que o usuário lê |
+
+### Os três eixos de idioma
+
+Não são a mesma coisa e não precisam concordar:
+
+| Eixo | Onde mora | Resolve em |
+|---|---|---|
+| Painel (o que **você** lê) | `GlobalSettings.uiLang` | `resolveUiLocale()` → app Stream Deck |
+| Presets e prompts (o que a **IA** lê) | `GlobalSettings.contentLang` | `resolveContentLocale()` → idioma falado → painel → app |
+| Idioma falado (por tecla) | `ActionSettings.language` | vai direto no parâmetro `language` da API |
+
+Texto de interface vive em `ui/i18n.js`; texto que a IA lê vive em `src/lib/*-text.ts`. **Nunca
+duplique uma frase nos dois lados** — o painel recebe do plugin o que já foi resolvido.
+
+---
+
+## Decisões que não devem ser revertidas
+
+Cada uma custou medição ou bug. Se for mudar, meça de novo antes.
+
+**1. O medidor de nível sai pelo stderr do ffmpeg, não pelo stdout.** Medido nesta máquina:
+
+| Saída | Primeira amostra |
+|---|---|
+| `ametadata … file=-` (stdout) | **4519 ms**, tudo de uma vez no fim |
+| `ametadata` sem `file` (log → stderr) | **373 ms**, fluxo contínuo |
+
+O stdout passa por `avio`, que bufferiza. Pelo stdout a tecla só viraria "gravando" depois de
+4,5 s e as primeiras palavras de todo ditado se perderiam. É por isso que o `-loglevel` é
+`info` e o parser separa amostra de ruído em `onMeter()`.
+
+**2. Limiares de fala e silêncio são relativos ao piso de ruído, não absolutos.** O FIFINE mede
+−80 dBFS em silêncio e o headset CORSAIR −96 dBFS. Um limiar fixo ("−34 dB é fala") funciona num
+microfone e diz "sem fala" em *todo* ditado no outro.
+
+**3. Parar é `q` no stdin, nunca `taskkill`.** É o `q` que fecha o MP3 corretamente.
+
+**4. MP3, não m4a/opus.** Stream puro, sem *moov atom* para finalizar: se o processo morrer no
+meio, o que foi gravado continua válido. E é formato oficialmente aceito pela API.
+
+**5. Anti-eco.** Os modelos GPT-4o devolvem o próprio `prompt` como se fosse a transcrição quando
+o áudio é curto ou silencioso — comportamento que o projeto FALA TU sofreu em produção. Como o
+dicionário vai no prompt, sem defesa um toque acidental colaria a lista de siglas no documento.
+Três barreiras: áudio < 0,8 s ou sem fala não é enviado; retorno parecido demais com o prompt é
+descartado; auto-stop por silêncio evita gravar vazio.
+
+**6. A grafia canônica é garantida por regex, não pelo modelo.** Determinística, sem limite de
+tamanho, sem custo. O prompt de transcrição só *melhora as chances* de ouvir certo. E o `\b` do
+JS **não** reconhece letras acentuadas — o limite de palavra usa `(?<![\p{L}\p{N}])…`.
+
+**7. Chave no cofre DPAPI, nunca nas settings do Stream Deck** — elas viram `.json` em texto
+plano em `%APPDATA%\Elgato`.
+
+**8. O prompt da etapa de texto muda de idioma junto com a fala.** A camada de limpeza depende
+de exemplos da língua falada ("vírgula", "né" / "comma", "um"). A doc da OpenAI reforça: *"The
+prompt should match the audio language."*
+
+**9. Estado das gravações vive em `sessions.ts`, fora da instância da ação.** O SDK dispara
+`willDisappear` ao trocar de página/perfil; na instância, o ditado morreria junto.
+
+---
+
+## Decisões de produto (definidas com o usuário)
+
+Não são acidentes de implementação — foram escolhidas explicitamente:
+
+- Trocar de página no Stream Deck **não** interrompe a gravação.
+- **Uma gravação por vez** na máquina; a segunda tecla pisca "ocupado".
+- Foco mudou entre gravar e entregar → **não cola**, só copia e avisa.
+- Recusa por política de conteúdo → **entrega a transcrição crua** em vez de perder a fala.
+- Falha de API → 2 retries só em erro transitório, e o **áudio é preservado**.
+- Segurar durante a gravação cancela; o aviso `SOLTE P/ CANCELAR` aparece *antes* da ação.
+- Presets são **moldes**: aplicar copia valores, a tecla segue independente.
+- Custo **não** é rastreado.
+- O plugin é **de propósito geral** — nada de domínio específico embutido. Dicionário e campo
+  de estilo nascem vazios.
+
+O histórico completo dessas decisões está no plano em
+[docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md).
+
+---
+
+## Armadilhas do ambiente
+
+- **Decorators TC39.** O `@action` do SDK v2 exige decorators TC39 — **não** ative
+  `experimentalDecorators` no tsconfig.
+- **Banner `createRequire` em [build.mjs](build.mjs).** A lib `ws` do SDK usa `require()` de
+  builtins; sem o banner, o bundle ESM quebra em runtime.
+- **O plugin roda no Node 20 do Stream Deck**, não no Node do sistema
+  (`%APPDATA%\Elgato\StreamDeck\NodeJS\20.x\node.exe`). `File`, `FormData`, `fetch` e
+  `AbortSignal.timeout` existem lá — já verificado —, mas API mais nova pode não existir.
+- **`streamDeck.ui.sendToPropertyInspector(...)`** é quem fala com o painel, não o objeto da ação.
+- **PowerShell e números negativos:** `Mix-Channel $r -0.42` faz o parser ler `-0.42` como nome
+  de parâmetro. Sempre entre parênteses: `(Mix-Channel $r (-0.42))`.
+- **Acentuação completa em português** em comentários, prompts e interface. Os prompts vão para
+  a API em português correto — não em ASCII.
+
+---
+
+## Como testar
+
+**`npm run test`** cobre o que é puro: dicionário, orçamento de tokens, anti-eco, composição de
+prompt nos três idiomas, cascata de idioma, SVG da tecla, defaults. Roda em ~1 s.
+
+**`npm run mic`** exercita o hardware: lista dispositivos, grava 3 s, e reporta latência de
+confirmação, taxa de amostras, pico em dBFS e se o MP3 saiu válido. É o teste que pega regressão
+no comando do ffmpeg.
+
+**O painel dá para renderizar sem o Stream Deck**, e vale a pena antes de mexer no layout:
+copie `ui/i18n.js` e `ui/dictation.html` para uma pasta temporária, injete antes de `</body>`
+um `<script>` que chame `handlePlugin({event:"init", …})` com dados falsos, e rode
+
+```bash
+chrome --headless --disable-gpu --force-device-scale-factor=2 \
+  --window-size=360,1500 --virtual-time-budget=2500 \
+  --screenshot=out.png "file:///…/preview.html"
+```
+
+Para checar overflow na largura real do painel (340 px), injete
+`<style>html,body{width:340px}</style>` e leia `document.body.scrollWidth` via `--dump-dom` com
+o valor escrito em `document.title`. Foi assim que se descobriu que o painel morria inteiro
+quando o `i18n.js` faltava.
+
+**Nada disso substitui o teste na tecla física.** Build passando não prova que a waveform mexe.
+
+---
+
+## Pendente
+
+- **Teste com voz de ponta a ponta** — nunca foi feito. Falta configurar a chave e ditar de
+  verdade: transcrição, colagem, waveform ao vivo, auto-stop por silêncio, cancelamento.
+- Roteiro completo de verificação manual no plano
+  ([docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md), seção *Verificação*).
+
+## Fora de escopo (fase 2)
+
+Transcrever arquivo de áudio existente · capturar áudio do sistema para reuniões · streaming da
+transcrição · atalho global sem o Stream Deck · fila de reenvio de áudio que falhou ·
+rastreamento de custo.

@@ -58,8 +58,9 @@ que segue própria dali em diante. Salve os seus com *Salvar como…* — eles v
 |---|---|---|
 | Ditado cru | sim | nada — cola exatamente o que foi transcrito |
 | **Ditado limpo** (padrão) | sim | pontua e limpa a fala, sem trocar suas palavras |
-| Traduzir para inglês | sim | limpa e traduz (badge `EN` na tecla) |
-| Traduzir para espanhol | sim | limpa e traduz (badge `ES` na tecla) |
+| Traduzir → inglês | sim | limpa e traduz (badge `EN` na tecla) |
+| Traduzir → espanhol | sim | limpa e traduz (badge `ES` na tecla) |
+| Traduzir → português | sim | para captar um trecho estrangeiro na sua língua |
 | E-mail formal | sim | limpa e reescreve como e-mail |
 | Tópicos | sim | limpa e organiza em marcadores |
 | Só revisar a seleção | **não** | pega o texto selecionado (Ctrl+C) e revisa por cima |
@@ -98,8 +99,9 @@ montada por baixo — e você pode lê-la, veja abaixo.
 
 ## O painel
 
-- **Simples / Avançado** — o modo Simples mostra preset, rótulo, microfone e as duas etapas.
-  O Avançado abre modelos, idioma falado, contexto, silêncio, limites, cores e ffmpeg.
+- **Simples / Avançado** — o modo Simples mostra preset, rótulo, microfone, **o idioma que você
+  vai falar** e as duas etapas. O Avançado abre modelos, contexto, silêncio, limites, cores e
+  ffmpeg.
 - **Cada preset se explica** — ao selecionar um, aparece uma frase dizendo para que ele serve;
   no modo Avançado vem junto o detalhamento do que ele configura, **gerado a partir do próprio
   preset**, então nunca diverge do que ele faz de verdade.
@@ -121,6 +123,16 @@ Português, inglês e espanhol, em três lugares que **não precisam concordar**
 
 Isso existe porque são perguntas diferentes. Quem usa o Stream Deck em inglês e trabalha em
 português precisa exatamente disso — e o app só informa um idioma.
+
+**Vale informar o idioma falado.** A documentação da OpenAI é explícita: fornecê-lo *"will
+improve accuracy and latency"*. Por isso ele fica na seção essencial, e não escondido no
+avançado. Deixe em *Detectar* só se você realmente varia de idioma.
+
+**E se eu misturo idiomas?** O `language` é uma **dica, não um filtro**: palavras soltas em
+outro idioma (*deploy*, *commit*, *workshop*) saem certas mesmo com um idioma fixo. O que
+quebra é fixar o idioma errado num áudio majoritariamente estrangeiro — aí use *Detectar*. E
+para garantir a **grafia** de termos estrangeiros, o caminho é o dicionário canônico, que é
+determinístico e não depende de o modelo acertar.
 
 E não é só rótulo traduzido: **os prompts mudam de idioma junto**, porque a camada de limpeza
 depende de exemplos da língua falada. "vírgula" e as muletas "né", "tipo" só existem em
@@ -223,7 +235,7 @@ no lugar errado.
 
 ```powershell
 npm run check     # tipos
-npm run test      # 42 asserções das partes puras (dicionário, prompts, SVG, defaults)
+npm run test      # 80 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
 npm run mic       # grava 3 s do microfone e valida o núcleo contra o hardware
 npm run watch     # rebuild automático
 npm run build
@@ -247,7 +259,9 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 |---|---|
 | [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
 | [src/lib/openai.ts](src/lib/openai.ts) | as duas chamadas, retries, recusa, anti-eco |
-| [src/lib/prompts.ts](src/lib/prompts.ts) | camada de limpeza, composição, travas de segurança |
+| [src/lib/prompts.ts](src/lib/prompts.ts) | composição do prompt em camadas |
+| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | o texto dos prompts em pt/en/es — o que a IA lê |
+| [src/lib/preset-text.ts](src/lib/preset-text.ts) | nomes e instruções dos presets em pt/en/es |
 | [src/lib/canon.ts](src/lib/canon.ts) | dicionário: prompt com teto de tokens + correção por regex |
 | [src/lib/deliver.ts](src/lib/deliver.ts) | foco, clipboard, colagem, histórico |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | estado global das teclas, trava de gravação única, órfãos |
@@ -267,3 +281,13 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 | "cru — bloqueado" | a etapa de texto foi recusada; a transcrição foi colada sem tratamento |
 | "ocupado" | outra tecla já está gravando |
 | Tecla não aparece | rode `streamdeck dev` e refaça o `link` |
+
+---
+
+## Documentação
+
+| Arquivo | Para quem |
+|---|---|
+| **README.md** (este) | quem vai **usar** o plugin |
+| [CLAUDE.md](CLAUDE.md) | quem vai **mexer no código** — arquitetura, armadilhas e decisões que não devem ser revertidas |
+| [docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md) | histórico: o plano aprovado antes da implementação, com o porquê de cada escolha |
