@@ -1,7 +1,11 @@
-// Textos da interface, em três idiomas.
+// Textos da INTERFACE do painel, em três idiomas.
 //
-// O idioma segue o do app Stream Deck (vem em `inInfo.application.language`) e pode
-// ser trocado à mão no topo do painel. Chave ausente cai para o português.
+// Aqui só mora texto que o usuário lê. O que a IA lê — nomes e instruções dos presets,
+// camadas de prompt — vive no lado do plugin (src/lib/preset-text.ts e prompt-text.ts)
+// e chega ao painel já resolvido, para não existir a mesma frase em dois lugares.
+//
+// O idioma do painel e o do conteúdo são escolhidos separadamente: dá para ler o painel
+// em inglês e ter os presets em português.
 
 window.TT_I18N = {
   pt: {
@@ -9,7 +13,6 @@ window.TT_I18N = {
 
     modeSimple: "Simples",
     modeAdvanced: "Avançado",
-    modeHint: "O modo Simples mostra só o essencial. O Avançado abre todos os ajustes.",
 
     secBasics: "Preset e essencial",
     secPipeline: "O que esta tecla faz",
@@ -34,8 +37,8 @@ window.TT_I18N = {
     micDefault: "Padrão do sistema (primeiro da lista)",
     test: "Testar",
     testing: "gravando 3 segundos — fale alguma coisa…",
+    model: "Modelo",
 
-    // pipeline
     step1Title: "1. OUVIR",
     step1Sub: "sua voz vira texto",
     step1Model: "modelo de áudio",
@@ -70,7 +73,7 @@ window.TT_I18N = {
     promptTitle: "Texto exato enviado à OpenAI",
     promptStep1: "Etapa 1 — prompt de transcrição",
     promptStep2: "Etapa 2 — instruções de escrita",
-    promptEmpty: "(vazio)",
+    promptEmpty: "(vazio — nada é enviado neste campo)",
     promptOff: "(etapa desligada)",
     promptDropped: "termos cortados pelo limite de 224 tokens:",
 
@@ -90,7 +93,10 @@ window.TT_I18N = {
 
     spokenLang: "Idioma falado",
     context: "Contexto para o modelo de áudio",
-    contextPh: "Ex.: Reunião técnica sobre infraestrutura de rede.",
+    contextPh: "Ex.: Reunião técnica sobre infraestrutura de rede. Fala rápida, com nomes de servidores.",
+    contextHint:
+      "Ajuda o modelo a ouvir certo antes de errar. Nasce vazio de propósito: contexto genérico " +
+      "atrapalha mais do que ajuda. Preencha quando a tecla tiver um assunto fixo.",
     useCanon: "Enviar também o dicionário de palavras canônicas",
     budgetOf: "de",
     budgetTokens: "tokens",
@@ -129,15 +135,98 @@ window.TT_I18N = {
       "Guardada cifrada por DPAPI (só abre nesta conta do Windows), nunca nas configurações do " +
       "Stream Deck, que ficam em texto plano no disco.",
     keyClear: "Remover chave",
-    canonLabel: "Palavras canônicas — suas siglas e termos, separados por vírgula",
-    canonPh: "Ex.: SRVDRU, EdgeRouter, WireGuard, Grafana, n8n",
+    canonLabel: "Palavras canônicas",
+    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
     canonHint:
       "A grafia é corrigida no texto final por comparação exata — sem limite de quantidade e " +
       "sem custo. Termos em MAIÚSCULAS são tratados como siglas.",
     ffmpeg: "ffmpeg",
     ffmpegPh: "vazio = procura no PATH",
     saved: "salvo",
-    uiLang: "Idioma do painel",
+
+    // idiomas
+    langSection: "Idiomas",
+    langUi: "Painel",
+    langContent: "Presets e prompts",
+    langContentAuto: "Segue o idioma falado da tecla",
+    langFollowApp: "Segue o Stream Deck",
+    langHint:
+      "São coisas diferentes: o painel é o que VOCÊ lê; os presets e os prompts são o que a IA lê. " +
+      "Dá para manter o Stream Deck em inglês e trabalhar em português.",
+
+    // dicionário
+    dictOpen: "Abrir dicionário",
+    dictTerms: "termos",
+    dictNone: "vazio",
+    dictTitle: "Dicionário de palavras canônicas",
+    dictIntro:
+      "Suas siglas, nomes de produto e termos técnicos. Depois de cada etapa, o plugin corrige a " +
+      "grafia deles no texto por comparação exata — sem limite de quantidade, sem custo e sem " +
+      "chance de a IA inventar termo que você não falou.",
+    dictFooter: "Um termo por vírgula ou por linha. MAIÚSCULAS são tratadas como siglas.",
+    close: "Fechar",
+
+    // chave ausente
+    noKeyTitle: "Falta a chave da OpenAI",
+    noKeyBody: "Sem ela, a tecla mostra erro ao ser apertada. Leva dois minutos para resolver.",
+    noKeyHow: "Como consigo uma chave?",
+    helpTitle: "Como obter uma chave da OpenAI",
+    helpStep1: "Crie uma conta (ou entre) em platform.openai.com.",
+    helpStep2:
+      "Adicione crédito em Billing. A API é pré-paga e separada da assinatura do ChatGPT — " +
+      "ter ChatGPT Plus NÃO dá acesso à API.",
+    helpStep3: "Vá em API keys e clique em “Create new secret key”.",
+    helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo do painel.",
+    helpCost:
+      "Custo aproximado: cerca de US$ 0,003 por minuto de áudio, mais alguns centavos por mil " +
+      "palavras reescritas. Um dia inteiro de ditado costuma custar menos que um café.",
+    helpSafety:
+      "A chave fica cifrada por DPAPI nesta conta do Windows. Não vai para as configurações do " +
+      "Stream Deck nem para lugar nenhum além da própria OpenAI.",
+    openPlatform: "Abrir platform.openai.com",
+    openKeys: "Página de chaves",
+    openBilling: "Billing",
+    openPricing: "Preços",
+
+    // preset: descrição e detalhamento
+    presetDesc_raw:
+      "Cru, do jeito que saiu da boca. Não passa por uma segunda chamada, então é o mais rápido " +
+      "e o mais barato — bom para anotação solta, lista de compras, ideia que você não quer perder.",
+    presetDesc_clean:
+      "O arroz com feijão do ditado. Sai pronto para colar: pontuado, sem “né” e “tipo”, com " +
+      "números e datas no formato certo. Arruma a escrita, não o conteúdo — as palavras continuam suas.",
+    presetDesc_en:
+      "Você fala e sai em inglês, direto no campo. Limpa antes de traduzir, então a tradução parte " +
+      "de um texto já arrumado. A tecla mostra EN no canto para você reconhecer de longe.",
+    presetDesc_es:
+      "Você fala e sai em espanhol, direto no campo. Limpa antes de traduzir, então a tradução " +
+      "parte de um texto já arrumado. A tecla mostra ES no canto.",
+    presetDesc_pt:
+      "Você fala em qualquer idioma e sai em português. Útil para ouvir um trecho estrangeiro e " +
+      "já ter o texto na sua língua.",
+    presetDesc_email:
+      "Para quando você quer mandar o e-mail sem escrever o e-mail. Fala o recado de qualquer jeito " +
+      "e volta saudação, corpo direto e fecho. Não inventa destinatário, prazo nem assunto que você não disse.",
+    presetDesc_topics:
+      "Pensou em voz alta, saiu organizado. Cada ideia vira um item, na ordem em que você falou. " +
+      "Bom para ata de reunião, pauta e lista de tarefas.",
+    presetDesc_rewrite:
+      "A tecla que não grava nada. Selecione um texto qualquer na tela, aperte, e ele volta revisado " +
+      "por cima — ortografia, acentuação e pontuação. Feito para o que você escreveu com pressa.",
+    presetCustom:
+      "Molde que você salvou. O resumo abaixo mostra exatamente o que ele aplica quando você clica em Aplicar.",
+
+    detailTitle: "O que este preset configura",
+    detailListen: "Ouvir",
+    detailWrite: "Escrever",
+    detailOn: "ligado",
+    detailOff: "desligado",
+    detailCleanup: "Limpeza de ditado",
+    detailStyle: "Instrução",
+    detailTranslate: "Traduzir para",
+    detailNothing: "nada além de entregar o texto",
+    detailKeyLabel: "Rótulo da tecla",
+
     uiAuto: "Automático",
   },
 
@@ -146,7 +235,6 @@ window.TT_I18N = {
 
     modeSimple: "Simple",
     modeAdvanced: "Advanced",
-    modeHint: "Simple shows only the essentials. Advanced opens every setting.",
 
     secBasics: "Preset and essentials",
     secPipeline: "What this key does",
@@ -171,6 +259,7 @@ window.TT_I18N = {
     micDefault: "System default (first in the list)",
     test: "Test",
     testing: "recording 3 seconds — say something…",
+    model: "Model",
 
     step1Title: "1. LISTEN",
     step1Sub: "your voice becomes text",
@@ -182,9 +271,9 @@ window.TT_I18N = {
     step2Model: "language model",
     step2On: "Process the text after transcribing",
     whyTwo:
-      "These are two different models because they are two different jobs: one listens to " +
-      "audio, the other writes. Translation belongs to the second — the first only transcribes " +
-      "what was said, in the language it was said.",
+      "These are two different models because they are two different jobs: one listens to audio, " +
+      "the other writes. Translation belongs to the second — the first only transcribes what was " +
+      "said, in the language it was said.",
 
     cleanup: "Clean up the dictation",
     cleanupHint:
@@ -205,7 +294,7 @@ window.TT_I18N = {
     promptTitle: "Exact text sent to OpenAI",
     promptStep1: "Step 1 — transcription prompt",
     promptStep2: "Step 2 — writing instructions",
-    promptEmpty: "(empty)",
+    promptEmpty: "(empty — nothing is sent in this field)",
     promptOff: "(step disabled)",
     promptDropped: "terms cut by the 224-token limit:",
 
@@ -223,7 +312,10 @@ window.TT_I18N = {
 
     spokenLang: "Spoken language",
     context: "Context for the audio model",
-    contextPh: "E.g. Technical meeting about network infrastructure.",
+    contextPh: "E.g. Technical meeting about network infrastructure. Fast speech, server names.",
+    contextHint:
+      "Helps the model hear correctly instead of guessing. Empty on purpose: generic context hurts " +
+      "more than it helps. Fill it in when the key has a fixed subject.",
     useCanon: "Also send the canonical word list",
     budgetOf: "of",
     budgetTokens: "tokens",
@@ -261,15 +353,95 @@ window.TT_I18N = {
       "Stored encrypted with DPAPI (only opens under this Windows account), never in the Stream Deck " +
       "settings, which sit in plain text on disk.",
     keyClear: "Remove key",
-    canonLabel: "Canonical words — your acronyms and terms, comma separated",
-    canonPh: "E.g. SRVDRU, EdgeRouter, WireGuard, Grafana, n8n",
+    canonLabel: "Canonical words",
+    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
     canonHint:
       "Spelling is fixed in the final text by exact comparison — no size limit and no cost. " +
       "UPPERCASE terms are treated as acronyms.",
     ffmpeg: "ffmpeg",
     ffmpegPh: "empty = look it up in PATH",
     saved: "saved",
-    uiLang: "Panel language",
+
+    langSection: "Languages",
+    langUi: "Panel",
+    langContent: "Presets and prompts",
+    langContentAuto: "Follow the key's spoken language",
+    langFollowApp: "Follow Stream Deck",
+    langHint:
+      "These are different things: the panel is what YOU read; presets and prompts are what the AI " +
+      "reads. You can keep Stream Deck in English and work in another language.",
+
+    dictOpen: "Open dictionary",
+    dictTerms: "terms",
+    dictNone: "empty",
+    dictTitle: "Canonical word dictionary",
+    dictIntro:
+      "Your acronyms, product names and technical terms. After each step the plugin fixes their " +
+      "spelling in the text by exact comparison — no size limit, no cost and no chance of the AI " +
+      "inventing a term you never said.",
+    dictFooter: "One term per comma or per line. UPPERCASE is treated as an acronym.",
+    close: "Close",
+
+    noKeyTitle: "OpenAI key missing",
+    noKeyBody: "Without it the key shows an error when pressed. It takes two minutes to sort out.",
+    noKeyHow: "How do I get a key?",
+    helpTitle: "How to get an OpenAI key",
+    helpStep1: "Create an account (or sign in) at platform.openai.com.",
+    helpStep2:
+      "Add credit under Billing. The API is prepaid and separate from the ChatGPT subscription — " +
+      "having ChatGPT Plus does NOT grant API access.",
+    helpStep3: "Go to API keys and click “Create new secret key”.",
+    helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the panel.",
+    helpCost:
+      "Rough cost: about US$0.003 per minute of audio, plus a few cents per thousand rewritten words. " +
+      "A full day of dictation usually costs less than a coffee.",
+    helpSafety:
+      "The key is encrypted with DPAPI under this Windows account. It never reaches the Stream Deck " +
+      "settings, nor anywhere other than OpenAI itself.",
+    openPlatform: "Open platform.openai.com",
+    openKeys: "API keys page",
+    openBilling: "Billing",
+    openPricing: "Pricing",
+
+    presetDesc_raw:
+      "Raw, exactly as it left your mouth. No second call, so it is the fastest and the cheapest — " +
+      "good for a quick note, a shopping list, an idea you do not want to lose.",
+    presetDesc_clean:
+      "The bread and butter of dictation. Comes back ready to paste: punctuated, without fillers, " +
+      "numbers and dates properly formatted. It fixes the writing, not the content — the words stay yours.",
+    presetDesc_en:
+      "You speak, it lands in English right in the field. Cleans before translating, so the translation " +
+      "starts from tidy text. The key shows EN in the corner so you can tell at a glance.",
+    presetDesc_es:
+      "You speak, it lands in Spanish right in the field. Cleans before translating, so the translation " +
+      "starts from tidy text. The key shows ES in the corner.",
+    presetDesc_pt:
+      "You speak in any language and it lands in Portuguese. Handy to catch a foreign passage and get " +
+      "the text in your own language.",
+    presetDesc_email:
+      "For when you want to send the email without writing the email. Say the message however it comes " +
+      "out and get back a greeting, a direct body and a sign-off. It invents no recipient, deadline or " +
+      "subject you did not mention.",
+    presetDesc_topics:
+      "You thought out loud, it came back organised. Each idea becomes an item, in the order you said " +
+      "them. Good for meeting notes, agendas and to-do lists.",
+    presetDesc_rewrite:
+      "The key that records nothing. Select any text on screen, press it, and the text comes back " +
+      "proofread in place — spelling, accents and punctuation. Made for whatever you typed in a hurry.",
+    presetCustom:
+      "A mould you saved. The summary below shows exactly what it applies when you hit Apply.",
+
+    detailTitle: "What this preset sets",
+    detailListen: "Listen",
+    detailWrite: "Write",
+    detailOn: "on",
+    detailOff: "off",
+    detailCleanup: "Dictation cleanup",
+    detailStyle: "Instruction",
+    detailTranslate: "Translate into",
+    detailNothing: "nothing beyond handing over the text",
+    detailKeyLabel: "Key label",
+
     uiAuto: "Automatic",
   },
 
@@ -278,7 +450,6 @@ window.TT_I18N = {
 
     modeSimple: "Simple",
     modeAdvanced: "Avanzado",
-    modeHint: "El modo Simple muestra solo lo esencial. El Avanzado abre todos los ajustes.",
 
     secBasics: "Preset y esencial",
     secPipeline: "Qué hace esta tecla",
@@ -303,6 +474,7 @@ window.TT_I18N = {
     micDefault: "Predeterminado del sistema (el primero de la lista)",
     test: "Probar",
     testing: "grabando 3 segundos — di algo…",
+    model: "Modelo",
 
     step1Title: "1. ESCUCHAR",
     step1Sub: "tu voz se vuelve texto",
@@ -337,7 +509,7 @@ window.TT_I18N = {
     promptTitle: "Texto exacto enviado a OpenAI",
     promptStep1: "Paso 1 — prompt de transcripción",
     promptStep2: "Paso 2 — instrucciones de escritura",
-    promptEmpty: "(vacío)",
+    promptEmpty: "(vacío — no se envía nada en este campo)",
     promptOff: "(paso desactivado)",
     promptDropped: "términos cortados por el límite de 224 tokens:",
 
@@ -355,7 +527,10 @@ window.TT_I18N = {
 
     spokenLang: "Idioma hablado",
     context: "Contexto para el modelo de audio",
-    contextPh: "Ej.: Reunión técnica sobre infraestructura de red.",
+    contextPh: "Ej.: Reunión técnica sobre infraestructura de red. Habla rápida, nombres de servidores.",
+    contextHint:
+      "Ayuda al modelo a oír bien en vez de adivinar. Nace vacío a propósito: el contexto genérico " +
+      "estorba más de lo que ayuda. Rellénalo cuando la tecla tenga un tema fijo.",
     useCanon: "Enviar también el diccionario de palabras canónicas",
     budgetOf: "de",
     budgetTokens: "tokens",
@@ -391,17 +566,96 @@ window.TT_I18N = {
     keyMissing: "Sin clave — la tecla mostrará error.",
     keyHint:
       "Guardada cifrada con DPAPI (solo se abre en esta cuenta de Windows), nunca en la configuración " +
-      "del Stream Deck, que queda en texto plano en el disco.",
+      "de Stream Deck, que queda en texto plano en el disco.",
     keyClear: "Quitar clave",
-    canonLabel: "Palabras canónicas — tus siglas y términos, separados por comas",
-    canonPh: "Ej.: SRVDRU, EdgeRouter, WireGuard, Grafana, n8n",
+    canonLabel: "Palabras canónicas",
+    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
     canonHint:
       "La grafía se corrige en el texto final por comparación exacta — sin límite y sin coste. " +
       "Los términos en MAYÚSCULAS se tratan como siglas.",
     ffmpeg: "ffmpeg",
     ffmpegPh: "vacío = buscar en el PATH",
     saved: "guardado",
-    uiLang: "Idioma del panel",
+
+    langSection: "Idiomas",
+    langUi: "Panel",
+    langContent: "Presets y prompts",
+    langContentAuto: "Sigue el idioma hablado de la tecla",
+    langFollowApp: "Sigue a Stream Deck",
+    langHint:
+      "Son cosas distintas: el panel es lo que TÚ lees; los presets y prompts son lo que lee la IA. " +
+      "Puedes tener Stream Deck en inglés y trabajar en otro idioma.",
+
+    dictOpen: "Abrir diccionario",
+    dictTerms: "términos",
+    dictNone: "vacío",
+    dictTitle: "Diccionario de palabras canónicas",
+    dictIntro:
+      "Tus siglas, nombres de producto y términos técnicos. Tras cada etapa el plugin corrige su " +
+      "grafía en el texto por comparación exacta — sin límite, sin coste y sin que la IA pueda " +
+      "inventar un término que no dijiste.",
+    dictFooter: "Un término por coma o por línea. Las MAYÚSCULAS se tratan como siglas.",
+    close: "Cerrar",
+
+    noKeyTitle: "Falta la clave de OpenAI",
+    noKeyBody: "Sin ella, la tecla muestra un error al pulsarla. Se resuelve en dos minutos.",
+    noKeyHow: "¿Cómo consigo una clave?",
+    helpTitle: "Cómo obtener una clave de OpenAI",
+    helpStep1: "Crea una cuenta (o entra) en platform.openai.com.",
+    helpStep2:
+      "Añade crédito en Billing. La API es de prepago y va aparte de la suscripción de ChatGPT — " +
+      "tener ChatGPT Plus NO da acceso a la API.",
+    helpStep3: "Ve a API keys y pulsa “Create new secret key”.",
+    helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el panel.",
+    helpCost:
+      "Coste aproximado: unos US$ 0,003 por minuto de audio, más unos céntimos por cada mil palabras " +
+      "reescritas. Un día entero de dictado suele costar menos que un café.",
+    helpSafety:
+      "La clave queda cifrada con DPAPI en esta cuenta de Windows. No llega a la configuración de " +
+      "Stream Deck ni a ningún sitio salvo la propia OpenAI.",
+    openPlatform: "Abrir platform.openai.com",
+    openKeys: "Página de claves",
+    openBilling: "Billing",
+    openPricing: "Precios",
+
+    presetDesc_raw:
+      "Crudo, tal como salió de tu boca. No pasa por una segunda llamada, así que es lo más rápido y " +
+      "lo más barato — bueno para una nota suelta, una lista de compras, una idea que no quieres perder.",
+    presetDesc_clean:
+      "El pan de cada día del dictado. Sale listo para pegar: puntuado, sin muletillas, con números y " +
+      "fechas en el formato correcto. Arregla la escritura, no el contenido — las palabras siguen siendo tuyas.",
+    presetDesc_en:
+      "Hablas y aterriza en inglés, directo en el campo. Limpia antes de traducir, así que la traducción " +
+      "parte de un texto ya ordenado. La tecla muestra EN en la esquina.",
+    presetDesc_es:
+      "Hablas y aterriza en español, directo en el campo. Limpia antes de traducir, así que la traducción " +
+      "parte de un texto ya ordenado. La tecla muestra ES en la esquina.",
+    presetDesc_pt:
+      "Hablas en cualquier idioma y aterriza en portugués. Útil para captar un pasaje extranjero y tener " +
+      "el texto en tu lengua.",
+    presetDesc_email:
+      "Para cuando quieres mandar el correo sin escribir el correo. Dices el recado como salga y vuelve " +
+      "con saludo, cuerpo directo y despedida. No inventa destinatario, plazo ni asunto que no dijiste.",
+    presetDesc_topics:
+      "Pensaste en voz alta y volvió ordenado. Cada idea es un ítem, en el orden en que hablaste. " +
+      "Bueno para actas, agendas y listas de tareas.",
+    presetDesc_rewrite:
+      "La tecla que no graba nada. Selecciona cualquier texto en pantalla, púlsala, y vuelve corregido " +
+      "encima — ortografía, acentos y puntuación. Hecho para lo que escribiste con prisa.",
+    presetCustom:
+      "Un molde que guardaste. El resumen de abajo muestra exactamente lo que aplica cuando pulsas Aplicar.",
+
+    detailTitle: "Qué configura este preset",
+    detailListen: "Escuchar",
+    detailWrite: "Escribir",
+    detailOn: "activado",
+    detailOff: "desactivado",
+    detailCleanup: "Limpieza del dictado",
+    detailStyle: "Instrucción",
+    detailTranslate: "Traducir a",
+    detailNothing: "nada más que entregar el texto",
+    detailKeyLabel: "Etiqueta de la tecla",
+
     uiAuto: "Automático",
   },
 };

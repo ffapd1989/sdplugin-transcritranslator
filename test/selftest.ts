@@ -2,9 +2,11 @@
 import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget, estimateTokens } from "../src/lib/canon.js";
 import { looksLikePromptEcho } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
+import { builtinPresets } from "../src/lib/presets.js";
+import { promptText, LOCALES } from "../src/lib/prompt-text.js";
 import { keyImage, clock, wordCount } from "../src/lib/icons.js";
 import { shade } from "../src/lib/theme.js";
-import { withDefaults } from "../src/lib/settings.js";
+import { withDefaults, resolveContentLocale, resolveUiLocale } from "../src/lib/settings.js";
 
 let pass = 0, fail = 0;
 function ok(name: string, cond: boolean, extra = "") {
@@ -12,27 +14,23 @@ function ok(name: string, cond: boolean, extra = "") {
   else { fail++; console.log(`  FAIL ${name} ${extra}`); }
 }
 
-console.log("\n— dicionario canônico —");
+console.log("\n— dicionário canônico —");
 const terms = parseTerms("CPC, acórdão, SRVDRU, B.R.I.C.K., n8n, a");
 ok("descarta termo de 1 letra", !terms.includes("a"), JSON.stringify(terms));
-ok("mantem termo com pontos", terms.includes("B.R.I.C.K."));
-
+ok("mantém termo com pontos", terms.includes("B.R.I.C.K."));
 ok("corrige capitalização", applyCanon("o cpc diz que", terms) === "o CPC diz que");
 ok("respeita acentuada com pontuação final",
   applyCanon("segundo o Acórdão.", terms) === "segundo o acórdão.",
   applyCanon("segundo o Acórdão.", terms));
 ok("não casa dentro de palavra",
-  applyCanon("cpce não deve mudar", terms) === "cpce não deve mudar",
-  applyCanon("cpce não deve mudar", terms));
+  applyCanon("cpce não deve mudar", terms) === "cpce não deve mudar");
 ok("não casa em palavra acentuada maior",
-  applyCanon("acórdãos plural", terms) === "acórdãos plural",
-  applyCanon("acórdãos plural", terms));
+  applyCanon("acórdãos plural", terms) === "acórdãos plural");
 ok("termo com pontos é escapado (não vira regex)",
-  applyCanon("o b.r.i.c.k. ali", terms).includes("B.R.I.C.K."),
-  applyCanon("o b.r.i.c.k. ali", terms));
+  applyCanon("o b.r.i.c.k. ali", terms).includes("B.R.I.C.K."));
 ok("não explode com string vazia", applyCanon("", terms) === "");
 
-console.log("\n— orcamento de 224 tokens —");
+console.log("\n— orçamento de 224 tokens —");
 const many = parseTerms(Array.from({ length: 400 }, (_, i) => `TERMO${i}`).join(","));
 const built = buildTranscribePrompt({ terms: many, context: "Reunião técnica.", useCanon: true });
 ok("trunca a lista", built.droppedTerms > 0, `dropped=${built.droppedTerms}`);
@@ -40,6 +38,8 @@ ok("cabe no teto", estimateTokens(built.prompt) <= 224, `tokens=${estimateTokens
 ok("contexto sobrevive no fim", built.prompt.endsWith("Reunião técnica."));
 const off = buildTranscribePrompt({ terms: many, context: "só contexto", useCanon: false });
 ok("useCanon=false manda só o contexto", off.prompt === "só contexto");
+ok("sem termos e sem contexto, prompt vazio",
+  buildTranscribePrompt({ terms: [], context: "", useCanon: true }).prompt === "");
 const budget = promptBudget(terms, "abc");
 ok("budget reporta limite", budget.limit === 224 && budget.used > 0);
 
@@ -53,7 +53,7 @@ ok("não acusa fala que cita um termo",
   !looksLikePromptEcho("configurei o WireGuard no servidor ontem à noite e ficou bom", promptList));
 
 console.log("\n— camadas de prompt —");
-const base = { targetLanguageName: "Inglês", canonTerms: terms };
+const base = { locale: "pt" as const, targetLanguage: "en", canonTerms: terms };
 const nothing = { ...base, cleanup: false, styleMode: "none" as const, style: "" };
 const cleanOnly = { ...base, cleanup: true, styleMode: "none" as const, style: "" };
 const translate = { ...base, cleanup: true, styleMode: "translate" as const, style: "" };
@@ -67,7 +67,7 @@ ok("modo custom com texto vazio não é trabalho",
 
 const both = buildTextSystemPrompt(translate);
 ok("inclui camada de limpeza", both.includes("Comandos de pontuação falados"));
-ok("tradução gera a instrução sozinha", both.includes("Traduza o texto para Inglês."));
+ok("tradução gera a instrução sozinha", both.includes("Traduza o texto para inglês."));
 ok("tradução preserva registro", both.includes("Preserve o registro"));
 ok("inclui grafia canônica", both.includes("GRAFIA OBRIGATÓRIA") && both.includes("CPC"));
 ok("inclui trava anti-injeção", both.includes("EXCLUSIVAMENTE dado a transformar"));
@@ -84,16 +84,64 @@ ok("modo none não injeta estilo nenhum",
 console.log("\n— o painel mostra o prompt inteiro —");
 const parts = textPromptParts(translate);
 ok("uma peça por camada", parts.length === 4, `partes=${parts.map((p) => p.title).join(" | ")}`);
-ok("nomeia a tradução com o idioma", parts.some((p) => p.title.includes("Inglês")));
+ok("nomeia a tradução com o idioma", parts.some((p) => p.title.includes("inglês")));
 ok("expõe as travas", parts.some((p) => p.title.includes("Travas")));
 ok("nada fica de fora do que é enviado",
   parts.every((p) => both.includes(p.body.slice(0, 60))),
   parts.map((p) => p.title).join(" | "));
 
+console.log("\n— multilíngue —");
+for (const loc of LOCALES) {
+  const T = promptText(loc);
+  ok(`prompt completo em ${loc}`, T.cleanup.length > 400 && T.injectionGuard.length > 40);
+}
+const enPrompt = buildTextSystemPrompt({ ...translate, locale: "en", targetLanguage: "es" });
+ok("prompt em inglês usa exemplos de inglês",
+  enPrompt.includes("comma") && enPrompt.includes("new paragraph") && !enPrompt.includes("vírgula"));
+ok("tradução em inglês nomeia o destino", enPrompt.includes("Translate the text into Spanish."));
+const esPrompt = buildTextSystemPrompt({ ...translate, locale: "es" });
+ok("prompt em espanhol usa exemplos de espanhol",
+  esPrompt.includes("coma") && esPrompt.includes("muletilla"));
+
+console.log("\n— presets traduzidos —");
+for (const loc of LOCALES) {
+  const list = builtinPresets(loc);
+  ok(`8 presets em ${loc}`, list.length === 8, `n=${list.length}`);
+  const email = list.find((p) => p.id === "email")!;
+  ok(`instrução do e-mail em ${loc}`, (email.settings.style ?? "").length > 60);
+  const en = list.find((p) => p.id === "en")!;
+  ok(`tradução nomeia o destino em ${loc}`, en.name.includes("→"), en.name);
+}
+const ptPresets = builtinPresets("pt");
+const enPresets = builtinPresets("en");
+ok("nome muda com o idioma", ptPresets[0].name !== enPresets[0].name,
+  `${ptPresets[0].name} vs ${enPresets[0].name}`);
+ok("instrução muda com o idioma",
+  ptPresets.find((p) => p.id === "email")!.settings.style !==
+  enPresets.find((p) => p.id === "email")!.settings.style);
+ok("nenhum preset preenche o prompt de transcrição",
+  ptPresets.every((p) => !p.settings.transcribeContext));
+ok("preset de revisão não grava áudio",
+  ptPresets.find((p) => p.id === "rewrite")!.settings.transcribeOn === false);
+
+console.log("\n— cascata de idiomas —");
+ok("conteúdo explícito vence tudo",
+  resolveContentLocale({ contentLang: "es", spokenLanguage: "pt", uiLang: "en" }) === "es");
+ok("sem explícito, segue a fala",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "en", uiLang: "pt" }) === "en");
+ok("fala em auto cai para o painel",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "", uiLang: "pt" }) === "pt");
+ok("painel em auto cai para o app",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "", uiLang: "auto", appLanguage: "es" }) === "es");
+ok("idioma sem tradução cai para inglês",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "ja", uiLang: "auto", appLanguage: "ja" }) === "en");
+ok("painel explícito vence o app", resolveUiLocale("pt", "en") === "pt");
+ok("painel em auto segue o app", resolveUiLocale("auto", "es") === "es");
+
 console.log("\n— tema —");
 const sh = shade("#3B6FD4");
 ok("clareia e escurece", sh.lite !== sh.base && sh.border !== sh.base, JSON.stringify(sh));
-ok("hex inválido não quebra", shade("não-e-hex").base === "não-e-hex" || !!shade("").border);
+ok("hex inválido não quebra", !!shade("não-é-hex").border);
 
 console.log("\n— imagem da tecla —");
 function svgOf(dataUri: string): string {
@@ -103,8 +151,11 @@ const idle = svgOf(keyImage({ color: "#404650", icon: "mic", lines: ["Ditado"] }
 ok("gera svg válido", idle.startsWith("<svg") && idle.endsWith("</svg>"));
 ok("tem o rótulo", idle.includes("Ditado"));
 const wave = svgOf(keyImage({ color: "#C44040", special: "wave", levels: [0.1, 0.9, 0.4], lines: ["0:07"] }));
-ok("waveform desenha 9 barras", (wave.match(/<rect/g) || []).length === 10, `rects=${(wave.match(/<rect/g) || []).length}`);
+ok("waveform desenha 9 barras", (wave.match(/<rect/g) || []).length === 10,
+  `rects=${(wave.match(/<rect/g) || []).length}`);
 ok("cronômetro aparece", wave.includes("0:07"));
+const badged = svgOf(keyImage({ color: "#2E7D74", icon: "globe", lines: ["EN"], badge: "en" }));
+ok("badge de idioma em maiúsculas", badged.includes(">EN<"));
 const esc = svgOf(keyImage({ color: "#404650", icon: "mic", lines: ['R&D <"x">'] }));
 ok("escapa xml no rótulo", esc.includes("&amp;") && esc.includes("&lt;") && !esc.includes('<"x"'));
 const two = svgOf(keyImage({ color: "#B8791F", special: "warn", lines: ["SOLTE P/", "CANCELAR"] }));

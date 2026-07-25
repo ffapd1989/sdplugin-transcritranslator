@@ -58,7 +58,10 @@
     background: var(--field); color: var(--fg); border: 1px solid #4a4a4a;
     border-radius: 4px; padding: 4px 6px; font: inherit; width: 100%; min-width: 0;
   }
-  textarea { resize: vertical; min-height: 46px; font-size: 8.5pt; }
+  /* Textareas de prompt nascem grandes: são campos para escrever instrução de
+     verdade, não uma linha. Redimensionar na mão toda vez é atrito à toa. */
+  textarea { resize: vertical; min-height: 112px; font-size: 8.5pt; line-height: 1.45; }
+  textarea.tall { min-height: 150px; }
   input[type=number] { width: 62px; flex: 0 0 62px; }
   input[type=color] {
     width: 34px; height: 24px; padding: 1px; border: 1px solid #4a4a4a;
@@ -133,6 +136,30 @@
   }
   .pblock .meta { color: var(--muted); font-size: 7.5pt; margin-top: 2px; }
 
+  /* explicação do preset */
+  .presetInfo {
+    margin: 2px 0 8px; padding: 7px 9px; border-radius: 4px;
+    background: #2a2a2a; border: 1px solid var(--line);
+  }
+  .presetInfo .desc { color: #c4c4c4; font-size: 8.5pt; }
+  .presetInfo .detail { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  .presetInfo .detail h6 {
+    margin: 0 0 4px; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted); font-weight: 600;
+  }
+  .presetInfo dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; }
+  .presetInfo dt { color: var(--muted); font-size: 8pt; white-space: nowrap; }
+  .presetInfo dd { margin: 0; font-size: 8pt; color: #cfcfcf; }
+  .presetInfo dd.quote {
+    font-family: Consolas, "Courier New", monospace; font-size: 7.5pt; color: #b9c9d8;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .pill {
+    display: inline-block; border-radius: 3px; padding: 0 5px; font-size: 7.5pt; font-weight: 600;
+  }
+  .pill.on { background: #2e5e3a; color: #cfe9d5; }
+  .pill.off { background: #4a4a4a; color: #b0b0b0; }
+
   .global { border-color: #4a5a6a; }
   .global > summary { color: #9dbad6; }
   .badge {
@@ -142,6 +169,45 @@
 
   /* modo simples esconde o que for avançado */
   body.simple .adv { display: none !important; }
+
+  /* aviso de chave ausente — primeira coisa que aparece */
+  .alert {
+    display: none; margin-bottom: 8px; padding: 9px 11px; border-radius: 5px;
+    background: #4a3520; border: 1px solid #7a5a2a;
+  }
+  body.nokey .alert { display: block; }
+  .alert b { color: #f0c674; display: block; margin-bottom: 2px; }
+  .alert span { color: #d8c9b0; font-size: 8.5pt; }
+  .alert button { margin-top: 7px; }
+
+  /* modais (o PI é um webview: overlay é mais confiável que window.open) */
+  .modal {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(0,0,0,.62); padding: 14px; overflow: auto;
+  }
+  .modal.on { display: block; }
+  .modal .sheet {
+    background: #333; border: 1px solid #4a4a4a; border-radius: 6px;
+    padding: 12px 14px; max-width: 520px; margin: 0 auto;
+  }
+  .modal h3 { margin: 0 0 8px; font-size: 10pt; color: #eaeaea; }
+  .modal p { margin: 0 0 8px; color: #c4c4c4; font-size: 8.5pt; }
+  .modal ol { margin: 0 0 10px; padding-left: 18px; color: #c9c9c9; font-size: 8.5pt; }
+  .modal ol li { margin-bottom: 5px; }
+  .modal .links { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .modal .foot { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+  .modal .note {
+    background: #2a2a2a; border-left: 3px solid #46617f; padding: 7px 9px;
+    border-radius: 3px; margin-bottom: 9px; color: #b9c9d8; font-size: 8pt;
+  }
+  .modal textarea { min-height: 190px; }
+
+  /* seletores de idioma */
+  .langRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .langRow > label { flex: 0 0 118px; text-align: right; color: var(--muted); font-size: 8.5pt; }
+  .langRow > label::before { content: "🌐 "; }
+  .langRow.content > label::before { content: "📝 "; }
+  .langRow select { flex: 1 1 auto; }
 </style>
 </head>
 <body class="simple">
@@ -152,7 +218,13 @@
     <button id="btnAdvanced" data-i18n="modeAdvanced">Avançado</button>
   </div>
   <span class="grow"></span>
-  <select id="uiLang" title="Idioma"></select>
+  <select id="uiLangTop" title="Idioma do painel"></select>
+</div>
+
+<div class="alert">
+  <b data-i18n="noKeyTitle">Falta a chave da OpenAI</b>
+  <span data-i18n="noKeyBody"></span>
+  <button id="btnHelpKey" class="primary" data-i18n="noKeyHow">Como consigo uma chave?</button>
 </div>
 
 <details open>
@@ -172,6 +244,7 @@
         <button id="presetDelete" class="danger" data-i18n="delete">Excluir</button>
       </div>
     </div>
+    <div class="presetInfo" id="presetInfo"></div>
     <div class="hint adv" data-i18n="presetHint"></div>
 
     <div class="row">
@@ -286,7 +359,7 @@
         <div class="sub" id="customBox" style="display:none">
           <div class="stack">
             <label data-i18n="styleLabel">Sua instrução</label>
-            <textarea data-setting="style" data-type="str" data-i18n-ph="stylePh"></textarea>
+            <textarea class="tall" data-setting="style" data-type="str" data-i18n-ph="stylePh"></textarea>
           </div>
         </div>
       </div>
@@ -432,11 +505,23 @@
       <button id="keyClear" class="danger" data-i18n="keyClear">Remover chave</button>
     </div>
 
-    <div class="stack">
+    <div class="row">
       <label data-i18n="canonLabel">Palavras canônicas</label>
-      <textarea id="canonTerms" data-i18n-ph="canonPh"></textarea>
+      <div class="ctl">
+        <button id="dictOpen" data-i18n="dictOpen">Abrir dicionário</button>
+        <span id="dictCount" class="status" style="margin:0"></span>
+      </div>
     </div>
-    <div class="hint full" data-i18n="canonHint"></div>
+
+    <div class="langRow">
+      <label data-i18n="langUi">Painel</label>
+      <select id="uiLang"></select>
+    </div>
+    <div class="langRow content">
+      <label data-i18n="langContent">Presets e prompts</label>
+      <select id="contentLang"></select>
+    </div>
+    <div class="hint full" data-i18n="langHint"></div>
 
     <div class="row adv">
       <label data-i18n="ffmpeg">ffmpeg</label>
@@ -445,6 +530,41 @@
     <div class="status" id="globalStatus"></div>
   </div>
 </details>
+
+<!-- Modal do dicionário: o campo é grande e explicado, em vez de um textarea
+     escondido no fim do painel. -->
+<div class="modal" id="dictModal">
+  <div class="sheet">
+    <h3 data-i18n="dictTitle">Dicionário de palavras canônicas</h3>
+    <p data-i18n="dictIntro"></p>
+    <textarea id="canonTerms" data-i18n-ph="canonPh"></textarea>
+    <div class="status" id="dictStatus"></div>
+    <p class="hint full" style="margin:4px 0 0" data-i18n="dictFooter"></p>
+    <div class="foot"><button class="primary" data-close data-i18n="close">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Como obter a chave da OpenAI, com os links certos. -->
+<div class="modal" id="keyModal">
+  <div class="sheet">
+    <h3 data-i18n="helpTitle">Como obter uma chave da OpenAI</h3>
+    <ol>
+      <li data-i18n="helpStep1"></li>
+      <li data-i18n="helpStep2"></li>
+      <li data-i18n="helpStep3"></li>
+      <li data-i18n="helpStep4"></li>
+    </ol>
+    <div class="links">
+      <button data-url="https://platform.openai.com/signup" data-i18n="openPlatform"></button>
+      <button data-url="https://platform.openai.com/api-keys" data-i18n="openKeys"></button>
+      <button data-url="https://platform.openai.com/settings/organization/billing/overview" data-i18n="openBilling"></button>
+      <button data-url="https://openai.com/api/pricing/" data-i18n="openPricing"></button>
+    </div>
+    <div class="note" data-i18n="helpCost"></div>
+    <div class="note" data-i18n="helpSafety"></div>
+    <div class="foot"><button class="primary" data-close data-i18n="close">Fechar</button></div>
+  </div>
+</div>
 
 <script>
 // ---------------------------------------------------------------------------
@@ -493,41 +613,69 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
 // ---------------------------------------------------------------------------
 // Idioma da interface
 // ---------------------------------------------------------------------------
-const I18N = window.TT_I18N;
+// Se o i18n não carregar, o painel continua funcionando com os textos que já estão
+// no HTML (português). Sem esta guarda, um arquivo ausente derrubaria tudo — nem os
+// campos de configuração responderiam.
+const I18N = window.TT_I18N || { pt: {} };
+const HAS_I18N = !!window.TT_I18N;
 let lang = "pt";
 
 function t(key) {
-  return (I18N[lang] && I18N[lang][key]) || I18N.pt[key] || key;
+  return (I18N[lang] && I18N[lang][key]) || (I18N.pt && I18N.pt[key]) || "";
 }
 
 function applyLang() {
   document.documentElement.lang = lang;
-  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
-  for (const el of document.querySelectorAll("[data-i18n-ph]")) el.placeholder = t(el.dataset.i18nPh);
+  // Sem i18n, mantém o texto que já veio no HTML em vez de esvaziar a interface.
+  if (HAS_I18N) {
+    for (const el of document.querySelectorAll("[data-i18n]")) {
+      const v = t(el.dataset.i18n);
+      if (v) el.textContent = v;
+    }
+    for (const el of document.querySelectorAll("[data-i18n-ph]")) {
+      const v = t(el.dataset.i18nPh);
+      if (v) el.placeholder = v;
+    }
+  }
   document.getElementById("promptToggle").textContent =
     document.getElementById("promptBox").classList.contains("on") ? t("hidePrompt") : t("seePrompt");
   refreshKeyStatus();
+  renderPresetInfo();
 }
 
-function buildLangPicker() {
-  const sel = document.getElementById("uiLang");
-  sel.innerHTML = "";
-  const auto = document.createElement("option");
-  auto.value = "auto"; auto.textContent = t("uiAuto");
-  sel.appendChild(auto);
-  for (const code of Object.keys(I18N)) {
-    const o = document.createElement("option");
-    o.value = code; o.textContent = I18N[code]._name;
-    sel.appendChild(o);
-  }
-  sel.value = localStorage.getItem("tt-lang") || "auto";
-  sel.onchange = () => {
-    localStorage.setItem("tt-lang", sel.value);
-    lang = sel.value === "auto" ? (I18N[appLang] ? appLang : "pt") : sel.value;
-    applyLang();
-    const o = sel.options[0]; o.textContent = t("uiAuto");
+/**
+ * Dois seletores, porque são duas perguntas: em que idioma você LÊ o painel, e em que
+ * idioma a IA lê os presets e os prompts. Ambos ficam nas configurações globais do
+ * plugin — não no navegador — para valerem em qualquer tecla e sobreviverem a reinstalação.
+ */
+function buildLangPickers(prefs) {
+  const langOptions = (extraLabel) => {
+    const opts = [{ value: "auto", label: extraLabel }];
+    for (const code of Object.keys(I18N)) opts.push({ value: code, label: I18N[code]._name });
+    return opts;
   };
-  lang = sel.value === "auto" ? (I18N[appLang] ? appLang : "pt") : sel.value;
+
+  for (const [id, autoLabel, key] of [
+    ["uiLang", t("langFollowApp"), "uiLang"],
+    ["uiLangTop", t("langFollowApp"), "uiLang"],
+    ["contentLang", t("langContentAuto"), "contentLang"],
+  ]) {
+    const sel = document.getElementById(id);
+    if (!sel) continue;
+    fill(sel, langOptions(autoLabel), (prefs && prefs[key]) || "auto");
+    sel.onchange = () => {
+      const value = sel.value;
+      if (key === "uiLang") {
+        for (const other of ["uiLang", "uiLangTop"]) {
+          const el = document.getElementById(other);
+          if (el && el !== sel) el.value = value;
+        }
+        lang = value === "auto" ? (I18N[appLang] ? appLang : "en") : value;
+        applyLang();
+      }
+      toPlugin({ cmd: "setGlobal", [key]: value });
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -646,10 +794,17 @@ function handlePlugin(p) {
         }
       }
 
+      // O idioma do painel vem das globais do plugin, então os seletores são
+      // montados antes de traduzir a interface.
+      if (p.appLanguage) appLang = String(p.appLanguage).slice(0, 2);
+      buildLangPickers({ uiLang: p.uiLang, contentLang: p.contentLang });
+      if (p.uiLocale && I18N[p.uiLocale]) { lang = p.uiLocale; applyLang(); }
+
       renderPresets(p.presets || []);
       buildSwatches(p.swatches || []);
       document.getElementById("canonTerms").value = p.canonTerms || "";
       document.getElementById("ffmpegPath").value = p.ffmpegPath || "";
+      refreshDictCount();
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
       ready = true;
@@ -670,7 +825,12 @@ function handlePlugin(p) {
       refreshKeyStatus();
       document.getElementById("apiKey").value = "";
       break;
-    case "globalSaved": status(document.getElementById("globalStatus"), t("saved"), "ok"); break;
+    case "globalSaved":
+      status(document.getElementById("globalStatus"), t("saved"), "ok");
+      // Trocar o idioma de conteúdo renomeia os presets de fábrica e reescreve as
+      // instruções deles: a lista volta junto para o painel não ficar defasado.
+      if (p.presets) renderPresets(p.presets);
+      break;
     case "micResult": status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err"); break;
     case "budget": {
       const pct = Math.min(100, Math.round((p.used / p.limit) * 100));
@@ -690,12 +850,78 @@ function handlePlugin(p) {
 function refreshKeyStatus() {
   status(document.getElementById("keyStatus"),
     hasKeyCached ? t("keyOk") : t("keyMissing"), hasKeyCached ? "ok" : "warn");
+  // Sem chave, o aviso aparece no topo — antes de qualquer configuração.
+  document.body.classList.toggle("nokey", !hasKeyCached);
 }
 
+/** Quantos termos o dicionário tem, ao lado do botão que o abre. */
+function refreshDictCount() {
+  const raw = document.getElementById("canonTerms").value || "";
+  const n = raw.split(/[,\n;]+/).map((x) => x.trim()).filter((x) => x.length >= 2).length;
+  const el = document.getElementById("dictCount");
+  el.textContent = n ? `${n} ${t("dictTerms")}` : t("dictNone");
+  el.className = "status" + (n ? " ok" : "");
+  el.style.margin = "0";
+}
+
+function openModal(id) { document.getElementById(id).classList.add("on"); }
+function closeModals() {
+  for (const m of document.querySelectorAll(".modal")) m.classList.remove("on");
+}
+
+let presetCache = [];
+
 function renderPresets(list) {
+  presetCache = list;
   const sel = document.getElementById("presetList");
   fill(sel, list.map((p) => ({ value: p.id, label: p.name + (p.builtin ? "" : " *") })), settings.presetId);
   sel.dataset.builtins = JSON.stringify(list.filter((p) => p.builtin).map((p) => p.id));
+  renderPresetInfo();
+}
+
+/**
+ * Explicação do preset selecionado.
+ *
+ * A frase curta é escrita à mão (e traduzida) só para os presets de fábrica. O
+ * detalhamento é GERADO a partir das configurações do próprio preset — assim ele
+ * nunca mente: se o preset mudar, a descrição muda junto.
+ */
+function renderPresetInfo() {
+  const box = document.getElementById("presetInfo");
+  const id = document.getElementById("presetList").value;
+  const p = presetCache.find((x) => x.id === id);
+  if (!p) { box.innerHTML = ""; return; }
+
+  const desc = p.descKey ? t(p.descKey) : t("presetCustom");
+  const s = p.settings || {};
+  const on = (v) => `<span class="pill ${v ? "on" : "off"}">${v ? t("detailOn") : t("detailOff")}</span>`;
+  const rows = [];
+
+  const push = (dt, dd, cls) => rows.push(`<dt>${esc(dt)}</dt><dd${cls ? ` class="${cls}"` : ""}>${dd}</dd>`);
+
+  if (s.transcribeOn !== undefined) push(t("detailListen"), on(s.transcribeOn));
+  if (s.textOn !== undefined) push(t("detailWrite"), on(s.textOn));
+  if (s.cleanup !== undefined) push(t("detailCleanup"), on(s.cleanup));
+
+  if (s.styleMode === "translate") {
+    push(t("detailTranslate"), esc(langLabel(s.targetLanguage)));
+  } else if (s.styleMode === "custom" && (s.style || "").trim()) {
+    push(t("detailStyle"), esc(s.style), "quote");
+  } else if (s.styleMode === "none") {
+    push(t("detailStyle"), esc(t("detailNothing")));
+  }
+
+  if (s.label) push(t("detailKeyLabel"), esc(s.label));
+
+  box.innerHTML =
+    `<div class="desc">${esc(desc)}</div>` +
+    `<div class="detail adv"><h6>${esc(t("detailTitle"))}</h6><dl>${rows.join("")}</dl></div>`;
+}
+
+function langLabel(code) {
+  const sel = document.getElementById("targetLang");
+  for (const o of sel.options) if (o.value === code) return o.textContent;
+  return code || "";
 }
 
 function buildSwatches(swatches) {
@@ -757,9 +983,26 @@ function renderPreview(p) {
 // Botões
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  buildLangPicker();
+  buildLangPickers(null);
   applyLang();
   bind();
+
+  // --- modais ---
+  document.getElementById("dictOpen").onclick = () => {
+    openModal("dictModal");
+    document.getElementById("canonTerms").focus();
+  };
+  document.getElementById("btnHelpKey").onclick = () => openModal("keyModal");
+  for (const b of document.querySelectorAll("[data-close]")) b.onclick = closeModals;
+  for (const m of document.querySelectorAll(".modal")) {
+    m.addEventListener("click", (e) => { if (e.target === m) closeModals(); });
+  }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModals(); });
+
+  // Links da OpenAI: quem abre o navegador é o Stream Deck, não o webview do painel.
+  for (const b of document.querySelectorAll("[data-url]")) {
+    b.onclick = () => send("openUrl", { url: b.dataset.url });
+  }
 
   // modo simples / avançado
   const setMode = (advanced) => {
@@ -778,6 +1021,9 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("promptToggle").textContent = on ? t("hidePrompt") : t("seePrompt");
     if (on) toPlugin({ cmd: "preview" });
   };
+
+  // Trocar a seleção já explica o preset, antes de aplicar qualquer coisa.
+  document.getElementById("presetList").addEventListener("change", renderPresetInfo);
 
   document.getElementById("presetApply").onclick = () =>
     toPlugin({ cmd: "applyPreset", id: document.getElementById("presetList").value });
@@ -823,7 +1069,10 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshPromptIfOpen();
     }, 400);
   };
-  document.getElementById("canonTerms").addEventListener("input", saveGlobal);
+  document.getElementById("canonTerms").addEventListener("input", () => {
+    refreshDictCount();
+    saveGlobal();
+  });
   document.getElementById("ffmpegPath").addEventListener("input", saveGlobal);
 });
 </script>

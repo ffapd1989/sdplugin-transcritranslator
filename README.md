@@ -100,15 +100,39 @@ montada por baixo — e você pode lê-la, veja abaixo.
 
 - **Simples / Avançado** — o modo Simples mostra preset, rótulo, microfone e as duas etapas.
   O Avançado abre modelos, idioma falado, contexto, silêncio, limites, cores e ffmpeg.
-- **Multilíngue** — português, inglês e espanhol. Segue o idioma do app Stream Deck e pode ser
-  trocado no seletor do topo.
+- **Cada preset se explica** — ao selecionar um, aparece uma frase dizendo para que ele serve;
+  no modo Avançado vem junto o detalhamento do que ele configura, **gerado a partir do próprio
+  preset**, então nunca diverge do que ele faz de verdade.
 - **Ver o que será enviado** — abre o texto **exato** que vai para a OpenAI nas duas etapas,
   peça por peça: limpeza, tradução ou sua instrução, grafia canônica e as travas de segurança.
   Nenhum prompt é oculto: se o plugin manda, você pode ler.
+- **Sem chave configurada**, um aviso aparece no topo com um guia passo a passo de como obter
+  uma na OpenAI, com os links diretos e o custo estimado.
+
+## Idiomas — três eixos independentes
+
+Português, inglês e espanhol, em três lugares que **não precisam concordar**:
+
+| Eixo | O que controla | Padrão |
+|---|---|---|
+| 🌐 **Painel** | o que **você** lê | segue o app Stream Deck |
+| 📝 **Presets e prompts** | o que a **IA** lê | segue o idioma falado da tecla |
+| 🎙 **Idioma falado** (por tecla) | o que a transcrição espera ouvir | português |
+
+Isso existe porque são perguntas diferentes. Quem usa o Stream Deck em inglês e trabalha em
+português precisa exatamente disso — e o app só informa um idioma.
+
+E não é só rótulo traduzido: **os prompts mudam de idioma junto**, porque a camada de limpeza
+depende de exemplos da língua falada. "vírgula" e as muletas "né", "tipo" só existem em
+português; em inglês são "comma", "um", "you know"; em espanhol, "coma", "este", "o sea". Um
+prompt em português aplicado a uma fala em inglês perderia justamente a parte que trabalha.
+Os nomes e as instruções dos presets seguem o mesmo eixo.
 
 ## Dicionário de palavras canônicas
 
-Suas siglas e termos próprios, em **Configuração da máquina**. Ele age em duas frentes:
+Suas siglas e termos próprios. Fica em **Configuração da máquina → Abrir dicionário**, que
+abre uma janela própria com o campo grande e a contagem de termos ao lado do botão. Ele age em
+duas frentes:
 
 1. **No prompt de transcrição** — ajuda o modelo a *ouvir* certo. Tem teto de **224 tokens**
    (~75 siglas); o que passar disso a API descarta em silêncio, e descarta o *começo*, por
@@ -116,6 +140,17 @@ Suas siglas e termos próprios, em **Configuração da máquina**. Ele age em du
 2. **Na correção final** — uma comparação exata força a grafia canônica no texto pronto.
    Sem limite de quantidade, sem custo e sem chance de alucinação. É esta que garante o
    resultado; a primeira só melhora as chances.
+
+## O prompt de transcrição vai vazio até você preencher
+
+Vale saber, porque não é óbvio: o parâmetro `prompt` da etapa 1 é montado de **duas fontes,
+ambas suas** — o dicionário de palavras canônicas e o campo *Contexto* da tecla. Os dois
+nascem vazios, e **nenhum preset de fábrica preenche o Contexto**. Enquanto os dois estiverem
+vazios, o parâmetro nem é enviado à API.
+
+Isso é deliberado: contexto genérico atrapalha mais do que ajuda. Preencha o Contexto quando a
+tecla tiver assunto fixo ("Reunião técnica sobre infraestrutura de rede") — aí o modelo passa a
+ouvir esperando aquele vocabulário.
 
 ## Onde ficam as coisas
 

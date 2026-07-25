@@ -54,23 +54,6 @@ export function applyCanon(text: string, terms: string[]): string {
 }
 
 /**
- * Instrução de grafia para o prompt da etapa de texto (sem teto de tokens).
- *
- * O aviso do meio não é decorativo: sem ele o modelo tende a "usar" os termos da
- * lista mesmo quando não foram ditos, entupindo o texto de siglas aleatórias.
- */
-export function canonTextInstruction(terms: string[]): string {
-  if (terms.length === 0) return "";
-  return (
-    `\n\nGRAFIA OBRIGATÓRIA: se — e somente se — algum dos termos abaixo aparecer no texto, ` +
-    `use exatamente a grafia listada. Esta lista é referência ortográfica, NÃO conteúdo a ` +
-    `inserir: não acrescente nenhum destes termos ao resultado se ele não estiver no texto ` +
-    `original. Termos em maiúsculas são siglas e devem ser mantidos assim; termos em ` +
-    `minúsculas seguem a capitalização da posição na frase.\n${terms.join(", ")}`
-  );
-}
-
-/**
  * Monta o prompt da etapa de transcrição respeitando o teto de 224 tokens.
  *
  * A ORDEM importa: a documentação diz que o modelo considera os ÚLTIMOS 224 tokens

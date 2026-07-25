@@ -20,7 +20,8 @@ import { join } from "node:path";
 
 import {
   withDefaults,
-  targetLanguageName,
+  resolveContentLocale,
+  resolveUiLocale,
   languageBadge,
   TRANSCRIBE_MODELS,
   TEXT_MODELS,
@@ -28,6 +29,7 @@ import {
   TARGET_LANGUAGES,
   type ActionSettings,
   type GlobalSettings,
+  type LangPref,
 } from "../lib/settings.js";
 import { Recorder } from "../lib/recorder.js";
 import { getState, acquireLock, releaseLock, isBusyElsewhere, trackPid, untrackPid } from "../lib/sessions.js";
@@ -46,6 +48,7 @@ import { SWATCHES } from "../lib/theme.js";
 import { beep } from "../lib/beep.js";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/vault.js";
 import { listPresets, getPreset, savePreset, deletePreset, PRESET_FIELDS } from "../lib/presets.js";
+import type { Locale } from "../lib/prompt-text.js";
 
 /** Segurar por isto durante a gravação = cancelar. */
 const HOLD_MS = 1000;
@@ -60,12 +63,49 @@ function ffmpegOf(g: GlobalSettings | undefined): string {
   return g?.ffmpegPath?.trim() || "ffmpeg";
 }
 
+/**
+ * Presets para o painel: nome, chave da descrição curta e as PRÓPRIAS configurações.
+ *
+ * As configurações vão junto para o painel poder montar o detalhe do preset a partir
+ * do que ele realmente faz — em vez de uma descrição escrita à mão que envelheceria
+ * assim que alguém mexesse no preset.
+ */
+async function presetSummaries(locale: Locale) {
+  return (await listPresets(locale)).map((p) => ({
+    id: p.id,
+    name: p.name,
+    builtin: !!p.builtin,
+    descKey: p.descKey ?? null,
+    settings: p.settings,
+  }));
+}
+
+/** Idioma do app Stream Deck, quando ele informa. */
+function appLanguage(): string | undefined {
+  return (streamDeck.info as { application?: { language?: string } })?.application?.language;
+}
+
+/** Idioma em que os presets e os prompts desta tecla são escritos. */
+function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
+  return resolveContentLocale({
+    contentLang: g?.contentLang,
+    spokenLanguage: spoken,
+    uiLang: g?.uiLang,
+    appLanguage: appLanguage(),
+  });
+}
+
 /** Traduz as settings da tecla para o formato que a montagem de prompt espera. */
-function textOptions(s: Required<ActionSettings>, canonTerms: string[]): TextPromptOptions {
+function textOptions(
+  s: Required<ActionSettings>,
+  canonTerms: string[],
+  locale: Locale,
+): TextPromptOptions {
   return {
+    locale,
     cleanup: s.cleanup,
     styleMode: s.styleMode,
-    targetLanguageName: targetLanguageName(s.targetLanguage),
+    targetLanguage: s.targetLanguage,
     style: s.style,
     canonTerms,
   };
@@ -410,7 +450,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     s: Required<ActionSettings>,
     global: GlobalSettings | undefined,
   ): Promise<void> {
-    if (!hasTextWork(textOptions(s, []))) {
+    if (!hasTextWork(textOptions(s, [], contentLocale(global, s.language)))) {
       await this.flash(a, "warn", ["nada a", "fazer"], 2000);
       return;
     }
@@ -479,7 +519,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
       // --- etapa 2: texto ---
       let final = raw;
-      const textOpts = textOptions(s, terms);
+      const textOpts = textOptions(s, terms, contentLocale(global, s.language));
       if (s.textOn && hasTextWork(textOpts)) {
         st.phase = "texting";
         await this.render(a, await a.getSettings());
@@ -568,10 +608,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
           reply({
             event: "init",
             devices: (await listAudioDevices(ffmpeg)).map((d) => d.name),
-            presets: (await listPresets()).map((p) => ({ id: p.id, name: p.name, builtin: !!p.builtin })),
+            presets: await presetSummaries(contentLocale(global)),
             hasKey: !!(await getApiKey()),
             canonTerms: global.canonTerms ?? "",
             ffmpegPath: global.ffmpegPath ?? "",
+            uiLang: global.uiLang ?? "auto",
+            contentLang: global.contentLang ?? "auto",
+            appLanguage: appLanguage() ?? "",
+            uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -601,9 +645,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
               dropped: built.droppedTerms,
             },
             text: {
-              enabled: s.textOn && hasTextWork(textOptions(s, terms)),
+              enabled: s.textOn && hasTextWork(textOptions(s, terms, contentLocale(global, s.language))),
               model: s.textModel,
-              parts: textPromptParts(textOptions(s, terms)),
+              parts: textPromptParts(textOptions(s, terms, contentLocale(global, s.language))),
             },
           });
           break;
@@ -621,17 +665,27 @@ export class Dictation extends SingletonAction<ActionSettings> {
           reply({ event: "keySaved", hasKey: false });
           break;
 
-        case "setGlobal":
-          await streamDeck.settings.setGlobalSettings({
+        case "setGlobal": {
+          const next = {
             ...global,
             canonTerms: msg.canonTerms ?? global.canonTerms,
             ffmpegPath: msg.ffmpegPath ?? global.ffmpegPath,
+            uiLang: msg.uiLang ?? global.uiLang,
+            contentLang: msg.contentLang ?? global.contentLang,
+          };
+          await streamDeck.settings.setGlobalSettings(next);
+          // Trocar o idioma de conteúdo renomeia e reescreve os presets de fábrica,
+          // então o painel precisa da lista nova junto com a confirmação.
+          reply({
+            event: "globalSaved",
+            presets: await presetSummaries(contentLocale(next)),
+            uiLocale: resolveUiLocale(next.uiLang, appLanguage()),
           });
-          reply({ event: "globalSaved" });
           break;
+        }
 
         case "applyPreset": {
-          const preset = await getPreset(msg.id);
+          const preset = await getPreset(msg.id, contentLocale(global));
           if (!preset) { reply({ event: "error", message: "preset não encontrado" }); break; }
           const current = await a.getSettings();
           const next: ActionSettings = { ...current, presetId: preset.id };
@@ -651,10 +705,10 @@ export class Dictation extends SingletonAction<ActionSettings> {
             const v = (current as any)[k];
             if (v !== undefined) (picked as any)[k] = v;
           }
-          await savePreset(msg.name, picked);
+          await savePreset(msg.name, picked, contentLocale(global));
           reply({
             event: "presets",
-            presets: (await listPresets()).map((p) => ({ id: p.id, name: p.name, builtin: !!p.builtin })),
+            presets: await presetSummaries(contentLocale(global)),
           });
           break;
         }
@@ -663,7 +717,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
           await deletePreset(msg.id);
           reply({
             event: "presets",
-            presets: (await listPresets()).map((p) => ({ id: p.id, name: p.name, builtin: !!p.builtin })),
+            presets: await presetSummaries(contentLocale(global)),
           });
           break;
 
@@ -703,7 +757,7 @@ type PiMessage =
   | { cmd: "preview" }
   | { cmd: "setKey"; key: string }
   | { cmd: "clearKey" }
-  | { cmd: "setGlobal"; canonTerms?: string; ffmpegPath?: string }
+  | { cmd: "setGlobal"; canonTerms?: string; ffmpegPath?: string; uiLang?: LangPref; contentLang?: LangPref }
   | { cmd: "applyPreset"; id: string }
   | { cmd: "savePreset"; name: string }
   | { cmd: "deletePreset"; id: string }

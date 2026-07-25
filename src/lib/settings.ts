@@ -1,27 +1,74 @@
 // Formato das configurações.
 //
-// Duas camadas, e a divisao NÃO é arbitraria:
-//   - GLOBAIS: só o que é propriedade da MAQUINA ou da PESSOA — a chave da API,
-//     o dicionario de palavras canonicas (as siglas que você usa no seu trabalho)
-//     e o caminho do ffmpeg. Não faz sentido variar por tecla.
-//   - POR TECLA: todo o resto. E' o que permite ter uma tecla "ditado cru", outra
-//     "e-mail formal" e outra "-> inglês" lado a lado no XL, cada uma independente.
+// Duas camadas, e a divisão NÃO é arbitrária:
+//   - GLOBAIS: só o que é propriedade da MÁQUINA ou da PESSOA — a chave da API,
+//     o dicionário de palavras canônicas (as siglas que você usa no seu trabalho),
+//     o caminho do ffmpeg e as preferências de idioma. Não faz sentido variar por tecla.
+//   - POR TECLA: todo o resto. É o que permite ter uma tecla "ditado cru", outra
+//     "e-mail formal" e outra "→ inglês" lado a lado no XL, cada uma independente.
 //
 // A chave da OpenAI não mora aqui: vive no cofre DPAPI (ver vault.ts), porque as
 // settings do Stream Deck viram um .json em texto plano em %APPDATA%\Elgato.
 
+import { asLocale, type Locale } from "./prompt-text.js";
+
 export type CaptureMode = "toggle" | "ptt";
 export type IconName = "mic" | "globe" | "bubble" | "pen" | "none";
 export type StyleMode = "none" | "translate" | "custom";
+export type LangPref = "auto" | "pt" | "en" | "es";
 
 export type GlobalSettings = {
-  /** Dicionario de palavras canonicas, separado por virgula. Nasce VAZIO. */
+  /** Dicionário de palavras canônicas, separado por vírgula. Nasce VAZIO. */
   canonTerms?: string;
   /** Caminho do ffmpeg. Vazio = procura no PATH. */
   ffmpegPath?: string;
-  /** Somente leitura, para o Property Inspector saber se ja existe chave no cofre. */
+  /** Somente leitura, para o Property Inspector saber se já existe chave no cofre. */
   hasKey?: boolean;
+
+  // --- idiomas, em dois eixos independentes ---
+  //
+  // Existem separados porque são perguntas diferentes: em que idioma você quer LER o
+  // painel, e em que idioma quer que os presets e os prompts sejam ESCRITOS. Quem usa
+  // o Stream Deck em inglês e trabalha em português precisa das duas coisas
+  // divergindo — e o app só informa uma.
+
+  /** Idioma do painel. "auto" segue o app Stream Deck. */
+  uiLang?: LangPref;
+  /**
+   * Idioma dos presets e dos prompts enviados à API.
+   * "auto" segue o idioma FALADO da tecla; se ele estiver em detecção automática,
+   * cai para o idioma do painel.
+   */
+  contentLang?: LangPref;
 };
+
+/**
+ * Idioma em que os presets e os prompts são escritos para esta tecla.
+ *
+ * A cascata importa: o idioma FALADO vem antes do idioma do painel porque a camada de
+ * limpeza depende de exemplos da língua falada ("vírgula", "né") — um prompt em
+ * português aplicado a uma fala em inglês perderia exatamente a parte que trabalha.
+ */
+export function resolveContentLocale(opts: {
+  contentLang?: LangPref;
+  spokenLanguage?: string;
+  uiLang?: LangPref;
+  appLanguage?: string;
+}): Locale {
+  if (opts.contentLang && opts.contentLang !== "auto") return opts.contentLang;
+  return (
+    asLocale(opts.spokenLanguage) ??
+    asLocale(opts.uiLang === "auto" ? undefined : opts.uiLang) ??
+    asLocale(opts.appLanguage) ??
+    "en"
+  );
+}
+
+/** Idioma do painel. */
+export function resolveUiLocale(uiLang: LangPref | undefined, appLanguage: string | undefined): Locale {
+  if (uiLang && uiLang !== "auto") return uiLang;
+  return asLocale(appLanguage) ?? "en";
+}
 
 export type ActionSettings = {
   // --- preset e essencial ---
@@ -181,6 +228,7 @@ export const TARGET_LANGUAGES = [
 export function targetLanguageName(code: string): string {
   return TARGET_LANGUAGES.find((l) => l.code === code)?.label ?? code;
 }
+
 
 /** Sigla curta para o badge da tecla: "EN", "ES". */
 export function languageBadge(code: string): string {
