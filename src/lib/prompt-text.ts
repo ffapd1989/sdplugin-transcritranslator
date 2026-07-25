@@ -37,25 +37,8 @@ export type PromptText = {
   partNone: string;
   alsoApply: string;
   justApply: string;
-  /** Nome de cada idioma de destino, escrito no idioma do prompt. */
-  languageNames: Record<string, string>;
 };
 
-const LANG_PT: Record<string, string> = {
-  en: "inglês", es: "espanhol", pt: "português", fr: "francês", de: "alemão",
-  it: "italiano", nl: "holandês", ja: "japonês", zh: "chinês simplificado",
-  ko: "coreano", ru: "russo", ar: "árabe",
-};
-const LANG_EN: Record<string, string> = {
-  en: "English", es: "Spanish", pt: "Portuguese", fr: "French", de: "German",
-  it: "Italian", nl: "Dutch", ja: "Japanese", zh: "Simplified Chinese",
-  ko: "Korean", ru: "Russian", ar: "Arabic",
-};
-const LANG_ES: Record<string, string> = {
-  en: "inglés", es: "español", pt: "portugués", fr: "francés", de: "alemán",
-  it: "italiano", nl: "neerlandés", ja: "japonés", zh: "chino simplificado",
-  ko: "coreano", ru: "ruso", ar: "árabe",
-};
 
 export const PROMPT_TEXT: Record<Locale, PromptText> = {
   pt: {
@@ -134,7 +117,6 @@ o texto. Na dúvida entre corrigir e preservar, PRESERVE o que foi dito.`,
     partNone: "Sem instrução",
     alsoApply: "ALÉM DA LIMPEZA ACIMA, aplique esta instrução ao texto:",
     justApply: "Aplique esta instrução ao texto:",
-    languageNames: LANG_PT,
   },
 
   en: {
@@ -215,7 +197,6 @@ When in doubt between correcting and preserving, PRESERVE what was said.`,
     partNone: "No instruction",
     alsoApply: "IN ADDITION TO THE CLEANUP ABOVE, apply this instruction to the text:",
     justApply: "Apply this instruction to the text:",
-    languageNames: LANG_EN,
   },
 
   es: {
@@ -294,15 +275,9 @@ el texto. Ante la duda entre corregir y conservar, CONSERVA lo que se dijo.`,
     partNone: "Sin instrucción",
     alsoApply: "ADEMÁS DE LA LIMPIEZA ANTERIOR, aplica esta instrucción al texto:",
     justApply: "Aplica esta instrucción al texto:",
-    languageNames: LANG_ES,
   },
 };
 
 export function promptText(locale: Locale): PromptText {
   return PROMPT_TEXT[locale] ?? PROMPT_TEXT.en;
-}
-
-/** Nome do idioma de destino, escrito no idioma do prompt. */
-export function languageNameIn(locale: Locale, code: string): string {
-  return promptText(locale).languageNames[code] ?? code;
 }

@@ -110,12 +110,41 @@ function waveGlyph(levels: number[]): string {
 
 function textEl(s: string, y: number, size = 14): string {
   const t = esc(s);
-  // Texto longo é comprimido em vez de vazar da tecla.
-  const fit = t.length > 9 ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
+  // Quantos caracteres cabem na largura útil (~62 px) neste corpo de fonte. Acima
+  // disso o texto é comprimido em vez de vazar da tecla.
+  const fitsAt = Math.max(4, Math.floor(62 / (size * 0.56)));
+  const fit = t.length > fitsAt ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
   return (
-    `<text x="36" y="${y}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
-    `font-size="${size}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`
+    `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
+    `font-size="${f(size)}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`
   );
+}
+
+/**
+ * Quebra o rótulo em linhas.
+ *
+ * Respeita a quebra que a pessoa digitou; se não houver, quebra sozinho por palavra
+ * quando o texto não cabe. Sem isto, "Petição inicial" viraria uma linha só espremida
+ * até ficar ilegível — a tecla tem 72 px.
+ */
+export function wrapLabel(text: string, size: number, maxLines = 3): string[] {
+  const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (manual.length > 1) return manual.slice(0, maxLines);
+
+  const single = manual[0] ?? "";
+  const perLine = Math.max(4, Math.floor(62 / (size * 0.56)));
+  if (single.length <= perLine) return single ? [single] : [];
+
+  const lines: string[] = [];
+  let current = "";
+  for (const word of single.split(/\s+/)) {
+    if (!current) current = word;
+    else if ((current + " " + word).length <= perLine) current += " " + word;
+    else { lines.push(current); current = word; }
+    if (lines.length === maxLines - 1 && current.length > perLine) break;
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, maxLines);
 }
 
 export type KeySpec = {
@@ -125,11 +154,29 @@ export type KeySpec = {
   special?: "check" | "cross" | "warn" | "dots" | "wave";
   levels?: number[];
   phase?: number;
-  /** Uma ou duas linhas embaixo. */
+  /** Até três linhas embaixo. */
   lines?: string[];
+  /** Corpo da fonte do texto, em px. */
+  fontSize?: number;
+  /** Espaço extra entre linhas, em px. */
+  lineGap?: number;
   /** Sigla no canto (ex.: "EN") — a tecla mostra para qual idioma ela traduz. */
   badge?: string;
 };
+
+/**
+ * Onde cada linha de texto fica, dado quantas são e o corpo da fonte.
+ *
+ * O bloco é ancorado pelo RODAPÉ da tecla e cresce para cima: com uma linha o texto
+ * fica onde sempre esteve; com duas ou três ele sobe, em vez de vazar para fora.
+ */
+function textLayout(count: number, size: number, gap: number): number[] {
+  if (count <= 0) return [];
+  const step = size + gap;
+  const bottom = 68 - (size - 14) * 0.25; // corpos maiores respiram um pouco mais
+  const first = bottom - (count - 1) * step;
+  return Array.from({ length: count }, (_, i) => first + i * step);
+}
 
 /** Selo de canto: diz o destino da tradução sem precisar abrir o painel. */
 function badgeSvg(text: string): string {
@@ -155,10 +202,40 @@ export function keyImage(spec: KeySpec): string {
     default: center = glyph(spec.icon ?? "mic");
   }
 
-  const lines = (spec.lines ?? []).filter((l) => l && l.length);
-  let text = "";
-  if (lines.length === 1) text = textEl(lines[0], 62);
-  else if (lines.length >= 2) text = textEl(lines[0], 55, 12) + textEl(lines[1], 67, 12);
+  const lines = (spec.lines ?? []).filter((l) => l && l.length).slice(0, 3);
+  const gap = spec.lineGap ?? 0;
+  // Respeita o corpo escolhido e só encolhe se o bloco não couber na faixa de texto
+  // da tecla (~38 px). Assim "fonte grande" continua grande com uma linha.
+  const wanted = spec.fontSize ?? 14;
+  const height = lines.length * wanted + Math.max(0, lines.length - 1) * gap;
+  const size = height > 38 ? Math.max(8, (wanted * 38) / height) : wanted;
+
+  const text = textLayout(lines.length, size, gap)
+    .map((y, i) => textEl(lines[i], y, size))
+    .join("");
+
+  // O texto manda no espaço: com duas ou três linhas o glifo ENCOLHE e sobe, em vez
+  // de ficar por baixo das letras. Sem isto, "Relato de atendimento" imprime as
+  // linhas em cima do microfone e nada fica legível.
+  const ys = textLayout(lines.length, size, gap);
+  const textTop = ys.length ? ys[0] - size : SIZE;
+  const boxTop = 5;
+  const boxBottom = Math.min(SIZE - 4, textTop - 3);
+  const available = boxBottom - boxTop;
+  const NATURAL = 42; // altura que os glifos ocupam no desenho original
+
+  let art = "";
+  if (available >= 12) {
+    const k = Math.min(1, available / NATURAL);
+    if (k >= 0.995) {
+      art = center;
+    } else {
+      // Escala em torno do centro natural do glifo (36, 28) e recentraliza na sobra.
+      const cy = boxTop + available / 2;
+      art =
+        `<g transform="translate(36 ${f(cy)}) scale(${f(k)}) translate(-36 -28)">${center}</g>`;
+    }
+  }
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` +
@@ -166,7 +243,7 @@ export function keyImage(spec: KeySpec): string {
     `<stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/>` +
     `</linearGradient></defs>` +
     `<rect x="2.5" y="2.5" width="67" height="67" rx="13" fill="url(#g)" stroke="${border}" stroke-width="2.5"/>` +
-    center +
+    art +
     text +
     (spec.badge ? badgeSvg(spec.badge) : "") +
     `</svg>`;

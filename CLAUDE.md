@@ -79,6 +79,36 @@ Não são a mesma coisa e não precisam concordar:
 Texto de interface vive em `ui/i18n.js`; texto que a IA lê vive em `src/lib/*-text.ts`. **Nunca
 duplique uma frase nos dois lados** — o painel recebe do plugin o que já foi resolvido.
 
+### REGRA: tudo que é texto tem de existir nos três idiomas
+
+O plugin é publicável na loja da Elgato, então **não existe "só em português"**. Ao acrescentar
+qualquer texto, os três (`pt`, `en`, `es`) entram na mesma mudança:
+
+| Se você acrescentar… | Tem de mexer em |
+|---|---|
+| Rótulo, dica ou botão do painel | `ui/i18n.js` — os três blocos |
+| Regra na camada de limpeza, trava, instrução de tradução | `src/lib/prompt-text.ts` — os três blocos |
+| Preset de fábrica (nome ou instrução) | `src/lib/preset-text.ts` — os três blocos |
+| Nome de idioma | **nada** — vem do `Intl.DisplayNames` |
+
+Duas verificações rápidas antes de commitar:
+
+```bash
+# paridade das chaves do painel
+node -e "global.window={};require('./com.felipe.transcritranslator.sdPlugin/ui/i18n.js');
+const I=global.window.TT_I18N,b=Object.keys(I.pt);
+for(const l of ['pt','en','es']){const m=b.filter(k=>!(k in I[l]));
+console.log(l, m.length?('FALTA '+m):'completo')}"
+
+npm run test   # cobre prompts e presets nos três idiomas
+```
+
+**Nomes de idioma não são traduzidos à mão.** `src/lib/languages.ts` usa `Intl.DisplayNames` —
+verificado: o Node do Stream Deck tem ICU completo. São duas formas: `languageName()` devolve
+minúsculo para caber na frase do prompt ("Traduza o texto para inglês"); `languageLabel()`
+devolve capitalizado para a lista do painel ("Inglês"). Inglês escreve idioma em maiúscula e
+português/espanhol em minúscula — o Intl já entrega a forma certa de cada um.
+
 ---
 
 ## Decisões que não devem ser revertidas
@@ -124,6 +154,11 @@ prompt should match the audio language."*
 
 **9. Estado das gravações vive em `sessions.ts`, fora da instância da ação.** O SDK dispara
 `willDisappear` ao trocar de página/perfil; na instância, o ditado morreria junto.
+
+**10. Na tecla, o texto manda no espaço e o ícone cede.** Com duas ou três linhas de rótulo o
+glifo encolhe e sobe (`<g transform="…scale(…)">` em `keyImage`). Sem isso, "Relato de
+atendimento" imprime as linhas **em cima** do microfone. Há teste travando a não-sobreposição;
+se mexer no layout da tecla, renderize e olhe — o teste garante a geometria, não a estética.
 
 ---
 

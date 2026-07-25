@@ -28,6 +28,8 @@
   }
   .seg button.on { background: #46617f; color: #eaf2fb; }
   .topbar select { width: auto; flex: 0 0 auto; font-size: 8.5pt; padding: 3px 5px; }
+  /* Diz de cara que aquele seletor é de idioma, sem gastar largura com um rótulo. */
+  .topbar .globe { font-size: 11pt; line-height: 1; opacity: .85; }
   .topbar .grow { flex: 1 1 auto; }
 
   details {
@@ -62,6 +64,9 @@
      verdade, não uma linha. Redimensionar na mão toda vez é atrito à toa. */
   textarea { resize: vertical; min-height: 112px; font-size: 8.5pt; line-height: 1.45; }
   textarea.tall { min-height: 150px; }
+  /* O rótulo da tecla cabe em duas ou três linhas curtas — não precisa de caixa grande. */
+  textarea.short { min-height: 44px; }
+  input[type=range] { flex: 1 1 auto; min-width: 60px; accent-color: var(--accent); padding: 0; }
   input[type=number] { width: 62px; flex: 0 0 62px; }
   input[type=color] {
     width: 34px; height: 24px; padding: 1px; border: 1px solid #4a4a4a;
@@ -218,6 +223,7 @@
     <button id="btnAdvanced" data-i18n="modeAdvanced">Avançado</button>
   </div>
   <span class="grow"></span>
+  <span class="globe" id="globeIcon" aria-hidden="true">🌐</span>
   <select id="uiLangTop" title="Idioma do painel"></select>
 </div>
 
@@ -249,7 +255,17 @@
 
     <div class="row">
       <label data-i18n="label">Rótulo</label>
-      <div class="ctl"><input type="text" data-setting="label" data-type="str" data-i18n-ph="labelPh"></div>
+      <div class="ctl">
+        <textarea class="short" data-setting="label" data-type="str" data-i18n-ph="labelPh" rows="2"></textarea>
+      </div>
+    </div>
+    <div class="hint" data-i18n="labelHint"></div>
+    <div class="row adv">
+      <label data-i18n="labelSize">Tamanho</label>
+      <div class="ctl">
+        <input type="range" data-setting="labelSize" data-type="num" min="9" max="22" step="1">
+        <input type="range" data-setting="labelGap" data-type="num" min="0" max="8" step="1" title="espaçamento">
+      </div>
     </div>
 
     <div class="row">
@@ -603,7 +619,7 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
   ws.onopen = () => {
     // O registro é o único frame com `uuid` em vez de `context`.
     ws.send(JSON.stringify({ event: registerEvent, uuid: inUUID }));
-    toPlugin({ cmd: "init" });
+    toPlugin({ cmd: "init", autoLabel: t("langDetect") });
   };
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
@@ -694,7 +710,7 @@ const DEFAULTS = {
   textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
   autoPaste: true, history: true, historyDir: "", keepAudio: false,
   colorIdle: "#404650", colorRec: "#C44040", colorDone: "#2E8C3C", icon: "mic",
-  showLabel: true, showTimer: true, showWave: true,
+  showLabel: true, showTimer: true, showWave: true, labelSize: 14, labelGap: 1,
 };
 
 const fields = () => document.querySelectorAll("[data-setting]");

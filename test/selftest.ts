@@ -4,7 +4,8 @@ import { looksLikePromptEcho } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
 import { builtinPresets } from "../src/lib/presets.js";
 import { promptText, LOCALES } from "../src/lib/prompt-text.js";
-import { keyImage, clock, wordCount } from "../src/lib/icons.js";
+import { keyImage, clock, wordCount, wrapLabel } from "../src/lib/icons.js";
+import { spokenLanguages, languageLabel, languageName, languageBadge } from "../src/lib/languages.js";
 import { shade } from "../src/lib/theme.js";
 import { withDefaults, resolveContentLocale, resolveUiLocale } from "../src/lib/settings.js";
 
@@ -174,6 +175,63 @@ ok("string vazia não vira default", cleared.style === "" && cleared.label === "
 ok("false não vira default", cleared.cleanup === false);
 const custom = withDefaults({ maxMinutes: 3, colorIdle: "#123456" });
 ok("valor custom vence", custom.maxMinutes === 3 && custom.colorIdle === "#123456");
+console.log("\n— rótulo da tecla —");
+ok("respeita quebra digitada",
+  JSON.stringify(wrapLabel("Petição\ninicial", 14)) === '["Petição","inicial"]',
+  JSON.stringify(wrapLabel("Petição\ninicial", 14)));
+ok("quebra sozinho quando não cabe",
+  wrapLabel("Relato de atendimento", 14).length > 1,
+  JSON.stringify(wrapLabel("Relato de atendimento", 14)));
+ok("texto curto fica numa linha", wrapLabel("Ditado", 14).length === 1);
+ok("vazio não vira linha", wrapLabel("", 14).length === 0);
+ok("no máximo 3 linhas", wrapLabel("um dois três quatro cinco seis sete oito nove", 14).length <= 3);
+ok("fonte menor cabe mais por linha",
+  wrapLabel("Relato de atendimento", 9).length <= wrapLabel("Relato de atendimento", 18).length);
+
+const oneLine = svgOf(keyImage({ color: "#404650", icon: "mic", lines: ["Ditado"], fontSize: 14 }));
+const threeLines = svgOf(keyImage({
+  color: "#404650", icon: "mic", lines: ["Relato", "de", "atendimento"], fontSize: 14, lineGap: 1,
+}));
+ok("três linhas geram três textos", (threeLines.match(/<text/g) || []).length === 3);
+ok("bloco de texto não vaza da tecla",
+  [...threeLines.matchAll(/<text[^>]*y="([\d.]+)"/g)].every((m) => parseFloat(m[1]) <= 70),
+  [...threeLines.matchAll(/<text[^>]*y="([\d.]+)"/g)].map((m) => m[1]).join(","));
+ok("fonte grande com uma linha é respeitada",
+  svgOf(keyImage({ color: "#404650", lines: ["Oi"], fontSize: 22 })).includes('font-size="22.00"'));
+
+ok("ícone encolhe quando o texto ocupa espaço",
+  svgOf(keyImage({ color: "#404650", icon: "mic", lines: ["Relato", "de", "atendimento"], fontSize: 14 }))
+    .includes("<g transform="));
+ok("ícone fica natural com uma linha",
+  !svgOf(keyImage({ color: "#404650", icon: "mic", lines: ["Ditado"], fontSize: 14 }))
+    .includes("<g transform="));
+ok("ícone e texto não se sobrepõem", (() => {
+  const svg = svgOf(keyImage({
+    color: "#404650", icon: "mic", lines: ["aa", "bb", "cc"], fontSize: 14, lineGap: 2,
+  }));
+  const firstY = parseFloat(/<text[^>]*y="([\d.]+)"/.exec(svg)![1]);
+  const scale = parseFloat(/scale\(([\d.]+)\)/.exec(svg)?.[1] ?? "1");
+  const cy = parseFloat(/translate\(36 ([\d.]+)\)/.exec(svg)?.[1] ?? "28");
+  // base do glifo escalado tem de ficar acima do topo da primeira linha de texto
+  return cy + (42 * scale) / 2 <= firstY - 14 + 1;
+})());
+
+console.log("\n— idiomas traduzidos —");
+for (const loc of LOCALES) {
+  const spoken = spokenLanguages(loc, "auto");
+  ok(`lista de falados em ${loc}`, spoken.length === 31 && spoken[0].code === "",
+    `n=${spoken.length}`);
+  ok(`ordem alfabética em ${loc}`,
+    spoken.slice(1).every((v, i, arr) => i === 0 || arr[i - 1].label.localeCompare(v.label, loc) <= 0));
+}
+ok("nome do idioma muda com o locale",
+  languageLabel("pt", "en") === "Inglês" && languageLabel("en", "en") === "English" &&
+  languageLabel("es", "en") === "Inglés",
+  `${languageLabel("pt", "en")} / ${languageLabel("en", "en")} / ${languageLabel("es", "en")}`);
+ok("prompt usa o nome em minúscula",
+  languageName("pt", "es") === "espanhol", languageName("pt", "es"));
+ok("badge sempre em maiúsculas", languageBadge("pt") === "PT" && languageBadge("") === "");
+ok("código desconhecido não quebra", !!languageLabel("pt", "xx"));
 
 console.log(`\n${pass} ok, ${fail} falhas\n`);
 process.exit(fail ? 1 : 0);

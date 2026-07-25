@@ -128,6 +128,10 @@ export type ActionSettings = {
   showLabel?: boolean;
   showTimer?: boolean;
   showWave?: boolean;
+  /** Corpo da fonte do rótulo, em px. */
+  labelSize?: number;
+  /** Espaço extra entre as linhas do rótulo, em px. */
+  labelGap?: number;
 };
 
 export const DEFAULTS: Required<ActionSettings> = {
@@ -166,6 +170,8 @@ export const DEFAULTS: Required<ActionSettings> = {
   showLabel: true,
   showTimer: true,
   showWave: true,
+  labelSize: 14,
+  labelGap: 1,
 };
 
 export function withDefaults(s: ActionSettings | undefined): Required<ActionSettings> {
@@ -196,69 +202,7 @@ export const TEXT_MODELS = [
   { id: "gpt-4o-mini", label: "GPT-4o mini" },
 ];
 
-/**
- * Idiomas que você PODE FALAR. O vazio deixa o modelo detectar.
- *
- * Informar o idioma "will improve accuracy and latency" (documentação da OpenAI) — é
- * a configuração de maior efeito por clique do painel, e por isso ela mora na seção
- * essencial, não no avançado.
- */
-export const LANGUAGES = [
-  { code: "", label: "Detectar (ou misturo idiomas)" },
-  { code: "pt", label: "Português" },
-  { code: "en", label: "Inglês" },
-  { code: "es", label: "Espanhol" },
-  { code: "fr", label: "Francês" },
-  { code: "de", label: "Alemão" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Holandês" },
-  { code: "ca", label: "Catalão" },
-  { code: "gl", label: "Galego" },
-  { code: "ja", label: "Japonês" },
-  { code: "zh", label: "Chinês" },
-  { code: "ko", label: "Coreano" },
-  { code: "ru", label: "Russo" },
-  { code: "uk", label: "Ucraniano" },
-  { code: "pl", label: "Polonês" },
-  { code: "tr", label: "Turco" },
-  { code: "ar", label: "Árabe" },
-  { code: "he", label: "Hebraico" },
-  { code: "hi", label: "Híndi" },
-  { code: "id", label: "Indonésio" },
-  { code: "sv", label: "Sueco" },
-  { code: "no", label: "Norueguês" },
-  { code: "da", label: "Dinamarquês" },
-  { code: "fi", label: "Finlandês" },
-  { code: "el", label: "Grego" },
-  { code: "cs", label: "Tcheco" },
-  { code: "ro", label: "Romeno" },
-  { code: "hu", label: "Húngaro" },
-  { code: "vi", label: "Vietnamita" },
-  { code: "th", label: "Tailandês" },
-];
-
-/** Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido. */
-export const TARGET_LANGUAGES = [
-  { code: "en", label: "Inglês" },
-  { code: "es", label: "Espanhol" },
-  { code: "pt", label: "Português" },
-  { code: "fr", label: "Francês" },
-  { code: "de", label: "Alemão" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Holandês" },
-  { code: "ja", label: "Japonês" },
-  { code: "zh", label: "Chinês (simplificado)" },
-  { code: "ko", label: "Coreano" },
-  { code: "ru", label: "Russo" },
-  { code: "ar", label: "Árabe" },
-];
-
-export function targetLanguageName(code: string): string {
-  return TARGET_LANGUAGES.find((l) => l.code === code)?.label ?? code;
-}
 
 
-/** Sigla curta para o badge da tecla: "EN", "ES". */
-export function languageBadge(code: string): string {
-  return (code || "").slice(0, 2).toUpperCase();
-}
+
+

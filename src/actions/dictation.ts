@@ -22,11 +22,8 @@ import {
   withDefaults,
   resolveContentLocale,
   resolveUiLocale,
-  languageBadge,
   TRANSCRIBE_MODELS,
   TEXT_MODELS,
-  LANGUAGES,
-  TARGET_LANGUAGES,
   type ActionSettings,
   type GlobalSettings,
   type LangPref,
@@ -43,12 +40,13 @@ import {
 } from "../lib/prompts.js";
 import { transcribe, runText, ApiError, shortError } from "../lib/openai.js";
 import { deliver, readSelectionOrClipboard, appendHistory, getFocusPid } from "../lib/deliver.js";
-import { keyImage, clock, wordCount } from "../lib/icons.js";
+import { keyImage, clock, wordCount, wrapLabel } from "../lib/icons.js";
 import { SWATCHES } from "../lib/theme.js";
 import { beep } from "../lib/beep.js";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/vault.js";
 import { listPresets, getPreset, savePreset, deletePreset, PRESET_FIELDS } from "../lib/presets.js";
 import type { Locale } from "../lib/prompt-text.js";
+import { spokenLanguages, targetLanguages, languageBadge } from "../lib/languages.js";
 
 /** Segurar por isto durante a gravação = cancelar. */
 const HOLD_MS = 1000;
@@ -157,7 +155,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
   private async render(a: KeyAction<ActionSettings>, raw: ActionSettings): Promise<void> {
     const s = withDefaults(raw);
     const st = getState(a.id);
-    const label = s.showLabel ? s.label || "Ditado" : "";
+    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
+    // quebra sozinho por palavra em vez de espremer tudo numa linha.
+    const labelLines = s.showLabel ? wrapLabel(s.label || "Ditado", s.labelSize) : [];
 
     let img: string;
     switch (st.phase) {
@@ -204,7 +204,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
         img = keyImage({
           color: s.colorIdle,
           icon: s.icon,
-          lines: label ? [label] : [],
+          lines: labelLines,
+          fontSize: s.labelSize,
+          lineGap: s.labelGap,
           // A tecla que traduz diz para onde, sem precisar abrir o painel.
           badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : undefined,
         });
@@ -605,6 +607,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       switch (msg?.cmd) {
         case "init": {
           const { listAudioDevices } = await import("../lib/recorder.js");
+          const uiLocale = resolveUiLocale(global.uiLang, appLanguage());
           reply({
             event: "init",
             devices: (await listAudioDevices(ffmpeg)).map((d) => d.name),
@@ -619,8 +622,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
-            languages: LANGUAGES,
-            targetLanguages: TARGET_LANGUAGES,
+            // As listas saem no idioma do PAINEL — quem lê é o usuário.
+            languages: spokenLanguages(uiLocale, msg.autoLabel || "Detect / mixed"),
+            targetLanguages: targetLanguages(uiLocale),
           });
           break;
         }
@@ -753,7 +757,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 }
 
 type PiMessage =
-  | { cmd: "init" }
+  | { cmd: "init"; autoLabel?: string }
   | { cmd: "preview" }
   | { cmd: "setKey"; key: string }
   | { cmd: "clearKey" }

@@ -17540,48 +17540,6 @@ function asLocale(code) {
   const c = (code || "").slice(0, 2).toLowerCase();
   return LOCALES.includes(c) ? c : void 0;
 }
-var LANG_PT = {
-  en: "ingl\xEAs",
-  es: "espanhol",
-  pt: "portugu\xEAs",
-  fr: "franc\xEAs",
-  de: "alem\xE3o",
-  it: "italiano",
-  nl: "holand\xEAs",
-  ja: "japon\xEAs",
-  zh: "chin\xEAs simplificado",
-  ko: "coreano",
-  ru: "russo",
-  ar: "\xE1rabe"
-};
-var LANG_EN = {
-  en: "English",
-  es: "Spanish",
-  pt: "Portuguese",
-  fr: "French",
-  de: "German",
-  it: "Italian",
-  nl: "Dutch",
-  ja: "Japanese",
-  zh: "Simplified Chinese",
-  ko: "Korean",
-  ru: "Russian",
-  ar: "Arabic"
-};
-var LANG_ES = {
-  en: "ingl\xE9s",
-  es: "espa\xF1ol",
-  pt: "portugu\xE9s",
-  fr: "franc\xE9s",
-  de: "alem\xE1n",
-  it: "italiano",
-  nl: "neerland\xE9s",
-  ja: "japon\xE9s",
-  zh: "chino simplificado",
-  ko: "coreano",
-  ru: "ruso",
-  ar: "\xE1rabe"
-};
 var PROMPT_TEXT = {
   pt: {
     cleanup: `Voc\xEA transforma uma transcri\xE7\xE3o de FALA em texto escrito limpo.
@@ -17647,8 +17605,7 @@ ${terms}`,
     partGuards: "Travas de seguran\xE7a",
     partNone: "Sem instru\xE7\xE3o",
     alsoApply: "AL\xC9M DA LIMPEZA ACIMA, aplique esta instru\xE7\xE3o ao texto:",
-    justApply: "Aplique esta instru\xE7\xE3o ao texto:",
-    languageNames: LANG_PT
+    justApply: "Aplique esta instru\xE7\xE3o ao texto:"
   },
   en: {
     cleanup: `You turn a transcript of SPEECH into clean written text.
@@ -17716,8 +17673,7 @@ ${terms}`,
     partGuards: "Safety guards",
     partNone: "No instruction",
     alsoApply: "IN ADDITION TO THE CLEANUP ABOVE, apply this instruction to the text:",
-    justApply: "Apply this instruction to the text:",
-    languageNames: LANG_EN
+    justApply: "Apply this instruction to the text:"
   },
   es: {
     cleanup: `Conviertes una transcripci\xF3n de HABLA en texto escrito limpio.
@@ -17783,8 +17739,7 @@ ${terms}`,
     partGuards: "Protecciones de seguridad",
     partNone: "Sin instrucci\xF3n",
     alsoApply: "ADEM\xC1S DE LA LIMPIEZA ANTERIOR, aplica esta instrucci\xF3n al texto:",
-    justApply: "Aplica esta instrucci\xF3n al texto:",
-    languageNames: LANG_ES
+    justApply: "Aplica esta instrucci\xF3n al texto:"
   }
 };
 function promptText(locale) {
@@ -17830,7 +17785,9 @@ var DEFAULTS = {
   icon: "mic",
   showLabel: true,
   showTimer: true,
-  showWave: true
+  showWave: true,
+  labelSize: 14,
+  labelGap: 1
 };
 function withDefaults(s) {
   const out = { ...DEFAULTS };
@@ -17855,56 +17812,6 @@ var TEXT_MODELS = [
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" }
 ];
-var LANGUAGES = [
-  { code: "", label: "Detectar (ou misturo idiomas)" },
-  { code: "pt", label: "Portugu\xEAs" },
-  { code: "en", label: "Ingl\xEAs" },
-  { code: "es", label: "Espanhol" },
-  { code: "fr", label: "Franc\xEAs" },
-  { code: "de", label: "Alem\xE3o" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Holand\xEAs" },
-  { code: "ca", label: "Catal\xE3o" },
-  { code: "gl", label: "Galego" },
-  { code: "ja", label: "Japon\xEAs" },
-  { code: "zh", label: "Chin\xEAs" },
-  { code: "ko", label: "Coreano" },
-  { code: "ru", label: "Russo" },
-  { code: "uk", label: "Ucraniano" },
-  { code: "pl", label: "Polon\xEAs" },
-  { code: "tr", label: "Turco" },
-  { code: "ar", label: "\xC1rabe" },
-  { code: "he", label: "Hebraico" },
-  { code: "hi", label: "H\xEDndi" },
-  { code: "id", label: "Indon\xE9sio" },
-  { code: "sv", label: "Sueco" },
-  { code: "no", label: "Noruegu\xEAs" },
-  { code: "da", label: "Dinamarqu\xEAs" },
-  { code: "fi", label: "Finland\xEAs" },
-  { code: "el", label: "Grego" },
-  { code: "cs", label: "Tcheco" },
-  { code: "ro", label: "Romeno" },
-  { code: "hu", label: "H\xFAngaro" },
-  { code: "vi", label: "Vietnamita" },
-  { code: "th", label: "Tailand\xEAs" }
-];
-var TARGET_LANGUAGES = [
-  { code: "en", label: "Ingl\xEAs" },
-  { code: "es", label: "Espanhol" },
-  { code: "pt", label: "Portugu\xEAs" },
-  { code: "fr", label: "Franc\xEAs" },
-  { code: "de", label: "Alem\xE3o" },
-  { code: "it", label: "Italiano" },
-  { code: "nl", label: "Holand\xEAs" },
-  { code: "ja", label: "Japon\xEAs" },
-  { code: "zh", label: "Chin\xEAs (simplificado)" },
-  { code: "ko", label: "Coreano" },
-  { code: "ru", label: "Russo" },
-  { code: "ar", label: "\xC1rabe" }
-];
-function languageBadge(code) {
-  return (code || "").slice(0, 2).toUpperCase();
-}
 
 // src/actions/dictation.ts
 init_recorder();
@@ -18057,11 +17964,93 @@ function promptBudget(terms, context) {
   };
 }
 
+// src/lib/languages.ts
+var SPOKEN_CODES = [
+  "pt",
+  "en",
+  "es",
+  "fr",
+  "de",
+  "it",
+  "nl",
+  "ca",
+  "gl",
+  "ja",
+  "zh",
+  "ko",
+  "ru",
+  "uk",
+  "pl",
+  "tr",
+  "ar",
+  "he",
+  "hi",
+  "id",
+  "sv",
+  "no",
+  "da",
+  "fi",
+  "el",
+  "cs",
+  "ro",
+  "hu",
+  "vi",
+  "th"
+];
+var TARGET_CODES = [
+  "en",
+  "es",
+  "pt",
+  "fr",
+  "de",
+  "it",
+  "nl",
+  "ja",
+  "zh",
+  "ko",
+  "ru",
+  "ar"
+];
+var cache = /* @__PURE__ */ new Map();
+function displayNames(locale) {
+  if (!cache.has(locale)) {
+    try {
+      cache.set(locale, new Intl.DisplayNames([locale], { type: "language" }));
+    } catch {
+      cache.set(locale, null);
+    }
+  }
+  return cache.get(locale) ?? null;
+}
+function languageName(locale, code) {
+  try {
+    return displayNames(locale)?.of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+function languageLabel(locale, code) {
+  const name = languageName(locale, code);
+  return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
+}
+function sorted(locale, codes) {
+  return codes.map((code) => ({ code, label: languageLabel(locale, code) })).sort((a, b) => a.label.localeCompare(b.label, locale));
+}
+function spokenLanguages(locale, autoLabel) {
+  return [{ code: "", label: autoLabel }, ...sorted(locale, SPOKEN_CODES)];
+}
+function targetLanguages(locale) {
+  return sorted(locale, TARGET_CODES);
+}
+function languageBadge(code) {
+  return (code || "").slice(0, 2).toUpperCase();
+}
+
 // src/lib/prompts.ts
 function styleInstruction(o) {
   const T = promptText(o.locale);
   if (o.styleMode === "translate") {
-    return T.translate(T.languageNames[o.targetLanguage] ?? o.targetLanguage);
+    return T.translate(languageName(o.locale, o.targetLanguage));
   }
   if (o.styleMode === "custom") return o.style.trim();
   return "";
@@ -18091,7 +18080,7 @@ function textPromptParts(o) {
   const block = styleBlock(o);
   if (block) {
     parts.push({
-      title: o.styleMode === "translate" ? T.partTranslate(T.languageNames[o.targetLanguage] ?? o.targetLanguage) : T.partCustom,
+      title: o.styleMode === "translate" ? T.partTranslate(languageName(o.locale, o.targetLanguage)) : T.partCustom,
       body: block
     });
   }
@@ -18458,8 +18447,36 @@ function waveGlyph(levels) {
 }
 function textEl(s, y, size = 14) {
   const t = esc2(s);
-  const fit = t.length > 9 ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
-  return `<text x="36" y="${y}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${size}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`;
+  const fitsAt = Math.max(4, Math.floor(62 / (size * 0.56)));
+  const fit = t.length > fitsAt ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
+  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(size)}" font-weight="600" fill="#ffffff"${fit}>${t}</text>`;
+}
+function wrapLabel(text, size, maxLines = 3) {
+  const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (manual.length > 1) return manual.slice(0, maxLines);
+  const single = manual[0] ?? "";
+  const perLine = Math.max(4, Math.floor(62 / (size * 0.56)));
+  if (single.length <= perLine) return single ? [single] : [];
+  const lines = [];
+  let current = "";
+  for (const word of single.split(/\s+/)) {
+    if (!current) current = word;
+    else if ((current + " " + word).length <= perLine) current += " " + word;
+    else {
+      lines.push(current);
+      current = word;
+    }
+    if (lines.length === maxLines - 1 && current.length > perLine) break;
+  }
+  if (current) lines.push(current);
+  return lines.slice(0, maxLines);
+}
+function textLayout(count, size, gap) {
+  if (count <= 0) return [];
+  const step = size + gap;
+  const bottom = 68 - (size - 14) * 0.25;
+  const first = bottom - (count - 1) * step;
+  return Array.from({ length: count }, (_, i) => first + i * step);
 }
 function badgeSvg(text) {
   const t = esc2(text.slice(0, 3).toUpperCase());
@@ -18488,11 +18505,29 @@ function keyImage(spec) {
     default:
       center = glyph(spec.icon ?? "mic");
   }
-  const lines = (spec.lines ?? []).filter((l) => l && l.length);
-  let text = "";
-  if (lines.length === 1) text = textEl(lines[0], 62);
-  else if (lines.length >= 2) text = textEl(lines[0], 55, 12) + textEl(lines[1], 67, 12);
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/></linearGradient></defs><rect x="2.5" y="2.5" width="67" height="67" rx="13" fill="url(#g)" stroke="${border}" stroke-width="2.5"/>` + center + text + (spec.badge ? badgeSvg(spec.badge) : "") + `</svg>`;
+  const lines = (spec.lines ?? []).filter((l) => l && l.length).slice(0, 3);
+  const gap = spec.lineGap ?? 0;
+  const wanted = spec.fontSize ?? 14;
+  const height = lines.length * wanted + Math.max(0, lines.length - 1) * gap;
+  const size = height > 38 ? Math.max(8, wanted * 38 / height) : wanted;
+  const text = textLayout(lines.length, size, gap).map((y, i) => textEl(lines[i], y, size)).join("");
+  const ys = textLayout(lines.length, size, gap);
+  const textTop = ys.length ? ys[0] - size : SIZE;
+  const boxTop = 5;
+  const boxBottom = Math.min(SIZE - 4, textTop - 3);
+  const available = boxBottom - boxTop;
+  const NATURAL = 42;
+  let art = "";
+  if (available >= 12) {
+    const k = Math.min(1, available / NATURAL);
+    if (k >= 0.995) {
+      art = center;
+    } else {
+      const cy = boxTop + available / 2;
+      art = `<g transform="translate(36 ${f(cy)}) scale(${f(k)}) translate(-36 -28)">${center}</g>`;
+    }
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/></linearGradient></defs><rect x="2.5" y="2.5" width="67" height="67" rx="13" fill="url(#g)" stroke="${border}" stroke-width="2.5"/>` + art + text + (spec.badge ? badgeSvg(spec.badge) : "") + `</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
 function clock(ms) {
@@ -18777,15 +18812,10 @@ var BUILTINS = [
     }
   }
 ];
-var TARGET_NAME = {
-  pt: { en: "ingl\xEAs", es: "espanhol", pt: "portugu\xEAs" },
-  en: { en: "English", es: "Spanish", pt: "Portuguese" },
-  es: { en: "ingl\xE9s", es: "espa\xF1ol", pt: "portugu\xE9s" }
-};
 function builtinToPreset(b, locale) {
   const text = presetText(locale, b.textKey);
   const target = b.settings.targetLanguage;
-  const name = target ? `${text.name} \u2192 ${TARGET_NAME[locale]?.[target] ?? target}` : text.name;
+  const name = target ? `${text.name} \u2192 ${languageName(locale, target)}` : text.name;
   return {
     id: b.id,
     name,
@@ -18931,7 +18961,7 @@ var Dictation = class extends (_a = SingletonAction) {
   async render(a, raw) {
     const s = withDefaults(raw);
     const st = getState(a.id);
-    const label = s.showLabel ? s.label || "Ditado" : "";
+    const labelLines = s.showLabel ? wrapLabel(s.label || "Ditado", s.labelSize) : [];
     let img;
     switch (st.phase) {
       case "arming":
@@ -18971,7 +19001,9 @@ var Dictation = class extends (_a = SingletonAction) {
         img = keyImage({
           color: s.colorIdle,
           icon: s.icon,
-          lines: label ? [label] : [],
+          lines: labelLines,
+          fontSize: s.labelSize,
+          lineGap: s.labelGap,
           // A tecla que traduz diz para onde, sem precisar abrir o painel.
           badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : void 0
         });
@@ -19294,6 +19326,7 @@ var Dictation = class extends (_a = SingletonAction) {
       switch (msg?.cmd) {
         case "init": {
           const { listAudioDevices: listAudioDevices2 } = await Promise.resolve().then(() => (init_recorder(), recorder_exports));
+          const uiLocale = resolveUiLocale(global.uiLang, appLanguage());
           reply({
             event: "init",
             devices: (await listAudioDevices2(ffmpeg)).map((d) => d.name),
@@ -19308,8 +19341,9 @@ var Dictation = class extends (_a = SingletonAction) {
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
-            languages: LANGUAGES,
-            targetLanguages: TARGET_LANGUAGES
+            // As listas saem no idioma do PAINEL — quem lê é o usuário.
+            languages: spokenLanguages(uiLocale, msg.autoLabel || "Detect / mixed"),
+            targetLanguages: targetLanguages(uiLocale)
           });
           break;
         }

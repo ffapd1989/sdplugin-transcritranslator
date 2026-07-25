@@ -14,6 +14,7 @@
 // ditado, em qualquer idioma.
 
 import { promptText, type Locale } from "./prompt-text.js";
+import { languageName } from "./languages.js";
 import type { StyleMode } from "./settings.js";
 
 export type TextPromptOptions = {
@@ -32,7 +33,7 @@ type StyleInput = Pick<TextPromptOptions, "locale" | "styleMode" | "targetLangua
 export function styleInstruction(o: StyleInput): string {
   const T = promptText(o.locale);
   if (o.styleMode === "translate") {
-    return T.translate(T.languageNames[o.targetLanguage] ?? o.targetLanguage);
+    return T.translate(languageName(o.locale, o.targetLanguage));
   }
   if (o.styleMode === "custom") return o.style.trim();
   return "";
@@ -75,7 +76,7 @@ export function textPromptParts(o: TextPromptOptions): Array<{ title: string; bo
     parts.push({
       title:
         o.styleMode === "translate"
-          ? T.partTranslate(T.languageNames[o.targetLanguage] ?? o.targetLanguage)
+          ? T.partTranslate(languageName(o.locale, o.targetLanguage))
           : T.partCustom,
       body: block,
     });

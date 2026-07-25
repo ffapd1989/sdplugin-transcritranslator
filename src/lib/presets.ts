@@ -17,6 +17,7 @@ import { join, dirname } from "node:path";
 import type { ActionSettings } from "./settings.js";
 import type { Locale } from "./prompt-text.js";
 import { presetText, type PresetTextKey } from "./preset-text.js";
+import { languageName } from "./languages.js";
 
 export type Preset = {
   id: string;
@@ -127,19 +128,13 @@ const BUILTINS: BuiltinPreset[] = [
   },
 ];
 
-/** Nomes traduzidos dos idiomas de destino, para rotular os presets de tradução. */
-const TARGET_NAME: Record<Locale, Record<string, string>> = {
-  pt: { en: "inglês", es: "espanhol", pt: "português" },
-  en: { en: "English", es: "Spanish", pt: "Portuguese" },
-  es: { en: "inglés", es: "español", pt: "portugués" },
-};
 
 function builtinToPreset(b: BuiltinPreset, locale: Locale): Preset {
   const text = presetText(locale, b.textKey);
   const target = b.settings.targetLanguage;
 
   // "Traduzir" + idioma de destino, no idioma do conteúdo.
-  const name = target ? `${text.name} → ${TARGET_NAME[locale]?.[target] ?? target}` : text.name;
+  const name = target ? `${text.name} → ${languageName(locale, target)}` : text.name;
 
   return {
     id: b.id,

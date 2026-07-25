@@ -32,6 +32,9 @@ window.TT_I18N = {
     presetBuiltinLocked: "presets de fábrica não podem ser excluídos",
 
     label: "Rótulo",
+    labelHint: "Duas ou três palavras. Quebre a linha para controlar como aparece na tecla — se não quebrar, ele quebra sozinho quando não couber.",
+    labelSize: "Tamanho",
+    langDetect: "Detectar (ou misturo idiomas)",
     labelPh: "Ditado",
     mic: "Microfone",
     micDefault: "Padrão do sistema (primeiro da lista)",
@@ -256,6 +259,9 @@ window.TT_I18N = {
     presetBuiltinLocked: "built-in presets cannot be deleted",
 
     label: "Label",
+    labelHint: "Two or three words. Break the line to control how it sits on the key — if you do not, it wraps on its own when it does not fit.",
+    labelSize: "Size",
+    langDetect: "Detect (or I mix languages)",
     labelPh: "Dictate",
     mic: "Microphone",
     micDefault: "System default (first in the list)",
@@ -473,6 +479,9 @@ window.TT_I18N = {
     presetBuiltinLocked: "los presets de fábrica no se pueden eliminar",
 
     label: "Etiqueta",
+    labelHint: "Dos o tres palabras. Salta de línea para controlar cómo queda en la tecla — si no lo haces, se ajusta solo cuando no cabe.",
+    labelSize: "Tamaño",
+    langDetect: "Detectar (o mezclo idiomas)",
     labelPh: "Dictado",
     mic: "Micrófono",
     micDefault: "Predeterminado del sistema (el primero de la lista)",
