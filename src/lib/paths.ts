@@ -1,14 +1,14 @@
-// Onde o plugin guarda o que e' dele. Tudo fora do repo, em %LOCALAPPDATA%.
+// Onde o plugin guarda o que é dele. Tudo fora do repo, em %LOCALAPPDATA%.
 
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 export const ROOT = join(process.env.LOCALAPPDATA ?? "", "transcritranslator");
 export const AUDIO_DIR = join(ROOT, "audio");
-/** Audio de envio que falhou fica aqui, mesmo com "guardar audio" desligado. */
+/** Áudio de envio que falhou fica aqui, mesmo com "guardar áudio" desligado. */
 export const FAILED_DIR = join(AUDIO_DIR, "falhou");
 export const HISTORY_DIR = join(ROOT, "historico");
-/** PIDs de ffmpeg vivos, para limpar orfaos se o app Stream Deck reiniciar. */
+/** PIDs de ffmpeg vivos, para limpar órfãos se o app Stream Deck reiniciar. */
 export const PIDS_FILE = join(ROOT, "ffmpeg-pids.json");
 
 export async function ensureDirs(): Promise<void> {

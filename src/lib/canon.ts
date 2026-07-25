@@ -1,25 +1,25 @@
-// Dicionario de palavras canonicas — as siglas e termos proprios de quem usa.
+// Dicionário de palavras canônicas — as siglas e termos próprios de quem usa.
 //
-// DUAS FRENTES, e a segunda e' a que realmente garante o resultado:
+// DUAS FRENTES, e a segunda é a que realmente garante o resultado:
 //
-//   1. PROMPT de transcricao: ajuda o modelo a OUVIR certo ("cê-pê-cê" -> "CPC").
-//      So' isso alcanca erro fonetico. Mas tem teto de 224 tokens e um risco real
-//      (o modelo pode despejar a lista quando o audio e' curto/silencioso — ver
+//   1. PROMPT de transcrição: ajuda o modelo a OUVIR certo ("cê-pê-cê" → "CPC").
+//      Só isso alcança erro fonético. Mas tem teto de 224 tokens e um risco real
+//      (o modelo pode despejar a lista quando o áudio é curto ou silencioso — ver
 //      openai.ts, que blinda contra isso).
 //
-//   2. POS-PROCESSAMENTO por regex: forca a grafia canonica no texto ja transcrito.
-//      Determinstico, sem limite de tamanho, sem custo e sem alucinacao possivel.
-//      Roda SEMPRE, depois de cada etapa. Estrategia herdada do FALA TU, que chegou
-//      a ela depois de apanhar do metodo 1 em producao.
+//   2. PÓS-PROCESSAMENTO por regex: força a grafia canônica no texto já transcrito.
+//      Determinístico, sem limite de tamanho, sem custo e sem alucinação possível.
+//      Roda SEMPRE, depois de cada etapa. Estratégia herdada do FALA TU, que chegou
+//      a ela depois de apanhar do método 1 em produção.
 //
-// Pegadinha do JS que custou tempo la' e nao vai custar aqui: `\b` NAO reconhece
-// letras acentuadas. "acordao" nao casaria em "no acordao." com \b. Por isso o
-// limite de palavra e' feito com lookaround Unicode explicito.
+// Pegadinha do JS que custou tempo lá e não vai custar aqui: `\b` NÃO reconhece
+// letras acentuadas. "acórdão" não casaria em "no acórdão." com \b. Por isso o
+// limite de palavra é feito com lookaround Unicode explícito.
 
-/** Teto documentado do parametro `prompt` de /v1/audio/transcriptions. */
+/** Teto documentado do parâmetro `prompt` de /v1/áudio/transcriptions. */
 export const PROMPT_TOKEN_LIMIT = 224;
 
-/** Estimativa conservadora: siglas curtas gastam ~1 token cada 3 caracteres. */
+/** Estimativa conservadora: siglas curtas gastam ~1 token a cada 3 caracteres. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3);
 }
@@ -41,8 +41,8 @@ function escapeRegex(s: string): string {
 }
 
 /**
- * Forca a grafia canonica de cada termo no texto.
- * Case-insensitive na busca, canonico na escrita: "cpc" e "Cpc" viram "CPC".
+ * Força a grafia canônica de cada termo no texto.
+ * Case-insensitive na busca, canônico na escrita: "cpc" e "Cpc" viram "CPC".
  */
 export function applyCanon(text: string, terms: string[]): string {
   let out = text;
@@ -54,29 +54,29 @@ export function applyCanon(text: string, terms: string[]): string {
 }
 
 /**
- * Instrucao de grafia para o prompt da etapa de texto (sem teto de tokens).
+ * Instrução de grafia para o prompt da etapa de texto (sem teto de tokens).
  *
- * O aviso do meio nao e' decorativo: sem ele o modelo tende a "usar" os termos da
- * lista mesmo quando nao foram ditos, entupindo o texto de siglas aleatorias.
+ * O aviso do meio não é decorativo: sem ele o modelo tende a "usar" os termos da
+ * lista mesmo quando não foram ditos, entupindo o texto de siglas aleatórias.
  */
 export function canonTextInstruction(terms: string[]): string {
   if (terms.length === 0) return "";
   return (
-    `\n\nGRAFIA OBRIGATORIA: se — e somente se — algum dos termos abaixo aparecer no texto, ` +
-    `use exatamente a grafia listada. Esta lista e' referencia ortografica, NAO conteudo a ` +
-    `inserir: nao acrescente nenhum destes termos ao resultado se ele nao estiver no texto ` +
-    `original. Termos em maiusculas sao siglas e devem ser mantidos assim; termos em ` +
-    `minusculas seguem a capitalizacao da posicao na frase.\n${terms.join(", ")}`
+    `\n\nGRAFIA OBRIGATÓRIA: se — e somente se — algum dos termos abaixo aparecer no texto, ` +
+    `use exatamente a grafia listada. Esta lista é referência ortográfica, NÃO conteúdo a ` +
+    `inserir: não acrescente nenhum destes termos ao resultado se ele não estiver no texto ` +
+    `original. Termos em maiúsculas são siglas e devem ser mantidos assim; termos em ` +
+    `minúsculas seguem a capitalização da posição na frase.\n${terms.join(", ")}`
   );
 }
 
 /**
- * Monta o prompt da etapa de transcricao respeitando o teto de 224 tokens.
+ * Monta o prompt da etapa de transcrição respeitando o teto de 224 tokens.
  *
- * A ORDEM importa: a documentacao diz que o modelo considera os ULTIMOS 224 tokens
- * e descarta o comeco silenciosamente. Por isso o contexto da tecla (mais especifico
- * e mais valioso) vai por ULTIMO, e o dicionario — que tem a rede de seguranca da
- * regex no pos-processamento — e' o que se corta primeiro.
+ * A ORDEM importa: a documentação diz que o modelo considera os ÚLTIMOS 224 tokens
+ * e descarta o começo silenciosamente. Por isso o contexto da tecla (mais específico
+ * e mais valioso) vai por ÚLTIMO, e o dicionário — que tem a rede de segurança da
+ * regex no pós-processamento — é o que se corta primeiro.
  */
 export function buildTranscribePrompt(opts: {
   terms: string[];
@@ -93,7 +93,7 @@ export function buildTranscribePrompt(opts: {
 
   const kept: string[] = [];
   for (const term of opts.terms) {
-    const cost = estimateTokens(term) + 1; // +1 pela virgula
+    const cost = estimateTokens(term) + 1; // +1 pela vírgula
     if (cost > budget) break;
     budget -= cost;
     kept.push(term);
@@ -103,7 +103,7 @@ export function buildTranscribePrompt(opts: {
   return { prompt: parts.join("\n"), droppedTerms: opts.terms.length - kept.length };
 }
 
-/** Quanto do orcamento de 224 tokens a configuracao atual consome (para o painel). */
+/** Quanto do orçamento de 224 tokens a configuração atual consome (para o painel). */
 export function promptBudget(terms: string[], context: string): { used: number; limit: number } {
   const list = terms.join(", ");
   return {

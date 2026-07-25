@@ -1,20 +1,20 @@
-// Cliente da OpenAI: transcricao (etapa 1) e texto (etapa 2).
+// Cliente da OpenAI: transcrição (etapa 1) e texto (etapa 2).
 //
-// Tres defesas que nao sao opcionais aqui:
+// Tres defesas que não são opcionais aqui:
 //
-//   ANTI-ECO — os modelos GPT-4o devolvem o proprio `prompt` como se fosse a
-//   transcricao quando o audio e' curto ou silencioso. E' um comportamento
+//   ANTI-ECO — os modelos GPT-4o devolvem o próprio `prompt` como se fosse a
+//   transcrição quando o áudio é curto ou silencioso. E' um comportamento
 //   documentado por quem apanhou dele em producao (FALA TU). Como mandamos o
-//   dicionario no prompt, sem isto voce apertaria a tecla sem querer e colaria a
+//   dicionario no prompt, sem isto você apertaria a tecla sem querer e colaria a
 //   sua lista de siglas dentro do documento.
 //
-//   RECUSA — o modelo pode recusar em tres formatos diferentes: erro HTTP com
-//   codigo de content filter, HTTP 200 com finish_reason=content_filter, e HTTP 200
-//   com um texto educado de recusa. Os tres precisam ser reconhecidos, senao a
-//   frase "Desculpe, mas nao posso ajudar com isso" seria colada no documento como
+//   RECUSA — o modelo pode recusar em três formatos diferentes: erro HTTP com
+//   código de content filter, HTTP 200 com finish_reason=content_filter, e HTTP 200
+//   com um texto educado de recusa. Os três precisam ser reconhecidos, senão a
+//   frase "Desculpe, mas não posso ajudar com isso" seria colada no documento como
 //   se fosse o resultado.
 //
-//   RETRY — so' em erro transitorio. Repetir um 401 e' desperdicio de tempo.
+//   RETRY — só em erro transitorio. Repetir um 401 é desperdicio de tempo.
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -43,11 +43,11 @@ const FILTER_PHRASES = [
 
 /** Recusas que chegam como HTTP 200, em pt e en. */
 const REFUSAL_PREFIXES = [
-  "desculpe, mas nao posso", "desculpe, mas não posso",
-  "lamento, mas nao posso", "lamento, mas não posso",
-  "nao posso ajudar com", "não posso ajudar com",
-  "nao consigo ajudar com", "não consigo ajudar com",
-  "nao e possivel ajudar", "não é possível ajudar",
+  "desculpe, mas não posso", "desculpe, mas não posso",
+  "lamento, mas não posso", "lamento, mas não posso",
+  "não posso ajudar com", "não posso ajudar com",
+  "não consigo ajudar com", "não consigo ajudar com",
+  "não e possível ajudar", "não é possível ajudar",
   "como assistente de ia", "como uma ia",
   "i'm sorry, but i cannot", "i'm sorry, i cannot", "i cannot assist with",
   "i cannot help with", "i apologize, but i cannot", "i'm unable to", "as an ai",
@@ -62,7 +62,7 @@ function isFilterError(body: any): boolean {
 
 function isRefusalText(text: string): boolean {
   if (!text) return false;
-  if (text.length > 500) return false; // recusa e' curta; texto longo e' resultado
+  if (text.length > 500) return false; // recusa é curta; texto longo é resultado
   const lower = text.toLowerCase();
   return REFUSAL_PREFIXES.some((p) => lower.startsWith(p));
 }
@@ -79,10 +79,10 @@ function normalizeForCompare(s: string): string {
 }
 
 /**
- * A saida e' so' o prompt de volta?
+ * A saída é só o prompt de volta?
  *
  * Compara por conjunto de palavras em vez de igualdade literal, porque o modelo
- * costuma devolver a lista reordenada ou com pontuacao diferente.
+ * costuma devolver a lista reordenada ou com pontuação diferente.
  */
 export function looksLikePromptEcho(text: string, prompt: string): boolean {
   const p = normalizeForCompare(prompt);
@@ -166,7 +166,7 @@ export async function runText(opts: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${opts.apiKey}`,
       },
-      // max_completion_tokens (nao max_tokens) e sem temperature: compativel com
+      // max_completion_tokens (não max_tokens) e sem temperature: compatível com
       // toda a familia GPT-4x/5x.
       body: JSON.stringify({
         model: opts.model,
@@ -183,7 +183,7 @@ export async function runText(opts: {
 
     const data: any = await res.json();
     if (data?.choices?.[0]?.finish_reason === "content_filter") {
-      throw new ApiError("conteudo bloqueado pelas politicas do modelo", "filter", 200);
+      throw new ApiError("conteudo bloqueado pelas políticas do modelo", "filter", 200);
     }
 
     const out = String(data?.choices?.[0]?.message?.content ?? "").trim();

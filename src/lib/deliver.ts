@@ -1,13 +1,13 @@
-// Entrega do texto: clipboard, colagem e historico.
+// Entrega do texto: clipboard, colagem e histórico.
 //
-// A REGRA DO FOCO: o PID da janela em foco e' lido no INICIO da gravacao e conferido
-// no FIM. Se mudou, o plugin NAO cola — so' copia e avisa. E' a diferenca entre o
-// texto aparecer onde voce pediu e o texto aparecer no meio de outra coisa que voce
+// A REGRA DO FOCO: o PID da janela em foco é lido no INICIO da gravação e conferido
+// no FIM. Se mudou, o plugin NÃO cola — só copia e avisa. E' a diferença entre o
+// texto aparecer onde você pediu e o texto aparecer no meio de outra coisa que você
 // foi fazer enquanto a API respondia.
 //
 // Tudo que envolve texto passa por ARQUIVO UTF-8, nunca pela linha de comando nem
-// pelo stdout do PowerShell — e' o que garante que "ação", "três" e "coração"
-// cheguem inteiros. Acentuacao errada aqui inutilizaria o plugin em portugues.
+// pelo stdout do PowerShell — é o que garante que "ação", "três" e "coração"
+// cheguem inteiros. Acentuacao errada aqui inutilizaria o plugin em português.
 
 import { execFile } from "node:child_process";
 import { readFile, writeFile, appendFile, mkdir, unlink } from "node:fs/promises";
@@ -37,7 +37,7 @@ async function tempFile(prefix: string): Promise<string> {
 /**
  * PID do processo dono da janela em foco.
  *
- * Usa UIAutomation (assembly ja' compilado, ~75 ms) em vez de P/Invoke com
+ * Usa UIAutomation (assembly já compilado, ~75 ms) em vez de P/Invoke com
  * `Add-Type -TypeDefinition`, que compilaria C# a cada chamada e custaria ~1 s.
  */
 export async function getFocusPid(): Promise<number> {
@@ -58,8 +58,8 @@ export type DeliveryResult = "pasted" | "copied";
 /**
  * Copia e — se o foco continuar onde estava — cola.
  *
- * expectPid = 0 significa que nao conseguimos ler o foco no inicio; nesse caso cola
- * assim mesmo, porque o caso comum e' o foco nao ter mudado e travar a colagem por
+ * expectPid = 0 significa que não conseguimos ler o foco no início; nesse caso cola
+ * assim mesmo, porque o caso comum é o foco não ter mudado e travar a colagem por
  * falta de informacao quebraria o fluxo principal.
  */
 export async function deliver(
@@ -97,8 +97,8 @@ export async function deliver(
 /**
  * Copia a selecao atual (Ctrl+C) e devolve o texto.
  *
- * Se o clipboard nao mudar, e' porque nao havia selecao — devolve o que ja' estava
- * la', que e' o comportamento util: voce copiou antes e apertou a tecla depois.
+ * Se o clipboard não mudar, é porque não havia selecao — devolve o que já estava
+ * la', que é o comportamento útil: você copiou antes e apertou a tecla depois.
  */
 export async function readSelectionOrClipboard(): Promise<string> {
   const file = await tempFile("clip");
@@ -129,8 +129,8 @@ export type HistoryEntry = {
 
 /**
  * Um .md por mes. Guarda o texto CRU e o FINAL: se a etapa de texto distorcer algo,
- * o original continua recuperavel — e essa e' a rede de seguranca quando o Ctrl+V
- * nao acontece.
+ * o original continua recuperavel — e essa é a rede de segurança quando o Ctrl+V
+ * não acontece.
  */
 export async function appendHistory(entry: HistoryEntry, dir?: string): Promise<void> {
   const target = dir?.trim() || HISTORY_DIR;

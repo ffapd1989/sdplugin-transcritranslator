@@ -1,17 +1,18 @@
-// Formato das configuracoes.
+// Formato das configurações.
 //
-// Duas camadas, e a divisao NAO e' arbitraria:
-//   - GLOBAIS: so' o que e' propriedade da MAQUINA ou da PESSOA — a chave da API,
-//     o dicionario de palavras canonicas (as siglas que voce usa no seu trabalho)
-//     e o caminho do ffmpeg. Nao faz sentido variar por tecla.
+// Duas camadas, e a divisao NÃO é arbitraria:
+//   - GLOBAIS: só o que é propriedade da MAQUINA ou da PESSOA — a chave da API,
+//     o dicionario de palavras canonicas (as siglas que você usa no seu trabalho)
+//     e o caminho do ffmpeg. Não faz sentido variar por tecla.
 //   - POR TECLA: todo o resto. E' o que permite ter uma tecla "ditado cru", outra
-//     "e-mail formal" e outra "-> ingles" lado a lado no XL, cada uma independente.
+//     "e-mail formal" e outra "-> inglês" lado a lado no XL, cada uma independente.
 //
-// A chave da OpenAI nao mora aqui: vive no cofre DPAPI (ver vault.ts), porque as
+// A chave da OpenAI não mora aqui: vive no cofre DPAPI (ver vault.ts), porque as
 // settings do Stream Deck viram um .json em texto plano em %APPDATA%\Elgato.
 
 export type CaptureMode = "toggle" | "ptt";
 export type IconName = "mic" | "globe" | "bubble" | "pen" | "none";
+export type StyleMode = "none" | "translate" | "custom";
 
 export type GlobalSettings = {
   /** Dicionario de palavras canonicas, separado por virgula. Nasce VAZIO. */
@@ -32,32 +33,41 @@ export type ActionSettings = {
 
   // --- captura ---
   mode?: CaptureMode;
-  /** Encerrar sozinho apos N segundos de silencio. Ignorado no modo ptt. */
+  /** Encerrar sozinho após N segundos de silêncio. Ignorado no modo ptt. */
   silenceStop?: boolean;
   silenceSeconds?: number;
-  /** Corte automatico, para nunca estourar os 25 MB nem gravar por engano. */
+  /** Corte automático, para nunca estourar os 25 MB nem gravar por engano. */
   maxMinutes?: number;
   beep?: boolean;
 
-  // --- etapa 1: transcricao ---
+  // --- etapa 1: transcrição ---
   transcribeOn?: boolean;
   transcribeModel?: string;
-  /** ISO-639-1 do idioma FALADO. Vazio = deteccao automatica. */
+  /** ISO-639-1 do idioma FALADO. Vazio = detecção automática. */
   language?: string;
-  /** Contexto/instrucao para o modelo de audio (nao e' a lista de termos). */
+  /** Contexto/instrução para o modelo de áudio (não é a lista de termos). */
   transcribeContext?: string;
-  /** Mandar tambem o dicionario canonico no prompt de transcricao. */
+  /** Mandar também o dicionario canônico no prompt de transcrição. */
   useCanonPrompt?: boolean;
 
   // --- etapa 2: texto ---
   textOn?: boolean;
   textModel?: string;
-  /** Camada A: regras genericas de limpeza de ditado. */
+  /** Camada A: regras genéricas de limpeza de ditado. */
   cleanup?: boolean;
-  /** Camada B: instrucao livre (traduzir, formalizar, resumir em topicos...). */
+  /**
+   * Camada B, o que fazer ALÉM de limpar:
+   *   none      — nada; só a limpeza
+   *   translate — traduzir para `targetLanguage` (modo guiado, sem escrever prompt)
+   *   custom    — a instrução livre em `style`
+   */
+  styleMode?: StyleMode;
+  /** Idioma de destino quando styleMode = "translate". */
+  targetLanguage?: string;
+  /** Instrucao livre quando styleMode = "custom". */
   style?: string;
 
-  // --- saida ---
+  // --- saída ---
   autoPaste?: boolean;
   history?: boolean;
   historyDir?: string;
@@ -93,6 +103,8 @@ export const DEFAULTS: Required<ActionSettings> = {
   textOn: true,
   textModel: "gpt-4.1-mini",
   cleanup: true,
+  styleMode: "none",
+  targetLanguage: "en",
   style: "",
 
   autoPaste: true,
@@ -116,7 +128,7 @@ export function withDefaults(s: ActionSettings | undefined): Required<ActionSett
     const v = s[k];
     if (v !== undefined && v !== null && v !== "") (out as any)[k] = v;
   }
-  // Campos onde string vazia e' um valor legitimo (nao deve cair no default).
+  // Campos onde string vazia é um valor legitimo (não deve cair no default).
   for (const k of ["label", "style", "transcribeContext", "historyDir", "language"] as const) {
     if (s[k] !== undefined) (out as any)[k] = s[k];
   }
@@ -125,26 +137,52 @@ export function withDefaults(s: ActionSettings | undefined): Required<ActionSett
 
 /** Modelos sugeridos no painel. O campo aceita qualquer id digitado a mao. */
 export const TRANSCRIBE_MODELS = [
-  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (padrao)" },
+  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (padrão)" },
   { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (melhor)" },
   { id: "whisper-1", label: "Whisper-1 (legado)" },
 ];
 
 export const TEXT_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (padrao)" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (padrão)" },
   { id: "gpt-4.1-nano", label: "GPT-4.1 nano (mais barato)" },
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" },
 ];
 
+/** Idiomas que você PODE FALAR. O vazio deixa o modelo detectar. */
 export const LANGUAGES = [
   { code: "", label: "Detectar automaticamente" },
-  { code: "pt", label: "Portugues" },
-  { code: "en", label: "Ingles" },
+  { code: "pt", label: "Português" },
+  { code: "en", label: "Inglês" },
   { code: "es", label: "Espanhol" },
-  { code: "fr", label: "Frances" },
-  { code: "de", label: "Alemao" },
+  { code: "fr", label: "Francês" },
+  { code: "de", label: "Alemão" },
   { code: "it", label: "Italiano" },
-  { code: "ja", label: "Japones" },
-  { code: "zh", label: "Chines" },
+  { code: "ja", label: "Japonês" },
+  { code: "zh", label: "Chinês" },
 ];
+
+/** Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido. */
+export const TARGET_LANGUAGES = [
+  { code: "en", label: "Inglês" },
+  { code: "es", label: "Espanhol" },
+  { code: "pt", label: "Português" },
+  { code: "fr", label: "Francês" },
+  { code: "de", label: "Alemão" },
+  { code: "it", label: "Italiano" },
+  { code: "nl", label: "Holandês" },
+  { code: "ja", label: "Japonês" },
+  { code: "zh", label: "Chinês (simplificado)" },
+  { code: "ko", label: "Coreano" },
+  { code: "ru", label: "Russo" },
+  { code: "ar", label: "Árabe" },
+];
+
+export function targetLanguageName(code: string): string {
+  return TARGET_LANGUAGES.find((l) => l.code === code)?.label ?? code;
+}
+
+/** Sigla curta para o badge da tecla: "EN", "ES". */
+export function languageBadge(code: string): string {
+  return (code || "").slice(0, 2).toUpperCase();
+}

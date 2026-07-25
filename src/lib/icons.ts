@@ -1,9 +1,9 @@
 // A tecla, desenhada como SVG em runtime e pintada com setImage.
 //
-// A waveform da gravacao e' ROLANTE de proposito: cada barra e' um instante dos
+// A waveform da gravação é ROLANTE de propósito: cada barra é um instante dos
 // ultimos ~2 s, deslizando da direita para a esquerda. Nove barras pulsando juntas
-// enfeitariam; o desenho da voz andando INFORMA — da' para ver na hora se o
-// microfone esta' mudo, se o ganho esta' baixo ou se a fala esta' entrando.
+// enfeitariam; o desenho da voz andando INFORMA — dá para ver na hora se o
+// microfone está mudo, se o ganho está baixo ou se a fala está entrando.
 
 import { shade } from "./theme.js";
 import type { IconName } from "./settings.js";
@@ -70,7 +70,7 @@ function warnGlyph(): string {
   );
 }
 
-/** Reticencias animadas por fase — da' sensacao de progresso sem custo. */
+/** Reticencias animadas por fase — dá sensacao de progresso sem custo. */
 function dotsGlyph(phase: number): string {
   return [0, 1, 2]
     .map((i) => {
@@ -110,7 +110,7 @@ function waveGlyph(levels: number[]): string {
 
 function textEl(s: string, y: number, size = 14): string {
   const t = esc(s);
-  // Texto longo e' comprimido em vez de vazar da tecla.
+  // Texto longo é comprimido em vez de vazar da tecla.
   const fit = t.length > 9 ? ` textLength="62" lengthAdjust="spacingAndGlyphs"` : "";
   return (
     `<text x="36" y="${y}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
@@ -121,13 +121,26 @@ function textEl(s: string, y: number, size = 14): string {
 export type KeySpec = {
   color: string;
   icon?: IconName;
-  /** Substitui o glifo do icone. */
+  /** Substitui o glifo do ícone. */
   special?: "check" | "cross" | "warn" | "dots" | "wave";
   levels?: number[];
   phase?: number;
   /** Uma ou duas linhas embaixo. */
   lines?: string[];
+  /** Sigla no canto (ex.: "EN") — a tecla mostra para qual idioma ela traduz. */
+  badge?: string;
 };
+
+/** Selo de canto: diz o destino da tradução sem precisar abrir o painel. */
+function badgeSvg(text: string): string {
+  const t = esc(text.slice(0, 3).toUpperCase());
+  const w = t.length <= 2 ? 22 : 27;
+  return (
+    `<rect x="${69 - w}" y="4" width="${w}" height="16" rx="5" fill="#000000" opacity="0.42"/>` +
+    `<text x="${69 - w / 2}" y="16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
+    `font-size="11" font-weight="700" fill="#ffffff">${t}</text>`
+  );
+}
 
 export function keyImage(spec: KeySpec): string {
   const { lite, base, border } = shade(spec.color);
@@ -155,6 +168,7 @@ export function keyImage(spec: KeySpec): string {
     `<rect x="2.5" y="2.5" width="67" height="67" rx="13" fill="url(#g)" stroke="${border}" stroke-width="2.5"/>` +
     center +
     text +
+    (spec.badge ? badgeSvg(spec.badge) : "") +
     `</svg>`;
 
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;

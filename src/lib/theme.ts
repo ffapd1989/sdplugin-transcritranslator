@@ -1,8 +1,8 @@
 // Cores da tecla.
 //
-// O usuario escolhe UMA cor por estado; o degrade e a borda saem dela por calculo.
+// O usuário escolhe UMA cor por estado; o degrade e a borda saem dela por calculo.
 // Assim qualquer hex — inclusive um digitado a mao — produz uma tecla coerente,
-// sem obrigar ninguem a escolher tres tons combinando.
+// sem obrigar ninguem a escolher três tons combinando.
 
 export type Shade = { lite: string; base: string; border: string };
 
@@ -37,7 +37,7 @@ export function shade(hex: string): Shade {
   return { lite: mix(hex, 0.22), base: hex || FALLBACK, border: mix(hex, -0.42) };
 }
 
-/** Paleta sugerida no painel — o campo aceita qualquer hex alem destes. */
+/** Paleta sugerida no painel — o campo aceita qualquer hex além destes. */
 export const SWATCHES = [
   { hex: "#404650", name: "Grafite" },
   { hex: "#3B6FD4", name: "Azul" },

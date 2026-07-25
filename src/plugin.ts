@@ -1,11 +1,11 @@
 // Entrada do plugin.
 //
-// O boot faz tres coisas antes de conectar, e as tres existem para tirar peso do
+// O boot faz três coisas antes de conectar, e as três existem para tirar peso do
 // caminho quente do ditado:
 //   1. cria as pastas de trabalho;
-//   2. mata ffmpeg orfao de um encerramento abrupto anterior;
+//   2. mata ffmpeg órfão de um encerramento abrupto anterior;
 //   3. aquece o cache da chave (a leitura do cofre DPAPI custa um powershell —
-//      pagar isso no boot e' invisivel; pagar no meio do ditado, nao).
+//      pagar isso no boot é invisível; pagar no meio do ditado, não).
 
 import streamDeck from "@elgato/streamdeck";
 
@@ -28,7 +28,7 @@ void getApiKey().catch(() => {});
 streamDeck.actions.registerAction(new Dictation());
 await streamDeck.connect();
 
-// Nao deixar ffmpeg vivo se o processo do plugin for encerrado.
+// Não deixar ffmpeg vivo se o processo do plugin for encerrado.
 for (const sig of ["exit", "SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => killAll());
 }

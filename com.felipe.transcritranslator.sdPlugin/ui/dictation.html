@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <title>TranscriTranslator</title>
+<script src="i18n.js"></script>
 <style>
-  /* Visual do painel do Stream Deck, escrito a mao: sem CDN, sem dependencia de
+  /* Visual do painel do Stream Deck, escrito à mão: sem CDN, sem dependência de
      rede para configurar uma tecla. */
   :root {
     --bg: #2d2d2d; --fg: #d8d8d8; --muted: #969696; --line: #3d3d3d;
     --field: #3d3d3d; --accent: #77f; --ok: #4caf50; --warn: #d6a00a; --err: #d96a6a;
+    --step1: #3B6FD4; --step2: #2E7D74;
   }
   * { box-sizing: border-box; }
   body {
@@ -16,6 +18,18 @@
     background: var(--bg); color: var(--fg);
     font: 9pt/1.5 "Segoe UI", Arial, sans-serif;
   }
+
+  /* barra de modo simples/avançado + idioma */
+  .topbar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+  .seg button {
+    border: 0; border-radius: 0; background: #333; color: var(--muted);
+    padding: 4px 12px; font-size: 8.5pt;
+  }
+  .seg button.on { background: #46617f; color: #eaf2fb; }
+  .topbar select { width: auto; flex: 0 0 auto; font-size: 8.5pt; padding: 3px 5px; }
+  .topbar .grow { flex: 1 1 auto; }
+
   details {
     border: 1px solid var(--line); border-radius: 5px;
     margin-bottom: 6px; background: #333;
@@ -37,7 +51,7 @@
     flex: 0 0 92px; text-align: right; color: var(--muted); font-size: 8.5pt;
   }
   .row > .ctl { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: center; }
-  .stack { display: block; }
+  .stack { display: block; margin-bottom: 7px; }
   .stack > label { display: block; color: var(--muted); font-size: 8.5pt; margin-bottom: 3px; }
 
   input[type=text], input[type=password], input[type=number], select, textarea {
@@ -59,17 +73,42 @@
   button:hover { background: #565656; }
   button.primary { background: #46617f; border-color: #557293; }
   button.danger:hover { background: #7a3a3a; }
+  button.link {
+    background: none; border: 0; color: #8ab4e8; padding: 2px 0;
+    text-decoration: underline; font-size: 8.5pt;
+  }
+  button.link:hover { background: none; color: #a9caf3; }
 
-  .check { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; }
-  .check input { accent-color: var(--accent); }
+  .check { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 6px; }
+  .check input { accent-color: var(--accent); margin-top: 3px; }
   .check label { cursor: pointer; }
 
-  .hint { color: var(--muted); font-size: 8pt; margin: -3px 0 8px 100px; }
+  .hint { color: var(--muted); font-size: 8pt; margin: -2px 0 8px 100px; }
   .hint.full { margin-left: 0; }
   .status { font-size: 8pt; margin-top: 4px; min-height: 14px; }
   .status.ok { color: var(--ok); }
   .status.warn { color: var(--warn); }
   .status.err { color: var(--err); }
+
+  /* etapas do pipeline */
+  .step { border-left: 3px solid var(--step1); padding: 2px 0 2px 9px; margin-bottom: 12px; }
+  .step.two { border-left-color: var(--step2); }
+  .step.off { border-left-color: #4a4a4a; opacity: .62; }
+  .step h4 {
+    margin: 0 0 2px; font-size: 9pt; letter-spacing: .03em;
+    display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+  }
+  .step h4 em { font-style: normal; color: var(--muted); font-weight: 400; font-size: 8pt; }
+  .step .tag {
+    font-size: 7pt; text-transform: uppercase; letter-spacing: .05em;
+    background: #444; color: #c9c9c9; border-radius: 3px; padding: 1px 5px;
+  }
+  .step .inner { margin-top: 7px; }
+  .arrow { text-align: center; color: var(--muted); font-size: 11pt; margin: -6px 0 4px; }
+
+  .radio { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .radio input { accent-color: var(--accent); }
+  .sub { margin: 4px 0 8px 22px; }
 
   .swatches { display: flex; gap: 3px; flex-wrap: wrap; }
   .sw { width: 17px; height: 17px; border-radius: 3px; border: 1px solid #00000055; cursor: pointer; }
@@ -78,210 +117,271 @@
   .meter > i { display: block; height: 100%; background: var(--ok); width: 0; transition: width .2s; }
   .meter.over > i { background: var(--err); }
 
+  /* leitura dos prompts */
+  #promptBox { margin-top: 6px; display: none; }
+  #promptBox.on { display: block; }
+  .pblock { margin-bottom: 8px; }
+  .pblock > h5 {
+    margin: 0 0 3px; font-size: 8pt; color: #9dbad6; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .pblock pre {
+    margin: 0; padding: 6px 8px; background: #262626; border: 1px solid var(--line);
+    border-radius: 4px; max-height: 180px; overflow: auto; white-space: pre-wrap;
+    word-break: break-word; font: 8pt/1.45 Consolas, "Courier New", monospace; color: #c8c8c8;
+    user-select: text;
+  }
+  .pblock .meta { color: var(--muted); font-size: 7.5pt; margin-top: 2px; }
+
   .global { border-color: #4a5a6a; }
   .global > summary { color: #9dbad6; }
   .badge {
     background: #46617f; color: #dceaf7; border-radius: 3px;
     padding: 1px 5px; font-size: 7.5pt; margin-left: 6px; text-transform: none; letter-spacing: 0;
   }
+
+  /* modo simples esconde o que for avançado */
+  body.simple .adv { display: none !important; }
 </style>
 </head>
-<body>
+<body class="simple">
+
+<div class="topbar">
+  <div class="seg">
+    <button id="btnSimple" class="on" data-i18n="modeSimple">Simples</button>
+    <button id="btnAdvanced" data-i18n="modeAdvanced">Avançado</button>
+  </div>
+  <span class="grow"></span>
+  <select id="uiLang" title="Idioma"></select>
+</div>
 
 <details open>
-  <summary>Preset e essencial</summary>
+  <summary data-i18n="secBasics">Preset e essencial</summary>
   <div class="body">
     <div class="row">
-      <label>Preset</label>
+      <label data-i18n="preset">Preset</label>
       <div class="ctl">
         <select id="presetList"></select>
-        <button id="presetApply">Aplicar</button>
+        <button id="presetApply" data-i18n="apply">Aplicar</button>
       </div>
     </div>
-    <div class="row">
+    <div class="row adv">
       <label></label>
       <div class="ctl">
-        <button id="presetSave">Salvar como…</button>
-        <button id="presetDelete" class="danger">Excluir</button>
+        <button id="presetSave" data-i18n="saveAs">Salvar como…</button>
+        <button id="presetDelete" class="danger" data-i18n="delete">Excluir</button>
       </div>
     </div>
-    <div class="hint">Aplicar copia os valores para esta tecla. Depois disso ela segue independente.</div>
+    <div class="hint adv" data-i18n="presetHint"></div>
 
     <div class="row">
-      <label>Rótulo</label>
-      <div class="ctl"><input type="text" data-setting="label" data-type="str" placeholder="Ditado"></div>
+      <label data-i18n="label">Rótulo</label>
+      <div class="ctl"><input type="text" data-setting="label" data-type="str" data-i18n-ph="labelPh"></div>
     </div>
 
     <div class="row">
-      <label>Microfone</label>
+      <label data-i18n="mic">Microfone</label>
       <div class="ctl">
         <select id="micList" data-setting="micDevice" data-type="str"></select>
-        <button id="micTest">Testar</button>
+        <button id="micTest" data-i18n="test">Testar</button>
       </div>
     </div>
     <div class="status" id="micStatus"></div>
   </div>
 </details>
 
-<details>
-  <summary>Captura</summary>
+<details open>
+  <summary data-i18n="secPipeline">O que esta tecla faz</summary>
+  <div class="body">
+
+    <!-- ETAPA 1 -->
+    <div class="step" id="step1">
+      <h4>
+        <span data-i18n="step1Title">1. OUVIR</span>
+        <em data-i18n="step1Sub">sua voz vira texto</em>
+        <span class="tag" data-i18n="step1Model">modelo de áudio</span>
+      </h4>
+      <div class="check">
+        <input type="checkbox" id="transcribeOn" data-setting="transcribeOn" data-type="bool">
+        <label for="transcribeOn" data-i18n="step1On">Gravar o microfone e transcrever</label>
+      </div>
+      <div class="inner" id="step1Inner">
+        <div class="row adv">
+          <label data-i18n="spokenLang">Idioma falado</label>
+          <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
+        </div>
+        <div class="row adv">
+          <label>Modelo</label>
+          <div class="ctl">
+            <input type="text" list="tModels" data-setting="transcribeModel" data-type="str">
+            <datalist id="tModels"></datalist>
+          </div>
+        </div>
+        <div class="stack adv">
+          <label data-i18n="context">Contexto para o modelo de áudio</label>
+          <textarea data-setting="transcribeContext" data-type="str" data-i18n-ph="contextPh"></textarea>
+        </div>
+        <div class="check adv">
+          <input type="checkbox" id="useCanonPrompt" data-setting="useCanonPrompt" data-type="bool">
+          <label for="useCanonPrompt" data-i18n="useCanon">Enviar também o dicionário</label>
+        </div>
+        <div class="adv">
+          <div class="meter" id="budgetMeter"><i></i></div>
+          <div class="status" id="budgetStatus"></div>
+          <div class="hint full" data-i18n="budgetHint"></div>
+        </div>
+      </div>
+      <div class="hint full" id="step1OffHint" style="display:none" data-i18n="step1Off"></div>
+    </div>
+
+    <div class="arrow">↓</div>
+
+    <!-- ETAPA 2 -->
+    <div class="step two" id="step2">
+      <h4>
+        <span data-i18n="step2Title">2. ESCREVER</span>
+        <em data-i18n="step2Sub">o texto vira outro texto</em>
+        <span class="tag" data-i18n="step2Model">modelo de linguagem</span>
+      </h4>
+      <div class="check">
+        <input type="checkbox" id="textOn" data-setting="textOn" data-type="bool">
+        <label for="textOn" data-i18n="step2On">Processar o texto depois de transcrever</label>
+      </div>
+
+      <div class="inner" id="step2Inner">
+        <div class="row adv">
+          <label>Modelo</label>
+          <div class="ctl">
+            <input type="text" list="xModels" data-setting="textModel" data-type="str">
+            <datalist id="xModels"></datalist>
+          </div>
+        </div>
+
+        <div class="check">
+          <input type="checkbox" id="cleanup" data-setting="cleanup" data-type="bool">
+          <label for="cleanup"><b data-i18n="cleanup">Limpar o ditado</b></label>
+        </div>
+        <div class="hint full" data-i18n="cleanupHint"></div>
+
+        <div style="margin-top:6px"><b data-i18n="andThen">E além disso:</b></div>
+        <div class="radio">
+          <input type="radio" name="styleMode" id="sm_none" value="none">
+          <label for="sm_none" data-i18n="modeNone">Nada — só entregar o texto</label>
+        </div>
+        <div class="radio">
+          <input type="radio" name="styleMode" id="sm_translate" value="translate">
+          <label for="sm_translate" data-i18n="modeTranslate">Traduzir para outro idioma</label>
+        </div>
+        <div class="sub" id="translateBox" style="display:none">
+          <div class="row">
+            <label data-i18n="translateTo">Traduzir para</label>
+            <div class="ctl"><select id="targetLang" data-setting="targetLanguage" data-type="str"></select></div>
+          </div>
+          <div class="hint full" data-i18n="translateHint"></div>
+        </div>
+        <div class="radio">
+          <input type="radio" name="styleMode" id="sm_custom" value="custom">
+          <label for="sm_custom" data-i18n="modeCustom">Seguir uma instrução minha</label>
+        </div>
+        <div class="sub" id="customBox" style="display:none">
+          <div class="stack">
+            <label data-i18n="styleLabel">Sua instrução</label>
+            <textarea data-setting="style" data-type="str" data-i18n-ph="stylePh"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hint full" data-i18n="whyTwo"></div>
+
+    <button class="link" id="promptToggle" data-i18n="seePrompt">Ver o que será enviado</button>
+    <div id="promptBox"></div>
+  </div>
+</details>
+
+<details class="adv">
+  <summary data-i18n="secCapture">Captura</summary>
   <div class="body">
     <div class="row">
-      <label>Modo</label>
+      <label data-i18n="captureMode">Modo</label>
       <div class="ctl">
         <select data-setting="mode" data-type="str">
-          <option value="toggle">Toggle — aperta grava, aperta para</option>
-          <option value="ptt">Segurar — grava enquanto pressiona</option>
+          <option value="toggle" data-i18n="modeToggle"></option>
+          <option value="ptt" data-i18n="modePtt"></option>
         </select>
       </div>
     </div>
-    <div class="hint">No modo toggle, segurar a tecla durante a gravação cancela sem gastar API.</div>
+    <div class="hint" data-i18n="captureHint"></div>
 
     <div class="check">
       <input type="checkbox" id="silenceStop" data-setting="silenceStop" data-type="bool">
-      <label for="silenceStop">Parar sozinho após silêncio</label>
+      <label for="silenceStop" data-i18n="silenceStop">Parar sozinho após silêncio</label>
     </div>
     <div class="row">
-      <label>Silêncio (s)</label>
+      <label data-i18n="silenceSecs">Silêncio (s)</label>
       <div class="ctl"><input type="number" data-setting="silenceSeconds" data-type="num" min="0.5" max="10" step="0.5"></div>
     </div>
-    <div class="hint">Só arma depois que você começa a falar — a pausa inicial não encerra nada. Ignorado no modo Segurar.</div>
+    <div class="hint" data-i18n="silenceHint"></div>
 
     <div class="row">
-      <label>Limite (min)</label>
+      <label data-i18n="maxMin">Limite (min)</label>
       <div class="ctl"><input type="number" data-setting="maxMinutes" data-type="num" min="0" max="60" step="1"></div>
     </div>
-    <div class="hint">Corte automático. 0 desliga. O teto da API são 25 MB, ~70 min.</div>
+    <div class="hint" data-i18n="maxHint"></div>
 
     <div class="check">
       <input type="checkbox" id="beep" data-setting="beep" data-type="bool">
-      <label for="beep">Bip ao iniciar e parar</label>
+      <label for="beep" data-i18n="beep">Bip ao iniciar e parar</label>
     </div>
-    <div class="hint full">O bip de início toca quando o microfone está de fato capturando — é o sinal de "pode falar".</div>
+    <div class="hint full" data-i18n="beepHint"></div>
   </div>
 </details>
 
-<details>
-  <summary>Transcrição — o que você fala</summary>
-  <div class="body">
-    <div class="check">
-      <input type="checkbox" id="transcribeOn" data-setting="transcribeOn" data-type="bool">
-      <label for="transcribeOn">Gravar e transcrever</label>
-    </div>
-    <div class="hint full">Desligue para uma tecla que só reescreve o texto selecionado, sem gravar nada.</div>
-
-    <div class="row">
-      <label>Modelo</label>
-      <div class="ctl">
-        <input type="text" list="tModels" data-setting="transcribeModel" data-type="str">
-        <datalist id="tModels"></datalist>
-      </div>
-    </div>
-    <div class="row">
-      <label>Idioma falado</label>
-      <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
-    </div>
-
-    <div class="stack">
-      <label>Contexto para o modelo de áudio</label>
-      <textarea data-setting="transcribeContext" data-type="str"
-        placeholder="Ex.: Reunião técnica sobre infraestrutura de rede."></textarea>
-    </div>
-
-    <div class="check">
-      <input type="checkbox" id="useCanonPrompt" data-setting="useCanonPrompt" data-type="bool">
-      <label for="useCanonPrompt">Enviar também o dicionário de palavras canônicas</label>
-    </div>
-    <div class="meter" id="budgetMeter"><i></i></div>
-    <div class="status" id="budgetStatus"></div>
-    <div class="hint full">
-      A API descarta o que passar de 224 tokens — e descarta o <em>começo</em>, então o dicionário é
-      cortado antes do contexto. A grafia certa é garantida de qualquer jeito pela correção automática.
-    </div>
-  </div>
-</details>
-
-<details>
-  <summary>Texto — o que fazer com a transcrição</summary>
-  <div class="body">
-    <div class="check">
-      <input type="checkbox" id="textOn" data-setting="textOn" data-type="bool">
-      <label for="textOn">Processar o texto</label>
-    </div>
-
-    <div class="row">
-      <label>Modelo</label>
-      <div class="ctl">
-        <input type="text" list="xModels" data-setting="textModel" data-type="str">
-        <datalist id="xModels"></datalist>
-      </div>
-    </div>
-
-    <div class="check">
-      <input type="checkbox" id="cleanup" data-setting="cleanup" data-type="bool">
-      <label for="cleanup"><b>Limpeza de ditado</b></label>
-    </div>
-    <div class="hint full">
-      Pontua, tira hesitações ("né", "tipo"), respeita autocorreções ("quer dizer…"), converte
-      comandos falados ("vírgula", "novo parágrafo") e formata números e datas. Não troca as suas palavras.
-    </div>
-
-    <div class="stack">
-      <label>Estilo / instrução livre</label>
-      <textarea data-setting="style" data-type="str"
-        placeholder="Ex.: Traduza para o inglês. / Reescreva como e-mail formal. / Resuma em tópicos."></textarea>
-    </div>
-    <div class="hint full">Vazio = não muda o estilo. Com a limpeza ligada, as duas coisas acontecem numa chamada só.</div>
-  </div>
-</details>
-
-<details>
-  <summary>Saída</summary>
+<details class="adv">
+  <summary data-i18n="secOutput">Saída</summary>
   <div class="body">
     <div class="check">
       <input type="checkbox" id="autoPaste" data-setting="autoPaste" data-type="bool">
-      <label for="autoPaste">Colar no campo focado (Ctrl+V)</label>
+      <label for="autoPaste" data-i18n="autoPaste">Colar no campo focado (Ctrl+V)</label>
     </div>
-    <div class="hint full">
-      Se você trocar de janela enquanto o texto é processado, o plugin não cola — copia e avisa na tecla.
-    </div>
+    <div class="hint full" data-i18n="autoPasteHint"></div>
 
     <div class="check">
       <input type="checkbox" id="history" data-setting="history" data-type="bool">
-      <label for="history">Guardar histórico (.md por mês)</label>
+      <label for="history" data-i18n="history">Guardar histórico (.md por mês)</label>
     </div>
     <div class="row">
-      <label>Pasta</label>
-      <div class="ctl"><input type="text" data-setting="historyDir" data-type="str" placeholder="padrão: %LOCALAPPDATA%\transcritranslator\historico"></div>
+      <label data-i18n="folder">Pasta</label>
+      <div class="ctl"><input type="text" data-setting="historyDir" data-type="str" data-i18n-ph="folderPh"></div>
     </div>
 
     <div class="check">
       <input type="checkbox" id="keepAudio" data-setting="keepAudio" data-type="bool">
-      <label for="keepAudio">Guardar os áudios gravados</label>
+      <label for="keepAudio" data-i18n="keepAudio">Guardar os áudios gravados</label>
     </div>
-    <div class="hint full">Áudio de envio que falhou é preservado de qualquer forma, mesmo com isto desligado.</div>
+    <div class="hint full" data-i18n="keepAudioHint"></div>
   </div>
 </details>
 
-<details>
-  <summary>Aparência</summary>
+<details class="adv">
+  <summary data-i18n="secLook">Aparência</summary>
   <div class="body">
     <div class="row">
-      <label>Ocioso</label>
+      <label data-i18n="colorIdle">Ocioso</label>
       <div class="ctl">
         <input type="color" data-setting="colorIdle" data-type="str">
         <div class="swatches" data-for="colorIdle"></div>
       </div>
     </div>
     <div class="row">
-      <label>Gravando</label>
+      <label data-i18n="colorRec">Gravando</label>
       <div class="ctl">
         <input type="color" data-setting="colorRec" data-type="str">
         <div class="swatches" data-for="colorRec"></div>
       </div>
     </div>
     <div class="row">
-      <label>Pronto</label>
+      <label data-i18n="colorDone">Pronto</label>
       <div class="ctl">
         <input type="color" data-setting="colorDone" data-type="str">
         <div class="swatches" data-for="colorDone"></div>
@@ -289,61 +389,58 @@
     </div>
 
     <div class="row">
-      <label>Ícone</label>
+      <label data-i18n="icon">Ícone</label>
       <div class="ctl">
         <select data-setting="icon" data-type="str">
-          <option value="mic">Microfone</option>
-          <option value="globe">Globo</option>
-          <option value="bubble">Balão de fala</option>
-          <option value="pen">Caneta</option>
-          <option value="none">Nenhum</option>
+          <option value="mic" data-i18n="iconMic"></option>
+          <option value="globe" data-i18n="iconGlobe"></option>
+          <option value="bubble" data-i18n="iconBubble"></option>
+          <option value="pen" data-i18n="iconPen"></option>
+          <option value="none" data-i18n="iconNone"></option>
         </select>
       </div>
     </div>
 
     <div class="check">
       <input type="checkbox" id="showLabel" data-setting="showLabel" data-type="bool">
-      <label for="showLabel">Mostrar rótulo</label>
+      <label for="showLabel" data-i18n="showLabel">Mostrar rótulo</label>
     </div>
     <div class="check">
       <input type="checkbox" id="showTimer" data-setting="showTimer" data-type="bool">
-      <label for="showTimer">Mostrar cronômetro</label>
+      <label for="showTimer" data-i18n="showTimer">Mostrar cronômetro</label>
     </div>
     <div class="check">
       <input type="checkbox" id="showWave" data-setting="showWave" data-type="bool">
-      <label for="showWave">Mostrar as barras de voz</label>
+      <label for="showWave" data-i18n="showWave">Mostrar as barras de voz</label>
     </div>
   </div>
 </details>
 
 <details class="global">
-  <summary>Configuração da máquina <span class="badge">vale para todas as teclas</span></summary>
+  <summary><span data-i18n="secGlobal">Configuração da máquina</span> <span class="badge" data-i18n="globalBadge"></span></summary>
   <div class="body">
     <div class="row">
-      <label>Chave OpenAI</label>
+      <label data-i18n="apiKey">Chave OpenAI</label>
       <div class="ctl">
         <input type="password" id="apiKey" placeholder="sk-…" autocomplete="off">
-        <button id="keySave" class="primary">Salvar</button>
+        <button id="keySave" class="primary" data-i18n="save">Salvar</button>
       </div>
     </div>
     <div class="status" id="keyStatus"></div>
     <div class="hint full">
-      Guardada cifrada por DPAPI (só abre nesta conta do Windows), nunca nas configurações do Stream Deck,
-      que ficam em texto plano no disco. <button id="keyClear" class="danger">Remover chave</button>
+      <span data-i18n="keyHint"></span>
+      <button id="keyClear" class="danger" data-i18n="keyClear">Remover chave</button>
     </div>
 
     <div class="stack">
-      <label>Palavras canônicas — suas siglas e termos, separados por vírgula</label>
-      <textarea id="canonTerms" placeholder="Ex.: SRVDRU, EdgeRouter, WireGuard, Grafana, n8n"></textarea>
+      <label data-i18n="canonLabel">Palavras canônicas</label>
+      <textarea id="canonTerms" data-i18n-ph="canonPh"></textarea>
     </div>
-    <div class="hint full">
-      A grafia é corrigida no texto final por comparação exata — sem limite de quantidade e sem custo.
-      Termos em MAIÚSCULAS são tratados como siglas.
-    </div>
+    <div class="hint full" data-i18n="canonHint"></div>
 
-    <div class="row">
-      <label>ffmpeg</label>
-      <div class="ctl"><input type="text" id="ffmpegPath" placeholder="vazio = procura no PATH"></div>
+    <div class="row adv">
+      <label data-i18n="ffmpeg">ffmpeg</label>
+      <div class="ctl"><input type="text" id="ffmpegPath" data-i18n-ph="ffmpegPh"></div>
     </div>
     <div class="status" id="globalStatus"></div>
   </div>
@@ -351,10 +448,9 @@
 
 <script>
 // ---------------------------------------------------------------------------
-// Protocolo do Property Inspector, escrito a mao (o Stream Deck chama esta
-// funcao global ao abrir o painel).
+// Protocolo do Property Inspector (o Stream Deck chama esta função ao abrir).
 // ---------------------------------------------------------------------------
-let ws, uuid, actionInfo, settings = {}, ready = false;
+let ws, uuid, settings = {}, ready = false, appLang = "pt";
 
 function send(event, payload) {
   if (!ws || ws.readyState !== 1) return;
@@ -362,7 +458,6 @@ function send(event, payload) {
   if (payload !== undefined) msg.payload = payload;
   ws.send(JSON.stringify(msg));
 }
-
 const toPlugin = (payload) => send("sendToPlugin", payload);
 
 let saveTimer;
@@ -371,14 +466,16 @@ function saveSettings() {
   saveTimer = setTimeout(() => send("setSettings", settings), 150);
 }
 
-window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, _info, inActionInfo) {
+window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, inInfo, inActionInfo) {
   uuid = inUUID;
-  actionInfo = JSON.parse(inActionInfo);
-  settings = actionInfo?.payload?.settings ?? {};
+  try {
+    settings = JSON.parse(inActionInfo)?.payload?.settings ?? {};
+    appLang = (JSON.parse(inInfo)?.application?.language || "pt").slice(0, 2);
+  } catch { /* segue com os padrões */ }
 
   ws = new WebSocket("ws://127.0.0.1:" + port);
   ws.onopen = () => {
-    // O registro e' o unico frame com `uuid` em vez de `context`.
+    // O registro é o único frame com `uuid` em vez de `context`.
     ws.send(JSON.stringify({ event: registerEvent, uuid: inUUID }));
     toPlugin({ cmd: "init" });
   };
@@ -394,15 +491,56 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, _i
 };
 
 // ---------------------------------------------------------------------------
-// Binding: cada campo com data-setting le e escreve direto em `settings`.
+// Idioma da interface
+// ---------------------------------------------------------------------------
+const I18N = window.TT_I18N;
+let lang = "pt";
+
+function t(key) {
+  return (I18N[lang] && I18N[lang][key]) || I18N.pt[key] || key;
+}
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-ph]")) el.placeholder = t(el.dataset.i18nPh);
+  document.getElementById("promptToggle").textContent =
+    document.getElementById("promptBox").classList.contains("on") ? t("hidePrompt") : t("seePrompt");
+  refreshKeyStatus();
+}
+
+function buildLangPicker() {
+  const sel = document.getElementById("uiLang");
+  sel.innerHTML = "";
+  const auto = document.createElement("option");
+  auto.value = "auto"; auto.textContent = t("uiAuto");
+  sel.appendChild(auto);
+  for (const code of Object.keys(I18N)) {
+    const o = document.createElement("option");
+    o.value = code; o.textContent = I18N[code]._name;
+    sel.appendChild(o);
+  }
+  sel.value = localStorage.getItem("tt-lang") || "auto";
+  sel.onchange = () => {
+    localStorage.setItem("tt-lang", sel.value);
+    lang = sel.value === "auto" ? (I18N[appLang] ? appLang : "pt") : sel.value;
+    applyLang();
+    const o = sel.options[0]; o.textContent = t("uiAuto");
+  };
+  lang = sel.value === "auto" ? (I18N[appLang] ? appLang : "pt") : sel.value;
+}
+
+// ---------------------------------------------------------------------------
+// Binding dos campos
 // ---------------------------------------------------------------------------
 const DEFAULTS = {
   label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 2.5,
   maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-4o-mini-transcribe",
   language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
-  textModel: "gpt-4.1-mini", cleanup: true, style: "", autoPaste: true, history: true,
-  historyDir: "", keepAudio: false, colorIdle: "#404650", colorRec: "#C44040",
-  colorDone: "#2E8C3C", icon: "mic", showLabel: true, showTimer: true, showWave: true,
+  textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
+  autoPaste: true, history: true, historyDir: "", keepAudio: false,
+  colorIdle: "#404650", colorRec: "#C44040", colorDone: "#2E8C3C", icon: "mic",
+  showLabel: true, showTimer: true, showWave: true,
 };
 
 const fields = () => document.querySelectorAll("[data-setting]");
@@ -414,7 +552,28 @@ function applyToForm() {
     if (el.type === "checkbox") el.checked = !!val;
     else el.value = val ?? "";
   }
+  const sm = settings.styleMode ?? DEFAULTS.styleMode;
+  const radio = document.getElementById("sm_" + sm) || document.getElementById("sm_none");
+  radio.checked = true;
+  syncVisibility();
   refreshBudget();
+}
+
+/** Mostra só o que faz sentido para a configuração atual. */
+function syncVisibility() {
+  const t1 = document.getElementById("transcribeOn").checked;
+  const t2 = document.getElementById("textOn").checked;
+  const sm = document.querySelector('input[name="styleMode"]:checked')?.value ?? "none";
+
+  document.getElementById("step1").classList.toggle("off", !t1);
+  document.getElementById("step1Inner").style.display = t1 ? "" : "none";
+  document.getElementById("step1OffHint").style.display = t1 ? "none" : "";
+
+  document.getElementById("step2").classList.toggle("off", !t2);
+  document.getElementById("step2Inner").style.display = t2 ? "" : "none";
+
+  document.getElementById("translateBox").style.display = sm === "translate" ? "" : "none";
+  document.getElementById("customBox").style.display = sm === "custom" ? "" : "none";
 }
 
 function bind() {
@@ -426,7 +585,18 @@ function bind() {
       else if (el.dataset.type === "num") settings[key] = parseFloat(el.value) || 0;
       else settings[key] = el.value;
       saveSettings();
+      if (key === "transcribeOn" || key === "textOn") syncVisibility();
       if (key === "transcribeContext") refreshBudget();
+      refreshPromptIfOpen();
+    });
+  }
+
+  for (const r of document.querySelectorAll('input[name="styleMode"]')) {
+    r.addEventListener("change", () => {
+      settings.styleMode = r.value;
+      saveSettings();
+      syncVisibility();
+      refreshPromptIfOpen();
     });
   }
 }
@@ -449,16 +619,22 @@ function status(el, text, cls) {
 // ---------------------------------------------------------------------------
 // Respostas do plugin
 // ---------------------------------------------------------------------------
+let hasKeyCached = false;
+
 function handlePlugin(p) {
   switch (p.event) {
     case "init": {
-      const mic = document.getElementById("micList");
-      const devices = (p.devices || []).map((d) => ({ value: d, label: d }));
-      fill(mic, [{ value: "", label: "Padrão do sistema (primeiro da lista)" }, ...devices], settings.micDevice ?? "");
+      fill(document.getElementById("micList"),
+        [{ value: "", label: t("micDefault") }, ...(p.devices || []).map((d) => ({ value: d, label: d }))],
+        settings.micDevice ?? "");
 
       fill(document.getElementById("langList"),
         (p.languages || []).map((l) => ({ value: l.code, label: l.label })),
         settings.language ?? DEFAULTS.language);
+
+      fill(document.getElementById("targetLang"),
+        (p.targetLanguages || []).map((l) => ({ value: l.code, label: l.label })),
+        settings.targetLanguage ?? DEFAULTS.targetLanguage);
 
       for (const [id, list] of [["tModels", p.transcribeModels], ["xModels", p.textModels]]) {
         const dl = document.getElementById(id);
@@ -474,36 +650,46 @@ function handlePlugin(p) {
       buildSwatches(p.swatches || []);
       document.getElementById("canonTerms").value = p.canonTerms || "";
       document.getElementById("ffmpegPath").value = p.ffmpegPath || "";
-      showKeyState(p.hasKey);
+      hasKeyCached = !!p.hasKey;
+      refreshKeyStatus();
       ready = true;
       applyToForm();
       break;
     }
-    case "presets": renderPresets(p.presets || []); status(document.getElementById("micStatus"), "preset salvo", "ok"); break;
-    case "presetApplied": settings = p.settings || settings; applyToForm(); break;
-    case "keySaved": showKeyState(p.hasKey); document.getElementById("apiKey").value = ""; break;
-    case "globalSaved": status(document.getElementById("globalStatus"), "salvo", "ok"); break;
-    case "micResult":
-      status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err");
+    case "presets":
+      renderPresets(p.presets || []);
+      status(document.getElementById("micStatus"), t("presetSaved"), "ok");
       break;
+    case "presetApplied":
+      settings = p.settings || settings;
+      applyToForm();
+      refreshPromptIfOpen();
+      break;
+    case "keySaved":
+      hasKeyCached = !!p.hasKey;
+      refreshKeyStatus();
+      document.getElementById("apiKey").value = "";
+      break;
+    case "globalSaved": status(document.getElementById("globalStatus"), t("saved"), "ok"); break;
+    case "micResult": status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err"); break;
     case "budget": {
       const pct = Math.min(100, Math.round((p.used / p.limit) * 100));
       const meter = document.getElementById("budgetMeter");
       meter.classList.toggle("over", p.used > p.limit);
       meter.firstElementChild.style.width = pct + "%";
       status(document.getElementById("budgetStatus"),
-        `${p.used} de ${p.limit} tokens` + (p.used > p.limit ? " — o excedente será descartado" : ""),
+        `${p.used} ${t("budgetOf")} ${p.limit} ${t("budgetTokens")}` + (p.used > p.limit ? " " + t("budgetOver") : ""),
         p.used > p.limit ? "warn" : "");
       break;
     }
+    case "preview": renderPreview(p); break;
     case "error": status(document.getElementById("globalStatus"), p.message, "err"); break;
   }
 }
 
-function showKeyState(has) {
+function refreshKeyStatus() {
   status(document.getElementById("keyStatus"),
-    has ? "Chave configurada no cofre." : "Nenhuma chave — a tecla vai mostrar erro.",
-    has ? "ok" : "warn");
+    hasKeyCached ? t("keyOk") : t("keyMissing"), hasKeyCached ? "ok" : "warn");
 }
 
 function renderPresets(list) {
@@ -535,16 +721,69 @@ function refreshBudget() {
 }
 
 // ---------------------------------------------------------------------------
-// Botoes
+// Leitura dos prompts — nada de texto oculto
+// ---------------------------------------------------------------------------
+function refreshPromptIfOpen() {
+  if (document.getElementById("promptBox").classList.contains("on")) {
+    setTimeout(() => toPlugin({ cmd: "preview" }), 200);
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderPreview(p) {
+  const box = document.getElementById("promptBox");
+  const blocks = [];
+
+  blocks.push(`<div class="pblock"><h5>${esc(t("promptStep1"))} · ${esc(p.transcribe.model)}</h5>` +
+    `<pre>${p.transcribe.enabled ? esc(p.transcribe.prompt || t("promptEmpty")) : esc(t("promptOff"))}</pre>` +
+    (p.transcribe.dropped ? `<div class="meta">${esc(t("promptDropped"))} ${p.transcribe.dropped}</div>` : "") +
+    `</div>`);
+
+  if (!p.text.enabled) {
+    blocks.push(`<div class="pblock"><h5>${esc(t("promptStep2"))}</h5><pre>${esc(t("promptOff"))}</pre></div>`);
+  } else {
+    for (const part of p.text.parts) {
+      blocks.push(`<div class="pblock"><h5>${esc(part.title)}</h5><pre>${esc(part.body)}</pre></div>`);
+    }
+  }
+
+  box.innerHTML = `<div class="pblock"><h5>${esc(t("promptTitle"))}</h5></div>` + blocks.join("");
+}
+
+// ---------------------------------------------------------------------------
+// Botões
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
+  buildLangPicker();
+  applyLang();
   bind();
+
+  // modo simples / avançado
+  const setMode = (advanced) => {
+    document.body.classList.toggle("simple", !advanced);
+    document.getElementById("btnSimple").classList.toggle("on", !advanced);
+    document.getElementById("btnAdvanced").classList.toggle("on", advanced);
+    localStorage.setItem("tt-advanced", advanced ? "1" : "0");
+  };
+  document.getElementById("btnSimple").onclick = () => setMode(false);
+  document.getElementById("btnAdvanced").onclick = () => setMode(true);
+  setMode(localStorage.getItem("tt-advanced") === "1");
+
+  document.getElementById("promptToggle").onclick = () => {
+    const box = document.getElementById("promptBox");
+    const on = box.classList.toggle("on");
+    document.getElementById("promptToggle").textContent = on ? t("hidePrompt") : t("seePrompt");
+    if (on) toPlugin({ cmd: "preview" });
+  };
 
   document.getElementById("presetApply").onclick = () =>
     toPlugin({ cmd: "applyPreset", id: document.getElementById("presetList").value });
 
   document.getElementById("presetSave").onclick = () => {
-    const name = prompt("Nome do preset:");
+    const name = prompt(t("presetName"));
     if (name) toPlugin({ cmd: "savePreset", name });
   };
 
@@ -552,20 +791,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const sel = document.getElementById("presetList");
     const builtins = JSON.parse(sel.dataset.builtins || "[]");
     if (builtins.includes(sel.value)) {
-      status(document.getElementById("micStatus"), "presets de fábrica não podem ser excluídos", "warn");
+      status(document.getElementById("micStatus"), t("presetBuiltinLocked"), "warn");
       return;
     }
     toPlugin({ cmd: "deletePreset", id: sel.value });
   };
 
   document.getElementById("micTest").onclick = () => {
-    status(document.getElementById("micStatus"), "gravando 3 segundos — fale alguma coisa…");
+    status(document.getElementById("micStatus"), t("testing"));
     toPlugin({ cmd: "testMic", device: document.getElementById("micList").value });
   };
 
   document.getElementById("keySave").onclick = () => {
     const key = document.getElementById("apiKey").value.trim();
-    if (!key) { showKeyState(false); return; }
+    if (!key) { hasKeyCached = false; refreshKeyStatus(); return; }
     toPlugin({ cmd: "setKey", key });
   };
 
@@ -581,6 +820,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ffmpegPath: document.getElementById("ffmpegPath").value,
       });
       refreshBudget();
+      refreshPromptIfOpen();
     }, 400);
   };
   document.getElementById("canonTerms").addEventListener("input", saveGlobal);

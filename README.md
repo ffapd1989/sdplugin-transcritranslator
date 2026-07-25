@@ -58,27 +58,53 @@ que segue própria dali em diante. Salve os seus com *Salvar como…* — eles v
 |---|---|---|
 | Ditado cru | sim | nada — cola exatamente o que foi transcrito |
 | **Ditado limpo** (padrão) | sim | pontua e limpa a fala, sem trocar suas palavras |
-| → Inglês | sim | limpa e traduz |
+| Traduzir para inglês | sim | limpa e traduz (badge `EN` na tecla) |
+| Traduzir para espanhol | sim | limpa e traduz (badge `ES` na tecla) |
 | E-mail formal | sim | limpa e reescreve como e-mail |
 | Tópicos | sim | limpa e organiza em marcadores |
-| Só reescrever seleção | **não** | pega o texto selecionado (Ctrl+C) e reescreve por cima |
+| Só revisar a seleção | **não** | pega o texto selecionado (Ctrl+C) e revisa por cima |
 
 ## As duas etapas
 
-Transcrição e processamento de texto **ligam e desligam separadamente**, e é isso que gera as
+O painel mostra a tecla como um caminho de duas etapas, porque é isso que ela é:
+
+```
+1. OUVIR          sua voz vira texto        [modelo de áudio]
+        ↓
+2. ESCREVER       o texto vira outro texto  [modelo de linguagem]
+```
+
+São dois modelos diferentes porque são dois trabalhos diferentes: um escuta áudio, o outro
+escreve. **Traduzir é trabalho do segundo** — o primeiro só sabe transcrever o que foi falado,
+no idioma em que foi falado. Cada etapa liga e desliga por conta, e é daí que saem as
 combinações úteis:
 
-| Transcrição | Texto | Resultado |
+| 1. Ouvir | 2. Escrever | Resultado |
 |---|---|---|
 | ✅ | ❌ | ditado cru, mais rápido e mais barato |
 | ✅ | limpeza | ditado limpo — mesmas palavras, escrita arrumada |
-| ✅ | limpeza + estilo | limpo e traduzido / formalizado / em tópicos |
+| ✅ | limpeza + tradução | fala em português, sai em inglês |
+| ✅ | limpeza + instrução | formalizado, em tópicos, no tom que você pedir |
 | ❌ | qualquer | reescreve o que está selecionado, **sem gravar nada** |
 
 A **limpeza de ditado** pontua, tira hesitações ("né", "tipo"), respeita autocorreções
 ("manda pro João, *quer dizer*, pra Maria" → "manda para a Maria"), converte comandos falados
 ("vírgula", "novo parágrafo") e formata números e datas. Ela **não** troca suas palavras nem
-resume — isso é trabalho do campo de estilo.
+resume.
+
+Para traduzir **não é preciso escrever prompt**: marque *Traduzir para outro idioma*, escolha
+o idioma na lista, e a tecla passa a exibir a sigla no canto (`EN`, `ES`). A instrução é
+montada por baixo — e você pode lê-la, veja abaixo.
+
+## O painel
+
+- **Simples / Avançado** — o modo Simples mostra preset, rótulo, microfone e as duas etapas.
+  O Avançado abre modelos, idioma falado, contexto, silêncio, limites, cores e ffmpeg.
+- **Multilíngue** — português, inglês e espanhol. Segue o idioma do app Stream Deck e pode ser
+  trocado no seletor do topo.
+- **Ver o que será enviado** — abre o texto **exato** que vai para a OpenAI nas duas etapas,
+  peça por peça: limpeza, tradução ou sua instrução, grafia canônica e as travas de segurança.
+  Nenhum prompt é oculto: se o plugin manda, você pode ler.
 
 ## Dicionário de palavras canônicas
 
@@ -193,6 +219,7 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 | [src/lib/icons.ts](src/lib/icons.ts) | a tecla desenhada em SVG |
 | [src/actions/dictation.ts](src/actions/dictation.ts) | máquina de estados e ponte com o painel |
 | [com.felipe.transcritranslator.sdPlugin/ui/dictation.html](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | painel, sem dependência de rede |
+| [com.felipe.transcritranslator.sdPlugin/ui/i18n.js](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | textos do painel em pt/en/es |
 
 ## Diagnóstico
 

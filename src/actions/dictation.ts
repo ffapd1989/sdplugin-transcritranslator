@@ -1,8 +1,8 @@
-// A tecla de ditado: maquina de estados, desenho ao vivo e o pipeline completo.
+// A tecla de ditado: máquina de estados, desenho ao vivo e o pipeline completo.
 //
-// GRAMATICA DE INTERACAO (a mesma do plugin da VPN): toque curto faz o seguro,
+// GRAMÁTICA DE INTERAÇÃO (a mesma do plugin da VPN): toque curto faz o seguro,
 // SEGURAR faz o destrutivo. Aqui isso vira: toque para/envia, segurar cancela — e
-// o aviso "SOLTE P/ CANCELAR" aparece ANTES de a acao acontecer, nao depois.
+// o aviso "SOLTE P/ CANCELAR" aparece ANTES de a ação acontecer, não depois.
 
 import streamDeck, {
   action,
@@ -20,9 +20,12 @@ import { join } from "node:path";
 
 import {
   withDefaults,
+  targetLanguageName,
+  languageBadge,
   TRANSCRIBE_MODELS,
   TEXT_MODELS,
   LANGUAGES,
+  TARGET_LANGUAGES,
   type ActionSettings,
   type GlobalSettings,
 } from "../lib/settings.js";
@@ -30,7 +33,12 @@ import { Recorder } from "../lib/recorder.js";
 import { getState, acquireLock, releaseLock, isBusyElsewhere, trackPid, untrackPid } from "../lib/sessions.js";
 import { AUDIO_DIR, FAILED_DIR, stamp } from "../lib/paths.js";
 import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget } from "../lib/canon.js";
-import { buildTextSystemPrompt, hasTextWork } from "../lib/prompts.js";
+import {
+  buildTextSystemPrompt,
+  hasTextWork,
+  textPromptParts,
+  type TextPromptOptions,
+} from "../lib/prompts.js";
 import { transcribe, runText, ApiError, shortError } from "../lib/openai.js";
 import { deliver, readSelectionOrClipboard, appendHistory, getFocusPid } from "../lib/deliver.js";
 import { keyImage, clock, wordCount } from "../lib/icons.js";
@@ -39,17 +47,28 @@ import { beep } from "../lib/beep.js";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/vault.js";
 import { listPresets, getPreset, savePreset, deletePreset, PRESET_FIELDS } from "../lib/presets.js";
 
-/** Segurar por isto durante a gravacao = cancelar. */
+/** Segurar por isto durante a gravação = cancelar. */
 const HOLD_MS = 1000;
-/** No modo ptt, soltar antes disto e' toque acidental — descarta. */
+/** No modo ptt, soltar antes disto é toque acidental — descarta. */
 const PTT_MIN_MS = 400;
-/** Audio menor que isto nao vai para a API (blindagem anti-eco). */
+/** Áudio menor que isto não vai para a API (blindagem anti-eco). */
 const MIN_AUDIO_MS = 800;
 /** 8 fps: suficiente para a waveform parecer viva sem martelar o Stream Deck. */
 const TICK_MS = 125;
 
 function ffmpegOf(g: GlobalSettings | undefined): string {
   return g?.ffmpegPath?.trim() || "ffmpeg";
+}
+
+/** Traduz as settings da tecla para o formato que a montagem de prompt espera. */
+function textOptions(s: Required<ActionSettings>, canonTerms: string[]): TextPromptOptions {
+  return {
+    cleanup: s.cleanup,
+    styleMode: s.styleMode,
+    targetLanguageName: targetLanguageName(s.targetLanguage),
+    style: s.style,
+    canonTerms,
+  };
 }
 
 @action({ UUID: "com.felipe.transcritranslator.dictate" })
@@ -65,7 +84,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
   }
 
   override onWillDisappear(_ev: WillDisappearEvent<ActionSettings>): void {
-    // De proposito NAO encerra a gravacao: ela e' uma operacao do usuario, nao uma
+    // De propósito NÃO encerra a gravação: ela é uma operação do usuário, não uma
     // propriedade da tela. Continua em background e entrega normalmente.
     if (this.actions.next().done) {
       clearInterval(this.ticker);
@@ -82,7 +101,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     this.ticker = setInterval(() => void this.tick(), TICK_MS);
   }
 
-  /** Redesenha apenas as teclas cujo estado esta' animado. */
+  /** Redesenha apenas as teclas cujo estado está animado. */
   private async tick(): Promise<void> {
     for (const a of this.actions) {
       if (!a.isKey()) continue;
@@ -142,7 +161,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
         break;
 
       default:
-        img = keyImage({ color: s.colorIdle, icon: s.icon, lines: label ? [label] : [] });
+        img = keyImage({
+          color: s.colorIdle,
+          icon: s.icon,
+          lines: label ? [label] : [],
+          // A tecla que traduz diz para onde, sem precisar abrir o painel.
+          badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : undefined,
+        });
     }
 
     await a.setImage(img);
@@ -231,7 +256,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       return;
     }
 
-    // Ocioso. No ptt o keyDown ja' iniciou; aqui so' o toggle age.
+    // Ocioso. No ptt o keyDown já iniciou; aqui só o toggle age.
     if (s.mode !== "ptt") await this.startRecording(a, ev.payload.settings);
   }
 
@@ -242,7 +267,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const st = getState(a.id);
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
 
-    // Sem etapa de audio: a tecla so' reescreve o que estiver selecionado.
+    // Sem etapa de áudio: a tecla só reescreve o que estiver selecionado.
     if (!s.transcribeOn) {
       await this.runTextOnly(a, s, global);
       return;
@@ -270,7 +295,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.startedAt = Date.now();
     await this.render(a, raw);
 
-    // Em paralelo, sem bloquear a gravacao: onde o texto deve voltar.
+    // Em paralelo, sem bloquear a gravação: onde o texto deve voltar.
     void getFocusPid().then((pid) => { getState(a.id).focusPid = pid; });
 
     const rec = new Recorder({
@@ -366,8 +391,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const audioPath = st.audioPath;
     st.audioPath = undefined;
 
-    // Blindagem anti-eco: audio curto ou sem fala nao vai para a API. Sem isto, um
-    // toque sem querer poderia voltar com o proprio dicionario como "transcricao".
+    // Blindagem anti-eco: áudio curto ou sem fala não vai para a API. Sem isto, um
+    // toque sem querer poderia voltar com o próprio dicionario como "transcrição".
     const hadSpeech = rec?.speechDetected ?? false;
     if (!audioPath || durationMs < MIN_AUDIO_MS || !hadSpeech) {
       if (audioPath) await unlink(audioPath).catch(() => {});
@@ -379,13 +404,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.runPipeline(a, s, global, { audioPath, durationMs });
   }
 
-  /** Tecla sem etapa de audio: pega a selecao (Ctrl+C) e reescreve. */
+  /** Tecla sem etapa de áudio: pega a seleção (Ctrl+C) e reescreve. */
   private async runTextOnly(
     a: KeyAction<ActionSettings>,
     s: Required<ActionSettings>,
     global: GlobalSettings | undefined,
   ): Promise<void> {
-    if (!hasTextWork(s)) {
+    if (!hasTextWork(textOptions(s, []))) {
       await this.flash(a, "warn", ["nada a", "fazer"], 2000);
       return;
     }
@@ -423,7 +448,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     let raw = src.input ?? "";
 
     try {
-      // --- etapa 1: transcricao ---
+      // --- etapa 1: transcrição ---
       if (src.audioPath) {
         st.phase = "transcribing";
         await this.render(a, await a.getSettings());
@@ -454,20 +479,21 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
       // --- etapa 2: texto ---
       let final = raw;
-      if (s.textOn && hasTextWork(s)) {
+      const textOpts = textOptions(s, terms);
+      if (s.textOn && hasTextWork(textOpts)) {
         st.phase = "texting";
         await this.render(a, await a.getSettings());
         try {
           const out = await runText({
             apiKey,
             model: s.textModel,
-            systemPrompt: buildTextSystemPrompt({ cleanup: s.cleanup, style: s.style, canonTerms: terms }),
+            systemPrompt: buildTextSystemPrompt(textOpts),
             userText: raw,
           });
           final = applyCanon(out, terms);
           models.push(s.textModel);
         } catch (err) {
-          // Recusa do modelo NAO pode custar a fala: entrega o texto cru.
+          // Recusa do modelo NÃO pode custar a fala: entrega o texto cru.
           if (err instanceof ApiError && err.kind === "filter" && raw) {
             note = "bloqueado — texto cru";
             final = raw;
@@ -491,7 +517,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
             note,
           },
           s.historyDir,
-        ).catch((e) => streamDeck.logger.warn("historico falhou", e));
+        ).catch((e) => streamDeck.logger.warn("histórico falhou", e));
       }
 
       if (src.audioPath && !s.keepAudio) await unlink(src.audioPath).catch(() => {});
@@ -500,7 +526,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       if (note) {
         await this.flash(a, "warn", ["cru —", "bloqueado"], 4000);
       } else if (how === "copied" && s.autoPaste) {
-        // O foco mudou: nao colamos. O texto esta' no clipboard esperando.
+        // O foco mudou: não colamos. O texto está no clipboard esperando.
         await this.flash(a, "warn", ["copiado", "Ctrl+V"], 3500);
       } else {
         await this.flash(a, "done", [`${wordCount(final)} pal.`], 2000);
@@ -508,7 +534,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     } catch (err) {
       streamDeck.logger.error("pipeline falhou", err);
 
-      // Audio que falhou e' preservado mesmo com "guardar audio" desligado —
+      // Áudio que falhou é preservado mesmo com "guardar áudio" desligado —
       // perder minutos de fala por causa de um 429 seria inaceitavel.
       if (src.audioPath) {
         const dest = join(FAILED_DIR, `${stamp()}.mp3`);
@@ -529,8 +555,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const a = ev.action;
     const global = (await streamDeck.settings.getGlobalSettings<GlobalSettings>()) ?? {};
     const ffmpeg = ffmpegOf(global);
-    // No SDK v2 quem fala com o painel e' streamDeck.ui, nao o objeto da acao.
-    // A mensagem so' sai se houver um PI visivel — o proprio SDK garante isso.
+    // No SDK v2 quem fala com o painel é streamDeck.ui, não o objeto da ação.
+    // A mensagem só sai se houver um PI visível — o próprio SDK garante isso.
     const reply = (data: object) => {
       void streamDeck.ui.sendToPropertyInspector(data as never);
     };
@@ -550,6 +576,35 @@ export class Dictation extends SingletonAction<ActionSettings> {
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
             languages: LANGUAGES,
+            targetLanguages: TARGET_LANGUAGES,
+          });
+          break;
+        }
+
+        // Mostra ao painel o texto EXATO que vai para a API. Nada de prompt oculto:
+        // se o plugin manda, você pode ler.
+        case "preview": {
+          const s = withDefaults(await a.getSettings());
+          const terms = parseTerms(global.canonTerms);
+          const built = buildTranscribePrompt({
+            terms,
+            context: s.transcribeContext,
+            useCanon: s.useCanonPrompt,
+          });
+          reply({
+            event: "preview",
+            transcribe: {
+              enabled: s.transcribeOn,
+              model: s.transcribeModel,
+              language: s.language,
+              prompt: built.prompt,
+              dropped: built.droppedTerms,
+            },
+            text: {
+              enabled: s.textOn && hasTextWork(textOptions(s, terms)),
+              model: s.textModel,
+              parts: textPromptParts(textOptions(s, terms)),
+            },
           });
           break;
         }
@@ -577,7 +632,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
         case "applyPreset": {
           const preset = await getPreset(msg.id);
-          if (!preset) { reply({ event: "error", message: "preset nao encontrado" }); break; }
+          if (!preset) { reply({ event: "error", message: "preset não encontrado" }); break; }
           const current = await a.getSettings();
           const next: ActionSettings = { ...current, presetId: preset.id };
           for (const k of PRESET_FIELDS) {
@@ -621,9 +676,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
             ok: r.ok && isFinite(r.peakDb),
             peakDb: isFinite(r.peakDb) ? Math.round(r.peakDb) : null,
             message: !r.ok
-              ? "nao consegui abrir o microfone"
+              ? "não consegui abrir o microfone"
               : !isFinite(r.peakDb) || r.peakDb < -50
-                ? "abriu, mas nao captou som — fale durante o teste"
+                ? "abriu, mas não captou som — fale durante o teste"
                 : `ok — pico ${Math.round(r.peakDb)} dB`,
           });
           break;
@@ -645,6 +700,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
 type PiMessage =
   | { cmd: "init" }
+  | { cmd: "preview" }
   | { cmd: "setKey"; key: string }
   | { cmd: "clearKey" }
   | { cmd: "setGlobal"; canonTerms?: string; ffmpegPath?: string }
@@ -654,7 +710,7 @@ type PiMessage =
   | { cmd: "testMic"; device: string }
   | { cmd: "budget"; context: string };
 
-/** Usado pelo Property Inspector para o botao "Testar" do microfone. */
+/** Usado pelo Property Inspector para o botão "Testar" do microfone. */
 export async function probeMic(ffmpeg: string, device: string, seconds: number): Promise<{ peakDb: number; ok: boolean }> {
   const out = join(AUDIO_DIR, `probe-${Date.now()}.mp3`);
   const rec = new Recorder({

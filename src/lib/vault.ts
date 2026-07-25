@@ -1,12 +1,12 @@
-// Cofre da chave da OpenAI — DPAPI, o mesmo padrao da VPN (cred.xml).
+// Cofre da chave da OpenAI — DPAPI, o mesmo padrão da VPN (cred.xml).
 //
-// POR QUE NAO GUARDAR NAS SETTINGS DO STREAM DECK: elas viram um .json em texto
-// plano dentro de %APPDATA%\Elgato — qualquer processo do usuario le. O DPAPI
-// cifra com a chave da CONTA do Windows: o arquivo so' abre nesta conta, nesta
-// maquina, e nao serve para nada se vazar.
+// POR QUE NÃO GUARDAR NAS SETTINGS DO STREAM DECK: elas viram um .json em texto
+// plano dentro de %APPDATA%\Elgato — qualquer processo do usuário le. O DPAPI
+// cifra com a chave da CONTA do Windows: o arquivo só abre nesta conta, nesta
+// máquina, e não serve para nada se vazar.
 //
-// O custo (subir um powershell) so' acontece ao salvar e uma vez no boot do
-// plugin — nunca no caminho quente do ditado, porque cacheamos em memoria.
+// O custo (subir um powershell) só acontece ao salvar e uma vez no boot do
+// plugin — nunca no caminho quente do ditado, porque cacheamos em memória.
 
 import { execFile } from "node:child_process";
 import { join } from "node:path";
@@ -14,7 +14,7 @@ import { join } from "node:path";
 const DIR = join(process.env.LOCALAPPDATA ?? "", "transcritranslator");
 const KEY_FILE = join(DIR, "openai-key.xml");
 
-/** Aspas simples de PowerShell: o escape e' dobrar a propria aspa. */
+/** Aspas simples de PowerShell: o escape é dobrar a própria aspa. */
 function psQuote(s: string): string {
   return `'${s.replace(/'/g, "''")}'`;
 }
@@ -37,7 +37,7 @@ let cached: string | null = null;
 
 /**
  * Chave em uso, na ordem: cache -> variavel de ambiente -> cofre DPAPI.
- * A env var ganha do cofre por ser explicita (util para testar outra chave).
+ * A env var ganha do cofre por ser explicita (útil para testar outra chave).
  */
 export async function getApiKey(): Promise<string | null> {
   if (cached) return cached;
@@ -93,7 +93,7 @@ export async function clearApiKey(): Promise<void> {
   ).catch(() => {});
 }
 
-/** Mostra so' o suficiente para o usuario reconhecer a chave. */
+/** Mostra só o suficiente para o usuário reconhecer a chave. */
 export function maskKey(key: string): string {
   if (key.length <= 11) return "•".repeat(key.length);
   return `${key.slice(0, 7)}…${key.slice(-4)}`;

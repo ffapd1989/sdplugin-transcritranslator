@@ -1,8 +1,8 @@
-// Checagem do nucleo de gravacao contra o hardware de verdade.
+// Checagem do núcleo de gravação contra o hardware de verdade.
 //
-// Valida o que teste puro nao alcanca: se o comando do ffmpeg com DUAS saidas
-// funciona, se o medidor de nivel chega pelo stdout, se o `q` fecha o MP3 direito
-// e se o arquivo sai valido.
+// Valida o que teste puro não alcança: se o comando do ffmpeg com DUAS saídas
+// funciona, se o medidor de nível chega pelo stdout, se o `q` fecha o MP3 direito
+// e se o arquivo sai válido.
 //
 //   npm run mic
 //   npm run mic -- "NOME DO MICROFONE"
@@ -32,7 +32,7 @@ const devices = await listAudioDevices(FFMPEG);
 console.log("\nmicrofones encontrados:");
 devices.forEach((d, i) => console.log(`  ${i + 1}. ${d.name}`));
 if (devices.length === 0) {
-  console.log("  nenhum — o ffmpeg nao enxergou dispositivos dshow");
+  console.log("  nenhum — o ffmpeg não enxergou dispositivos dshow");
   process.exit(1);
 }
 
@@ -80,18 +80,18 @@ const duration = size ? await probeDuration(out) : -1;
 const pid = await pidPromise;
 
 console.log("\nresultado:");
-console.log(`  saiu limpo         ${result.ok ? "sim" : "NAO"}`);
-console.log(`  amostras de nivel  ${samples}  (~${(samples / SECONDS).toFixed(0)}/s)`);
+console.log(`  saiu limpo         ${result.ok ? "sim" : "NÃO"}`);
+console.log(`  amostras de nível  ${samples}  (~${(samples / SECONDS).toFixed(0)}/s)`);
 console.log(`  pico               ${isFinite(rec.peakDb) ? rec.peakDb.toFixed(1) + " dBFS" : "nenhum sinal"}`);
-console.log(`  fala detectada     ${rec.speechDetected ? "sim" : "nao"}`);
+console.log(`  fala detectada     ${rec.speechDetected ? "sim" : "não"}`);
 console.log(`  arquivo            ${size} bytes`);
-console.log(`  duracao do mp3     ${duration > 0 ? duration.toFixed(2) + "s" : "invalido"}`);
+console.log(`  duração do mp3     ${duration > 0 ? duration.toFixed(2) + "s" : "inválido"}`);
 console.log(`  kbps efetivo       ${duration > 0 ? ((size * 8) / duration / 1000).toFixed(0) : "—"}`);
-console.log(`  pid em foco        ${pid || "nao consegui ler"}`);
+console.log(`  pid em foco        ${pid || "não consegui ler"}`);
 if (result.stderr) console.log(`  stderr             ${result.stderr.slice(0, 300)}`);
 
 await unlink(out).catch(() => {});
 
 const good = result.ok && samples > 10 && size > 0 && duration > SECONDS * 0.6;
-console.log(`\n${good ? "NUCLEO OK" : "NUCLEO COM PROBLEMA"}\n`);
+console.log(`\n${good ? "NÚCLEO OK" : "NÚCLEO COM PROBLEMA"}\n`);
 process.exit(good ? 0 : 1);
