@@ -186,6 +186,15 @@
     padding: 1px 5px; font-size: 7.5pt; margin-left: 6px; text-transform: none; letter-spacing: 0;
   }
 
+  /* rodapé: versão e autoria, discretos */
+  footer#about {
+    margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+    text-align: center; color: var(--muted); font-size: 7.5pt; line-height: 1.7;
+  }
+  footer#about #version { display: block; font-variant-numeric: tabular-nums; }
+  footer#about em { opacity: .9; }
+  footer#about button.link { font-size: 7.5pt; margin-left: 4px; }
+
   /* modo simples esconde o que for avançado */
   body.simple .adv { display: none !important; }
 
@@ -611,6 +620,12 @@
   </div>
 </div>
 
+<footer id="about">
+  <span id="version"></span>
+  <em data-i18n="aboutMe"></em>
+  <button class="link" data-url="https://github.com/ffapd1989">github.com/ffapd1989</button>
+</footer>
+
 <script>
 // ---------------------------------------------------------------------------
 // Protocolo do Property Inspector (o Stream Deck chama esta função ao abrir).
@@ -686,6 +701,7 @@ function applyLang() {
     document.getElementById("promptBox").classList.contains("on") ? t("hidePrompt") : t("seePrompt");
   refreshKeyStatus();
   renderPresetInfo();
+  showVersion();
 }
 
 /**
@@ -869,6 +885,7 @@ function handlePlugin(p) {
       document.getElementById("canonTerms").value = p.canonTerms || "";
       document.getElementById("ffmpegPath").value = p.ffmpegPath || "";
       refreshDictCount();
+      if (p.version) showVersion(p.version, p.versionDate);
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
       ready = true;
@@ -885,6 +902,7 @@ function handlePlugin(p) {
       refreshPromptIfOpen();
       break;
     case "keySaved":
+      if (p.version) showVersion(p.version, p.versionDate);
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
       document.getElementById("apiKey").value = "";
@@ -926,6 +944,31 @@ function refreshDictCount() {
   el.textContent = n ? `${n} ${t("dictTerms")}` : t("dictNone");
   el.className = "status" + (n ? " ok" : "");
   el.style.margin = "0";
+}
+
+/**
+ * "v. 1.0.0.0 — 25 jul 2026", com o mês escrito no idioma do painel.
+ * Guarda os valores porque o rodapé é redesenhado quando o idioma muda.
+ */
+let versionInfo = null;
+function showVersion(version, isoDate) {
+  if (version) versionInfo = { version, isoDate };
+  if (!versionInfo) return;
+  let when = "";
+  try {
+    const [y, m, d] = (versionInfo.isoDate || "").split("-").map(Number);
+    if (y) {
+      // Monta a partir das partes em vez de usar o format() pronto: em português ele
+      // devolveria "25 de jul. de 2026", que é longo demais para um rodapé.
+      const parts = new Intl.DateTimeFormat(lang, {
+        day: "2-digit", month: "short", year: "numeric",
+      }).formatToParts(new Date(y, m - 1, d));
+      const get = (type) => parts.find((p) => p.type === type)?.value ?? "";
+      when = `${get("day")} ${get("month").replace(/\.$/, "")} ${get("year")}`;
+    }
+  } catch { /* sem data, mostra só a versão */ }
+  document.getElementById("version").textContent =
+    `v. ${versionInfo.version}` + (when ? ` — ${when}` : "");
 }
 
 function openModal(id) { document.getElementById(id).classList.add("on"); }

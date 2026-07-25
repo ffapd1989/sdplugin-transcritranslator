@@ -23,8 +23,25 @@ npm run watch     # rebuild automático
 streamdeck restart com.felipe.transcritranslator   # recarrega no app
 ```
 
-Ciclo normal de trabalho: `check` → `test` → `build` → `restart`. Mexeu em `recorder.ts`,
-rode `npm run mic` também — é o único teste que exercita o comando do ffmpeg de verdade.
+Ciclo normal de trabalho: **bump** → `check` → `test` → `build` → `restart`. Mexeu em
+`recorder.ts`, rode `npm run mic` também — é o único teste que exercita o comando do ffmpeg de
+verdade.
+
+## REGRA: toda alteração sobe a versão
+
+Antes de commitar qualquer mudança, edite [version.json](version.json) — é a **fonte única**:
+
+```json
+{ "version": "1.0.0.0", "date": "2026-07-25" }
+```
+
+Quatro dígitos, `a.b.c.d`, como o manifest da Elgato exige. Suba o último em correção pequena,
+o terceiro em mudança de comportamento, o segundo em recurso novo, o primeiro em virada grande.
+Atualize a `date` junto — ela aparece no rodapé do painel.
+
+O `build.mjs` **sincroniza o manifest sozinho** a partir daí e injeta os valores no bundle, então
+versão do painel e versão do Stream Deck não têm como divergir. Ele também recusa o build se o
+formato não for `a.b.c.d`.
 
 Instalação inicial (uma vez): `npm install`, `render-images.ps1`, `streamdeck dev`,
 `streamdeck link com.felipe.transcritranslator.sdPlugin`.

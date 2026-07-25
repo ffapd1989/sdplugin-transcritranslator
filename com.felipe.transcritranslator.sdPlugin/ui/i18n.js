@@ -234,6 +234,7 @@ window.TT_I18N = {
     detailKeyLabel: "Rótulo da tecla",
 
     uiAuto: "Automático",
+    aboutMe: "feito por Felipe Drummond",
   },
 
   en: {
@@ -455,6 +456,7 @@ window.TT_I18N = {
     detailKeyLabel: "Key label",
 
     uiAuto: "Automatic",
+    aboutMe: "made by Felipe Drummond",
   },
 
   es: {
@@ -675,5 +677,6 @@ window.TT_I18N = {
     detailKeyLabel: "Etiqueta de la tecla",
 
     uiAuto: "Automático",
+    aboutMe: "hecho por Felipe Drummond",
   },
 };

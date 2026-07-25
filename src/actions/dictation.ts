@@ -57,6 +57,10 @@ const MIN_AUDIO_MS = 800;
 /** 8 fps: suficiente para a waveform parecer viva sem martelar o Stream Deck. */
 const TICK_MS = 125;
 
+// Injetados pelo build a partir de version.json (fonte única da versão).
+declare const __TT_VERSION__: string;
+declare const __TT_DATE__: string;
+
 function ffmpegOf(g: GlobalSettings | undefined): string {
   return g?.ffmpegPath?.trim() || "ffmpeg";
 }
@@ -619,6 +623,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
+            version: __TT_VERSION__,
+            versionDate: __TT_DATE__,
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
