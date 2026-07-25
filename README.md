@@ -291,3 +291,4 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 | **README.md** (este) | quem vai **usar** o plugin |
 | [CLAUDE.md](CLAUDE.md) | quem vai **mexer no código** — arquitetura, armadilhas e decisões que não devem ser revertidas |
 | [docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md) | histórico: o plano aprovado antes da implementação, com o porquê de cada escolha |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | o que vem depois — pendências e ideias, com contexto para retomar |
