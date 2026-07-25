@@ -215,6 +215,28 @@ depois desenhar o conjunto inteiro nele. Ampliar no estilo atual é retrabalho g
 
 ## 3. Painel mais high-tech
 
+### 3.0 Colar a chave dentro do próprio modal de ajuda — *rápido de fazer*
+
+O modal "Como obter uma chave da OpenAI" termina no passo 4 dizendo **"cole no campo do
+painel"** — e aí a pessoa precisa fechar o modal, achar *Configuração da máquina*, abrir a
+seção e só então colar. Ela acabou de copiar a chave da OpenAI, com ela ainda no clipboard: o
+campo tem de estar **ali**.
+
+- [ ] Campo de senha + botão *Salvar* no rodapé do modal, antes do *Fechar*
+- [ ] Reusar o comando `setKey` que já existe — nada de caminho novo para o cofre DPAPI
+- [ ] Ao salvar com sucesso: fechar o modal, sumir com o banner de aviso e atualizar os **dois**
+      indicadores (o do modal e o da seção da máquina), que hoje são desenhados por
+      `refreshKeyStatus()`
+- [ ] Erro visível ali mesmo, sem fechar — chave colada errada é o caso mais provável
+- [ ] Os dois campos escrevem no mesmo lugar; manter um só ponto de verdade e não duplicar
+      validação
+
+> Vale como primeira tarefa de quem retomar o projeto: mexe em um arquivo só
+> ([dictation.html](../com.felipe.transcritranslator.sdPlugin/ui/dictation.html)), tem efeito
+> visível e serve para reentrar no código sem risco.
+
+### 3.1 Refinamento visual
+
 O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
 - [ ] **Preview da tecla ao vivo dentro do painel.** É o item de maior retorno: hoje é preciso

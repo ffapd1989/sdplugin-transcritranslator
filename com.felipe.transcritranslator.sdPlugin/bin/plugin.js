@@ -19340,7 +19340,7 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.0.1.0",
+            version: "1.0.1.1",
             versionDate: "2026-07-25",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
