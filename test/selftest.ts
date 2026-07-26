@@ -1,11 +1,17 @@
 // Teste das partes puras, sem Stream Deck e sem rede.
 import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget, estimateTokens } from "../src/lib/canon.js";
-import { looksLikePromptEcho } from "../src/lib/openai.js";
+import { looksLikePromptEcho, shortError, ApiError } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
 import { builtinPresets } from "../src/lib/presets.js";
 import { promptText, LOCALES } from "../src/lib/prompt-text.js";
-import { keyImage, clock, wordCount, wrapLabel } from "../src/lib/icons.js";
-import { spokenLanguages, languageLabel, languageName, languageBadge } from "../src/lib/languages.js";
+import {
+  keyImage, clock, wordCount, wrapLabel, iconThumb, ICON_NAMES, KEY_STYLES,
+} from "../src/lib/icons.js";
+import {
+  spokenLanguages, targetLanguages, languageLabel, languageName, languageBadge,
+  SPOKEN_CODES, TARGET_CODES,
+} from "../src/lib/languages.js";
+import { keyText, wordCountLines } from "../src/lib/key-text.js";
 import { shade } from "../src/lib/theme.js";
 import { withDefaults, resolveContentLocale, resolveUiLocale } from "../src/lib/settings.js";
 
@@ -216,6 +222,86 @@ ok("ícone e texto não se sobrepõem", (() => {
   return cy + (42 * scale) / 2 <= firstY - 14 + 1;
 })());
 
+console.log("\n— as três direções visuais —");
+for (const st of KEY_STYLES) {
+  const svg = svgOf(keyImage({ color: "#3B6FD4", style: st, icon: "mic" }));
+  ok(`${st} gera svg válido`, svg.startsWith("<svg") && svg.endsWith("</svg>"));
+  ok(`${st} usa o fundo escuro`, svg.includes("#0C0C10"), st);
+  ok(`${st} não usa <filter>`, !svg.includes("<filter"), st);
+  // Um id de gradiente por SVG; dois seriam colisão silenciosa dentro da mesma tecla.
+  ok(`${st} declara no máximo um gradiente`, (svg.match(/id="h"/g) || []).length <= 1);
+}
+ok("as três direções produzem desenhos diferentes", (() => {
+  const seen = KEY_STYLES.map((st) => svgOf(keyImage({ color: "#3B6FD4", style: st, icon: "mic" })));
+  return new Set(seen).size === KEY_STYLES.length;
+})());
+ok("sem estilo declarado cai em neon",
+  keyImage({ color: "#3B6FD4", icon: "mic" }) === keyImage({ color: "#3B6FD4", style: "neon", icon: "mic" }));
+// A direção vale para os estados também: uma tecla neon não vira aurora ao gravar.
+for (const st of KEY_STYLES) {
+  for (const special of ["check", "cross", "warn"] as const) {
+    ok(`${st} desenha o estado ${special}`,
+      svgOf(keyImage({ color: "#2E8C3C", style: st, special })).length > 200);
+  }
+}
+
+console.log("\n— o conjunto de ícones —");
+ok("18 ícones mais o vazio", ICON_NAMES.length === 19, `n=${ICON_NAMES.length}`);
+ok("nenhum nome repetido", new Set(ICON_NAMES).size === ICON_NAMES.length);
+ok("os ícones antigos sobreviveram à ampliação",
+  ["mic", "globe", "bubble", "pen", "none"].every((n) => ICON_NAMES.includes(n as never)),
+  "settings gravadas nas teclas de hoje apontam para estes");
+for (const icon of ICON_NAMES) {
+  if (icon === "none") continue;
+  for (const st of KEY_STYLES) {
+    const svg = svgOf(keyImage({ color: "#3B6FD4", style: st, icon }));
+    ok(`${icon} desenha em ${st}`, svg.length > 300 && !svg.includes("NaN"), `${svg.length} bytes`);
+  }
+}
+ok("ícone 'none' deixa a tecla só com o rótulo", (() => {
+  const svg = svgOf(keyImage({ color: "#3B6FD4", icon: "none", lines: ["Ditado"] }));
+  return svg.includes("Ditado") && !svg.includes("<path") && !svg.includes("<circle");
+})());
+ok("nenhum glifo escapa da grade de 32x32", (() => {
+  // Todo ícone é desenhado na MESMA caixa em volta de (36,28). Um que escape estraga
+  // o alinhamento do conjunto inteiro — e foi o que aconteceu com o primeiro lápis,
+  // que vazava para fora do desenho. Aqui olhamos só COORDENADAS: nada de raio,
+  // espessura, opacidade ou os números do gradiente.
+  const bad: string[] = [];
+  for (const icon of ICON_NAMES) {
+    if (icon === "none") continue;
+    const svg = svgOf(keyImage({ color: "#3B6FD4", style: "aurora", icon }))
+      .replace(/<defs>[\s\S]*?<\/defs>/, "")
+      .replace(/<rect[^>]*rx="1[34](\.\d+)?"[^>]*\/>/g, ""); // casca e atmosfera da tecla
+
+    const coords: number[] = [];
+    for (const m of svg.matchAll(/\s(?:x|y|cx|cy|x1|y1|x2|y2)="([-\d.]+)"/g)) coords.push(parseFloat(m[1]));
+    for (const m of svg.matchAll(/\sd="([^"]+)"/g)) {
+      // "A rx ry rot arco varredura x y" — só os dois últimos são coordenadas; os
+      // raios e os flags (0/1) não são, e sem tirá-los todo arco daria falso alarme.
+      const d = m[1].replace(/A\s+[\d.]+\s+[\d.]+\s+[\d.]+\s+[01]\s+[01]\s+/g, "");
+      for (const n of d.matchAll(/[-\d.]+/g)) coords.push(parseFloat(n[0]));
+    }
+    const out = coords.filter((v) => v < 10 || v > 56);
+    if (out.length) bad.push(`${icon}: ${out.slice(0, 4).join(",")}`);
+  }
+  return bad.length === 0;
+})(), "algum ícone saiu da grade");
+
+console.log("\n— miniaturas do painel —");
+for (const st of KEY_STYLES) {
+  ok(`miniatura em ${st}`, iconThumb("mic", st, "#3B6FD4").startsWith("data:image/svg+xml;base64,"));
+}
+ok("toda opção da grade tem miniatura",
+  ICON_NAMES.every((n) => iconThumb(n, "neon", "#3B6FD4").length > 120));
+ok("a miniatura sai do mesmo desenho da tecla", (() => {
+  const thumb = svgOf(iconThumb("bolt", "aurora", "#3B6FD4"));
+  const key = svgOf(keyImage({ color: "#3B6FD4", style: "aurora", icon: "bolt" }));
+  // o caminho do raio é literalmente o mesmo nos dois
+  const d = /d="(M 39 12[^"]*)"/.exec(key)?.[1];
+  return !!d && thumb.includes(d);
+})());
+
 console.log("\n— idiomas traduzidos —");
 for (const loc of LOCALES) {
   const spoken = spokenLanguages(loc, "auto");
@@ -232,6 +318,69 @@ ok("prompt usa o nome em minúscula",
   languageName("pt", "es") === "espanhol", languageName("pt", "es"));
 ok("badge sempre em maiúsculas", languageBadge("pt") === "PT" && languageBadge("") === "");
 ok("código desconhecido não quebra", !!languageLabel("pt", "xx"));
+
+console.log("\n— idiomas de destino —");
+for (const loc of LOCALES) {
+  const targets = targetLanguages(loc);
+  ok(`lista de destinos em ${loc}`, targets.length === TARGET_CODES.length && targets.length >= 28,
+    `n=${targets.length}`);
+  ok(`destinos em ordem alfabética em ${loc}`,
+    targets.every((v, i, arr) => i === 0 || arr[i - 1].label.localeCompare(v.label, loc) <= 0));
+  ok(`todo destino tem nome em ${loc}`, targets.every((x) => !!x.label && x.label !== x.code));
+}
+// Traduzir para um idioma que o plugin nem aceita ouvir seria oferecer meio caminho.
+ok("todo destino também é um idioma falado",
+  TARGET_CODES.every((c) => SPOKEN_CODES.includes(c)),
+  TARGET_CODES.filter((c) => !SPOKEN_CODES.includes(c)).join(","));
+ok("nenhum destino repetido", new Set(TARGET_CODES).size === TARGET_CODES.length);
+
+console.log("\n— texto da tecla —");
+for (const loc of LOCALES) {
+  const K = keyText(loc) as unknown as Record<string, string | string[]>;
+  const empty = Object.keys(keyText("pt")).filter((k) => {
+    const v = K[k];
+    return Array.isArray(v) ? v.length !== 2 || v.some((x) => !x) : !v;
+  });
+  ok(`texto da tecla completo em ${loc}`, empty.length === 0, empty.join(","));
+}
+ok("plural certo na contagem",
+  wordCountLines(1, "pt")[1] === "palavra" && wordCountLines(2, "pt")[1] === "palavras");
+ok("contagem muda de idioma",
+  wordCountLines(3, "en")[1] === "words" && wordCountLines(3, "es")[1] === "palabras");
+ok("número vem na primeira linha", wordCountLines(142, "pt")[0] === "142");
+ok("erro de API sai no idioma do painel",
+  shortError(new ApiError("x", "auth"), "en") === "bad key" &&
+  shortError(new ApiError("x", "auth"), "pt") === "chave inválida",
+  `${shortError(new ApiError("x", "auth"), "en")} / ${shortError(new ApiError("x", "auth"), "pt")}`);
+ok("erro com status ainda mostra o número",
+  shortError(new ApiError("x", "transient", 429), "en") === "error 429");
+
+console.log("\n— confirmação em duas linhas —");
+const done = svgOf(keyImage({
+  color: "#2E8C3C", special: "check", lines: ["142", "palavras"], fontSizes: [22, 10],
+}));
+ok("número e palavra em linhas separadas", (done.match(/<text/g) || []).length === 2);
+ok("número sai bem maior que a palavra", (() => {
+  const sizes = [...done.matchAll(/font-size="([\d.]+)"/g)].map((m) => parseFloat(m[1]));
+  return sizes.length === 2 && sizes[0] >= sizes[1] * 2;
+})(), [...done.matchAll(/font-size="([\d.]+)"/g)].map((m) => m[1]).join(" / "));
+ok("check não encosta no número", (() => {
+  const firstY = parseFloat(/<text[^>]*y="([\d.]+)"/.exec(done)![1]);
+  const scale = parseFloat(/scale\(([\d.]+)\)/.exec(done)?.[1] ?? "1");
+  const cy = parseFloat(/translate\(36 ([\d.]+)\)/.exec(done)?.[1] ?? "28");
+  return cy + (42 * scale) / 2 <= firstY - 22 + 1;
+})());
+ok("confirmação não vaza da tecla",
+  [...done.matchAll(/<text[^>]*y="([\d.]+)"/g)].every((m) => parseFloat(m[1]) <= 70),
+  [...done.matchAll(/<text[^>]*y="([\d.]+)"/g)].map((m) => m[1]).join(","));
+// "palavras" em espanhol e inglês tem largura diferente; nenhuma pode ser espremida.
+for (const loc of LOCALES) {
+  const svg = svgOf(keyImage({
+    color: "#2E8C3C", special: "check", lines: wordCountLines(9999, loc), fontSizes: [22, 10],
+  }));
+  const small = [...svg.matchAll(/font-size="([\d.]+)"/g)].map((m) => parseFloat(m[1]))[1];
+  ok(`a palavra cabe sem encolher em ${loc}`, small === 10, `corpo=${small}`);
+}
 
 console.log(`\n${pass} ok, ${fail} falhas\n`);
 process.exit(fail ? 1 : 0);

@@ -13,7 +13,21 @@
 import { asLocale, type Locale } from "./prompt-text.js";
 
 export type CaptureMode = "toggle" | "ptt";
-export type IconName = "mic" | "globe" | "bubble" | "pen" | "none";
+/**
+ * Direção visual da tecla (escolhida em 26/07/2026, ver docs/estilos):
+ *   neon   — contorno aceso com halo de cor
+ *   aurora — mancha de cor atmosférica atrás do glifo branco
+ *   ring   — arco-medidor na cor em volta do glifo
+ * As três são opção do usuário DE PROPÓSITO: a decisão foi não eleger uma.
+ */
+export type KeyStyle = "neon" | "aurora" | "ring";
+export type IconName =
+  | "mic" | "micOff" | "waves" | "headset"
+  | "globe" | "translate" | "bubble" | "quote"
+  | "doc" | "list" | "keyboard" | "code"
+  | "pen" | "wand" | "bolt" | "check"
+  | "mail" | "calendar"
+  | "none";
 export type StyleMode = "none" | "translate" | "custom";
 export type LangPref = "auto" | "pt" | "en" | "es";
 
@@ -124,6 +138,8 @@ export type ActionSettings = {
   colorIdle?: string;
   colorRec?: string;
   colorDone?: string;
+  /** Direção visual da tecla ociosa e dos estados. */
+  keyStyle?: KeyStyle;
   icon?: IconName;
   showLabel?: boolean;
   showTimer?: boolean;
@@ -166,6 +182,7 @@ export const DEFAULTS: Required<ActionSettings> = {
   colorIdle: "#404650",
   colorRec: "#C44040",
   colorDone: "#2E8C3C",
+  keyStyle: "neon",
   icon: "mic",
   showLabel: true,
   showTimer: true,

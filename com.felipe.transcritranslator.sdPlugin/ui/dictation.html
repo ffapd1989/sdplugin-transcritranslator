@@ -28,8 +28,15 @@
   }
   .seg button.on { background: #46617f; color: #eaf2fb; }
   .topbar select { width: auto; flex: 0 0 auto; font-size: 8.5pt; padding: 3px 5px; }
-  /* Diz de cara que aquele seletor é de idioma, sem gastar largura com um rótulo. */
+  /* Globo + "UI" dizem que aquele seletor é o idioma DA INTERFACE, e dizem isso em
+     qualquer idioma — que é o ponto: quem abriu o painel numa língua que não lê
+     precisa achar este seletor sem conseguir ler nada em volta. Pela mesma razão as
+     opções são todas invariáveis (Default, Português, English, Español). */
   .topbar .globe { font-size: 11pt; line-height: 1; opacity: .85; }
+  .topbar .uitag {
+    font-size: 7.5pt; font-weight: 600; letter-spacing: .06em;
+    color: var(--muted); margin-left: -2px;
+  }
   .topbar .grow { flex: 1 1 auto; }
 
   details {
@@ -230,6 +237,31 @@
   }
   .modal textarea { min-height: 190px; }
 
+  /* grades de escolha: 18 ícones num <select> seria ilegível, e a graça é ver.
+     As miniaturas são geradas pelo plugin, no estilo e na cor da própria tecla. */
+  .grid { display: flex; flex-wrap: wrap; gap: 4px; }
+  .grid button {
+    width: 40px; height: 40px; padding: 0; border-radius: 7px;
+    background: #131318; border: 1px solid #35353f;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .grid button:hover { background: #1c1c23; border-color: #4d4d5a; }
+  .grid button.on { border-color: var(--accent); background: #1e2033; }
+  .grid button img { width: 34px; height: 34px; display: block; }
+  /* O estilo é a decisão maior: miniatura maior e nome embaixo. */
+  .grid.styles button { width: 62px; height: 62px; flex-direction: column; gap: 1px; }
+  .grid.styles button img { width: 38px; height: 38px; }
+  .grid.styles button span { font-size: 7pt; color: var(--muted); }
+  .grid.styles button.on span { color: #cfe0f5; }
+
+  /* prévia da tecla: a MESMA imagem que vai para o Stream Deck, em tamanho real
+     (72 px). A placa escura por trás imita o corpo do aparelho — sem ela, os cantos
+     arredondados da tecla sumiriam contra o fundo do painel. */
+  .keyprev {
+    width: 72px; height: 72px; flex: 0 0 72px;
+    border-radius: 13px; background: #131313;
+  }
+
   /* seletores de idioma */
   .langRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .langRow > label { flex: 0 0 118px; text-align: right; color: var(--muted); font-size: 8.5pt; }
@@ -247,7 +279,8 @@
   </div>
   <span class="grow"></span>
   <span class="globe" id="globeIcon" aria-hidden="true">🌐</span>
-  <select id="uiLangTop" title="Idioma do painel"></select>
+  <span class="uitag" aria-hidden="true">UI</span>
+  <select id="uiLangTop" data-i18n-title="langUiTitle"></select>
 </div>
 
 <div class="alert">
@@ -297,6 +330,16 @@
           <input type="range" data-setting="labelGap" data-type="num" min="0" max="8" step="1">
           <output id="outLabelGap"></output>
         </div>
+      </div>
+    </div>
+
+    <!-- A imagem vem PRONTA do plugin: é literalmente o SVG que a tecla física
+         recebe, e não uma reconstrução em HTML que envelheceria à parte. -->
+    <div class="row">
+      <label data-i18n="preview">Prévia da tecla</label>
+      <div class="ctl">
+        <img id="keyPreview" class="keyprev" alt="">
+        <span class="hint full" style="margin:0" data-i18n="previewHint"></span>
       </div>
     </div>
 
@@ -515,18 +558,20 @@
       </div>
     </div>
 
-    <div class="row">
-      <label data-i18n="icon">Ícone</label>
-      <div class="ctl">
-        <select data-setting="icon" data-type="str">
-          <option value="mic" data-i18n="iconMic"></option>
-          <option value="globe" data-i18n="iconGlobe"></option>
-          <option value="bubble" data-i18n="iconBubble"></option>
-          <option value="pen" data-i18n="iconPen"></option>
-          <option value="none" data-i18n="iconNone"></option>
-        </select>
-      </div>
+    <!-- Direção visual e ícone são escolhidos VENDO, não lendo um <select>: as
+         miniaturas vêm desenhadas pelo próprio plugin, na cor da tecla. -->
+    <div class="stack">
+      <label data-i18n="keyStyle">Estilo da tecla</label>
+      <div class="grid styles" id="styleGrid"></div>
+      <div class="hint full" id="styleHint"></div>
     </div>
+
+    <div class="stack">
+      <label data-i18n="icon">Ícone</label>
+      <div class="grid" id="iconGrid"></div>
+    </div>
+    <select data-setting="keyStyle" data-type="str" hidden></select>
+    <select data-setting="icon" data-type="str" hidden></select>
 
     <div class="check">
       <input type="checkbox" id="showLabel" data-setting="showLabel" data-type="bool">
@@ -616,7 +661,20 @@
     </div>
     <div class="note" data-i18n="helpCost"></div>
     <div class="note" data-i18n="helpSafety"></div>
-    <div class="foot"><button class="primary" data-close data-i18n="close">Fechar</button></div>
+
+    <!-- O campo fica AQUI porque é aqui que a chave está no clipboard: quem acabou
+         de copiá-la no passo 4 não deveria ter de fechar isto, achar a seção da
+         máquina e abri-la para colar. Escreve no mesmo cofre do outro campo. -->
+    <div class="row">
+      <label data-i18n="apiKey">Chave OpenAI</label>
+      <div class="ctl">
+        <input type="password" id="modalKey" placeholder="sk-…" autocomplete="off">
+        <button id="modalKeySave" class="primary" data-i18n="save">Salvar</button>
+      </div>
+    </div>
+    <div class="status" id="modalKeyStatus"></div>
+
+    <div class="foot"><button data-close data-i18n="close">Fechar</button></div>
   </div>
 </div>
 
@@ -696,6 +754,12 @@ function applyLang() {
       const v = t(el.dataset.i18nPh);
       if (v) el.placeholder = v;
     }
+    // O seletor do topo não tem rótulo visível — o "UI" ao lado é um símbolo, e a
+    // frase inteira mora aqui, no tooltip.
+    for (const el of document.querySelectorAll("[data-i18n-title]")) {
+      const v = t(el.dataset.i18nTitle);
+      if (v) el.title = v;
+    }
   }
   document.getElementById("promptToggle").textContent =
     document.getElementById("promptBox").classList.contains("on") ? t("hidePrompt") : t("seePrompt");
@@ -748,7 +812,8 @@ const DEFAULTS = {
   language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
   textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
   autoPaste: true, history: true, historyDir: "", keepAudio: false,
-  colorIdle: "#404650", colorRec: "#C44040", colorDone: "#2E8C3C", icon: "mic",
+  colorIdle: "#404650", colorRec: "#C44040", colorDone: "#2E8C3C",
+  keyStyle: "neon", icon: "mic",
   showLabel: true, showTimer: true, showWave: true, labelSize: 14, labelGap: 1,
 };
 
@@ -767,6 +832,7 @@ function applyToForm() {
   radio.checked = true;
   syncVisibility();
   refreshBudget();
+  refreshKeyPreview(true);
 }
 
 /** Número ao lado de cada slider — sem ele não dá para saber onde se está. */
@@ -816,6 +882,9 @@ function bind() {
       if (key === "transcribeOn" || key === "textOn" || key === "language") syncVisibility();
       if (key === "transcribeContext") refreshBudget();
       refreshPromptIfOpen();
+      // As miniaturas são desenhadas na cor e no estilo da tecla: mexeu num dos
+      // dois, as duas grades precisam ser redesenhadas junto.
+      refreshKeyPreview(key === "colorIdle" || key === "keyStyle" || key === "icon");
     });
   }
 
@@ -825,6 +894,7 @@ function bind() {
       saveSettings();
       syncVisibility();
       refreshPromptIfOpen();
+      refreshKeyPreview();
     });
   }
 }
@@ -906,6 +976,10 @@ function handlePlugin(p) {
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
       document.getElementById("apiKey").value = "";
+      document.getElementById("modalKey").value = "";
+      // Salvou pelo modal: o trabalho acabou ali, então o modal sai da frente.
+      if (p.hasKey && keyCameFromModal) closeModals();
+      keyCameFromModal = false;
       break;
     case "globalSaved":
       status(document.getElementById("globalStatus"), t("saved"), "ok");
@@ -925,15 +999,105 @@ function handlePlugin(p) {
       break;
     }
     case "preview": renderPreview(p); break;
+    case "keyPreview":
+      if (p.image) document.getElementById("keyPreview").src = p.image;
+      if (p.styles) renderGrid("styleGrid", p.styles, "keyStyle", styleLabel);
+      if (p.icons) renderGrid("iconGrid", p.icons, "icon", iconLabel);
+      if (p.styles) refreshStyleHint();
+      break;
     case "error": status(document.getElementById("globalStatus"), p.message, "err"); break;
   }
 }
 
+/** Os DOIS indicadores dizem a mesma coisa — são a mesma chave, no mesmo cofre. */
 function refreshKeyStatus() {
-  status(document.getElementById("keyStatus"),
-    hasKeyCached ? t("keyOk") : t("keyMissing"), hasKeyCached ? "ok" : "warn");
+  const text = hasKeyCached ? t("keyOk") : t("keyMissing");
+  const cls = hasKeyCached ? "ok" : "warn";
+  status(document.getElementById("keyStatus"), text, cls);
+  status(document.getElementById("modalKeyStatus"), text, cls);
   // Sem chave, o aviso aparece no topo — antes de qualquer configuração.
   document.body.classList.toggle("nokey", !hasKeyCached);
+}
+
+/**
+ * Gravar a chave, venha ela de onde vier.
+ *
+ * Os dois campos (o do modal de ajuda e o da Configuração da máquina) passam por
+ * aqui de propósito: validar em dois lugares é a receita para eles divergirem, e
+ * eles escrevem no mesmo cofre.
+ */
+let keyCameFromModal = false;
+function submitKey(inputId, statusId, fromModal) {
+  const st = document.getElementById(statusId);
+  const key = document.getElementById(inputId).value.trim();
+  if (!key) { status(st, t("keyEmpty"), "err"); return; }
+  // Não dá para saber se a chave é boa sem gastar uma chamada, mas dá para pegar o
+  // erro mais provável: colar outra coisa que estava no clipboard.
+  if (!/^sk-/.test(key)) { status(st, t("keyBadFormat"), "err"); return; }
+  status(st, t("keySaving"));
+  keyCameFromModal = fromModal;
+  toPlugin({ cmd: "setKey", key });
+}
+
+/**
+ * A tecla desenhada pelo próprio plugin, ao vivo.
+ *
+ * Sem isto só se via o efeito de cor, ícone e rótulo olhando o Stream Deck físico —
+ * e o ciclo de ajuste de aparência ficava lento a ponto de desencorajar o ajuste.
+ */
+let previewTimer;
+function refreshKeyPreview(withThumbs = false) {
+  if (!ready) return;
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => toPlugin({ cmd: "keyPreview", settings, withThumbs }), 120);
+}
+
+/**
+ * As grades de estilo e de ícone.
+ *
+ * Os botões escrevem no `<select hidden>` correspondente e disparam `change`: assim
+ * a gravação, a prévia e o preset continuam passando por UM caminho só, o mesmo de
+ * qualquer outro campo. A grade é a cara do controle, não um controle paralelo.
+ */
+function renderGrid(id, items, key, label) {
+  const box = document.getElementById(id);
+  const sel = document.querySelector(`[data-setting="${key}"]`);
+  const current = settings[key] ?? DEFAULTS[key];
+  box.innerHTML = "";
+  sel.innerHTML = "";
+
+  for (const it of items) {
+    const opt = document.createElement("option");
+    opt.value = it.name;
+    sel.appendChild(opt);
+
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = it.name === current ? "on" : "";
+    b.title = label(it.name);
+    b.innerHTML = `<img src="${it.image}" alt="">`;
+    if (label === styleLabel) {
+      const cap = document.createElement("span");
+      cap.textContent = label(it.name);
+      b.appendChild(cap);
+    }
+    b.onclick = () => {
+      sel.value = it.name;
+      sel.dispatchEvent(new Event("change"));
+      for (const other of box.children) other.classList.toggle("on", other === b);
+      if (key === "keyStyle") refreshStyleHint();
+    };
+    box.appendChild(b);
+  }
+  sel.value = current;
+}
+
+const iconLabel = (n) => t("icon_" + n) || n;
+const styleLabel = (n) => t("style_" + n) || n;
+
+function refreshStyleHint() {
+  const el = document.getElementById("styleHint");
+  if (el) el.textContent = t("styleHint_" + (settings.keyStyle ?? DEFAULTS.keyStyle)) || "";
 }
 
 /** Quantos termos o dicionário tem, ao lado do botão que o abre. */
@@ -1042,6 +1206,7 @@ function buildSwatches(swatches) {
         settings[target] = s.hex;
         document.querySelector(`[data-setting="${target}"]`).value = s.hex;
         saveSettings();
+        refreshKeyPreview(target === "colorIdle");
       };
       box.appendChild(b);
     }
@@ -1155,11 +1320,16 @@ document.addEventListener("DOMContentLoaded", () => {
     toPlugin({ cmd: "testMic", device: document.getElementById("micList").value });
   };
 
-  document.getElementById("keySave").onclick = () => {
-    const key = document.getElementById("apiKey").value.trim();
-    if (!key) { hasKeyCached = false; refreshKeyStatus(); return; }
-    toPlugin({ cmd: "setKey", key });
-  };
+  document.getElementById("keySave").onclick = () => submitKey("apiKey", "keyStatus", false);
+  document.getElementById("modalKeySave").onclick = () => submitKey("modalKey", "modalKeyStatus", true);
+  // Enter no campo salva: a pessoa acabou de colar, a mão já está no teclado.
+  for (const [input, statusId, fromModal] of [
+    ["apiKey", "keyStatus", false], ["modalKey", "modalKeyStatus", true],
+  ]) {
+    document.getElementById(input).addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); submitKey(input, statusId, fromModal); }
+    });
+  }
 
   document.getElementById("keyClear").onclick = () => toPlugin({ cmd: "clearKey" });
 

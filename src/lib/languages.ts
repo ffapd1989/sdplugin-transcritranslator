@@ -20,9 +20,21 @@ export const SPOKEN_CODES = [
   "ro", "hu", "vi", "th",
 ];
 
-/** Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido. */
+/**
+ * Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido.
+ *
+ * Acrescentar um código aqui BASTA: o nome sai traduzido do Intl.DisplayNames e a
+ * ordenação alfabética se ajusta sozinha, sem tabela para manter.
+ *
+ * Onde a lista para: nos mesmos idiomas já aceitos como falados. A OpenAI declara 98
+ * idiomas treinados, mas avisa que fora da lista principal a qualidade cai — e
+ * oferecer um destino que traduz mal é pior do que não oferecer. Catalão e galego
+ * ficam de fora por isso: entram como fala, não como destino.
+ */
 export const TARGET_CODES = [
   "en", "es", "pt", "fr", "de", "it", "nl", "ja", "zh", "ko", "ru", "ar",
+  "uk", "pl", "tr", "he", "hi", "id", "sv", "no", "da", "fi", "el", "cs",
+  "ro", "hu", "vi", "th",
 ];
 
 const cache = new Map<string, Intl.DisplayNames | null>();

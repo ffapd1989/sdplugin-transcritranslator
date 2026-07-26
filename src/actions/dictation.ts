@@ -40,7 +40,8 @@ import {
 } from "../lib/prompts.js";
 import { transcribe, runText, ApiError, shortError } from "../lib/openai.js";
 import { deliver, readSelectionOrClipboard, appendHistory, getFocusPid } from "../lib/deliver.js";
-import { keyImage, clock, wordCount, wrapLabel } from "../lib/icons.js";
+import { keyImage, clock, wordCount, wrapLabel, iconThumb, ICON_NAMES, KEY_STYLES } from "../lib/icons.js";
+import { keyText, wordCountLines } from "../lib/key-text.js";
 import { SWATCHES } from "../lib/theme.js";
 import { beep } from "../lib/beep.js";
 import { getApiKey, setApiKey, clearApiKey } from "../lib/vault.js";
@@ -56,6 +57,8 @@ const PTT_MIN_MS = 400;
 const MIN_AUDIO_MS = 800;
 /** 8 fps: suficiente para a waveform parecer viva sem martelar o Stream Deck. */
 const TICK_MS = 125;
+/** Confirmação final: número grande em cima, palavra pequena embaixo. */
+const DONE_SIZES = [22, 10];
 
 // Injetados pelo build a partir de version.json (fonte única da versão).
 declare const __TT_VERSION__: string;
@@ -87,6 +90,21 @@ function appLanguage(): string | undefined {
   return (streamDeck.info as { application?: { language?: string } })?.application?.language;
 }
 
+/**
+ * Idioma do PAINEL, em cache.
+ *
+ * A tecla é redesenhada a 8 fps enquanto grava; um round-trip de `getGlobalSettings`
+ * por quadro seria absurdo. Como o idioma só muda quando a pessoa troca o seletor, o
+ * cache é atualizado no `willAppear` e depois de cada `setGlobal`.
+ */
+let uiLocaleCache: Locale = "pt";
+
+async function refreshUiLocale(g?: GlobalSettings): Promise<Locale> {
+  const global = g ?? (await streamDeck.settings.getGlobalSettings<GlobalSettings>());
+  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage());
+  return uiLocaleCache;
+}
+
 /** Idioma em que os presets e os prompts desta tecla são escritos. */
 function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
   return resolveContentLocale({
@@ -94,6 +112,28 @@ function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
     spokenLanguage: spoken,
     uiLang: g?.uiLang,
     appLanguage: appLanguage(),
+  });
+}
+
+/**
+ * A tecla OCIOSA, desenhada.
+ *
+ * Vive fora da classe porque o painel pede exatamente esta imagem para a prévia ao
+ * vivo. Uma função só, um desenho só: se a prévia e a tecla física divergissem, a
+ * prévia deixaria de servir para o que existe.
+ */
+function idleImage(s: Required<ActionSettings>, locale: Locale): string {
+  return keyImage({
+    color: s.colorIdle,
+    style: s.keyStyle,
+    icon: s.icon,
+    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
+    // quebra sozinho por palavra em vez de espremer tudo numa linha.
+    lines: s.showLabel ? wrapLabel(s.label || keyText(locale).defaultLabel, s.labelSize) : [],
+    fontSize: s.labelSize,
+    lineGap: s.labelGap,
+    // A tecla que traduz diz para onde, sem precisar abrir o painel.
+    badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : undefined,
   });
 }
 
@@ -121,6 +161,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   override async onWillAppear(ev: WillAppearEvent<ActionSettings>): Promise<void> {
     if (!ev.action.isKey()) return;
+    await refreshUiLocale();
     await this.render(ev.action, ev.payload.settings);
     this.ensureTicker();
   }
@@ -159,14 +200,16 @@ export class Dictation extends SingletonAction<ActionSettings> {
   private async render(a: KeyAction<ActionSettings>, raw: ActionSettings): Promise<void> {
     const s = withDefaults(raw);
     const st = getState(a.id);
-    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
-    // quebra sozinho por palavra em vez de espremer tudo numa linha.
-    const labelLines = s.showLabel ? wrapLabel(s.label || "Ditado", s.labelSize) : [];
+    const T = keyText(uiLocaleCache);
+
+    // A direção visual escolhida vale para TODOS os estados: uma tecla neon que
+    // virasse aurora ao gravar não seria a mesma tecla.
+    const style = s.keyStyle;
 
     let img: string;
     switch (st.phase) {
       case "arming":
-        img = keyImage({ color: s.colorRec, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["abrindo"] });
+        img = keyImage({ color: s.colorRec, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.opening] });
         break;
 
       case "recording": {
@@ -175,6 +218,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
         else if (s.showTimer) lines.push(clock(Date.now() - st.startedAt));
         img = keyImage({
           color: s.colorRec,
+          style,
           special: s.showWave && !st.message ? "wave" : "dots",
           levels: st.levels,
           phase: Math.floor(Date.now() / 300),
@@ -185,35 +229,35 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
       case "stopping":
       case "transcribing":
-        img = keyImage({ color: s.colorRec, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["enviando"] });
+        img = keyImage({ color: s.colorRec, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.sending] });
         break;
 
       case "texting":
-        img = keyImage({ color: s.colorIdle, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["escrevendo"] });
+        img = keyImage({ color: s.colorIdle, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.writing] });
         break;
 
       case "done":
-        img = keyImage({ color: s.colorDone, special: "check", lines: st.message ?? [] });
+        // A contagem vem em duas linhas — número grande, palavra pequena — porque o
+        // que se lê de relance é o NÚMERO. "142 pal." numa linha só empatava os dois.
+        img = keyImage({
+          color: s.colorDone,
+          style,
+          special: "check",
+          lines: st.message ?? [],
+          fontSizes: DONE_SIZES,
+        });
         break;
 
       case "warn":
-        img = keyImage({ color: "#B8791F", special: "warn", lines: st.message ?? [] });
+        img = keyImage({ color: "#B8791F", style, special: "warn", lines: st.message ?? [] });
         break;
 
       case "error":
-        img = keyImage({ color: "#C44040", special: "cross", lines: st.message ?? [] });
+        img = keyImage({ color: "#C44040", style, special: "cross", lines: st.message ?? [] });
         break;
 
       default:
-        img = keyImage({
-          color: s.colorIdle,
-          icon: s.icon,
-          lines: labelLines,
-          fontSize: s.labelSize,
-          lineGap: s.labelGap,
-          // A tecla que traduz diz para onde, sem precisar abrir o painel.
-          badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : undefined,
-        });
+        img = idleImage(s, uiLocaleCache);
     }
 
     await a.setImage(img);
@@ -259,7 +303,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       st.holdTimer = setTimeout(() => {
         const cur = getState(ev.action.id);
         if (cur.downAt) {
-          cur.message = ["SOLTE P/", "CANCELAR"];
+          cur.message = [...keyText(uiLocaleCache).releaseCancel];
           void ev.action.getSettings().then((x) => this.render(ev.action as KeyAction<ActionSettings>, x));
         }
       }, HOLD_MS);
@@ -276,14 +320,15 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.message = undefined;
 
     const s = withDefaults(ev.payload.settings);
+    const T = keyText(uiLocaleCache);
 
     // Processando: toque avisa, segurar aborta.
     if (st.phase === "transcribing" || st.phase === "texting") {
       if (held >= HOLD_MS) {
         st.abort?.abort();
-        await this.abortRun(a, s, "cancelado");
+        await this.abortRun(a, s, T.cancelled);
       } else {
-        await this.flash(a, "warn", ["aguarde"], 1200);
+        await this.flash(a, "warn", [T.wait], 1200);
       }
       return;
     }
@@ -292,10 +337,10 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     if (st.phase === "recording") {
       if (s.mode === "ptt") {
-        if (held < PTT_MIN_MS) await this.abortRun(a, s, "curto demais");
+        if (held < PTT_MIN_MS) await this.abortRun(a, s, T.tooShort);
         else await this.stopAndProcess(a, ev.payload.settings);
       } else if (held >= HOLD_MS) {
-        await this.abortRun(a, s, "cancelado");
+        await this.abortRun(a, s, T.cancelled);
       } else {
         await this.stopAndProcess(a, ev.payload.settings);
       }
@@ -312,6 +357,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const s = withDefaults(raw);
     const st = getState(a.id);
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const T = keyText(await refreshUiLocale(global));
 
     // Sem etapa de áudio: a tecla só reescreve o que estiver selecionado.
     if (!s.transcribeOn) {
@@ -320,14 +366,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
     }
 
     if (isBusyElsewhere(a.id)) {
-      await this.flash(a, "warn", ["gravando em", "outra tecla"], 1600);
+      await this.flash(a, "warn", [...T.busy], 1600);
       return;
     }
     if (!acquireLock(a.id)) return;
 
     if (!(await getApiKey())) {
       releaseLock(a.id);
-      await this.flash(a, "error", ["sem chave"], 4000);
+      await this.flash(a, "error", [T.noKey], 4000);
       return;
     }
 
@@ -377,7 +423,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = undefined;
-      void this.flash(a, "error", ["sem ffmpeg"], 4000);
+      void this.flash(a, "error", [keyText(uiLocaleCache).noFfmpeg], 4000);
     });
 
     rec.start();
@@ -443,7 +489,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     if (!audioPath || durationMs < MIN_AUDIO_MS || !hadSpeech) {
       if (audioPath) await unlink(audioPath).catch(() => {});
       st.levels = [];
-      await this.flash(a, "warn", ["sem fala"], 1800);
+      await this.flash(a, "warn", [keyText(uiLocaleCache).noSpeech], 1800);
       return;
     }
 
@@ -456,12 +502,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
     s: Required<ActionSettings>,
     global: GlobalSettings | undefined,
   ): Promise<void> {
+    const T = keyText(uiLocaleCache);
     if (!hasTextWork(textOptions(s, [], contentLocale(global, s.language)))) {
-      await this.flash(a, "warn", ["nada a", "fazer"], 2000);
+      await this.flash(a, "warn", [...T.nothingToDo], 2000);
       return;
     }
     if (!(await getApiKey())) {
-      await this.flash(a, "error", ["sem chave"], 4000);
+      await this.flash(a, "error", [T.noKey], 4000);
       return;
     }
 
@@ -472,7 +519,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     const input = await readSelectionOrClipboard();
     if (!input) {
-      await this.flash(a, "warn", ["sem texto"], 2000);
+      await this.flash(a, "warn", [T.noText], 2000);
       return;
     }
 
@@ -489,6 +536,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const apiKey = (await getApiKey())!;
     const terms = parseTerms(global?.canonTerms);
     const ffmpeg = ffmpegOf(global);
+    const T = keyText(uiLocaleCache);
     const models: string[] = [];
     let note: string | undefined;
     let raw = src.input ?? "";
@@ -517,7 +565,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
         if (result.echoed || !result.text) {
           await unlink(src.audioPath).catch(() => {});
           st.levels = [];
-          await this.flash(a, "warn", ["sem fala"], 1800);
+          await this.flash(a, "warn", [T.noSpeech], 1800);
           return;
         }
         raw = applyCanon(result.text, terms);
@@ -570,12 +618,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
       st.levels = [];
       if (note) {
-        await this.flash(a, "warn", ["cru —", "bloqueado"], 4000);
+        await this.flash(a, "warn", [...T.rawBlocked], 4000);
       } else if (how === "copied" && s.autoPaste) {
         // O foco mudou: não colamos. O texto está no clipboard esperando.
-        await this.flash(a, "warn", ["copiado", "Ctrl+V"], 3500);
+        await this.flash(a, "warn", [...T.copied], 3500);
       } else {
-        await this.flash(a, "done", [`${wordCount(final)} pal.`], 2000);
+        await this.flash(a, "done", [...wordCountLines(wordCount(final), uiLocaleCache)], 2000);
       }
     } catch (err) {
       streamDeck.logger.error("pipeline falhou", err);
@@ -590,7 +638,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
       st.levels = [];
       if (s.beep) beep(ffmpeg, "error");
-      await this.flash(a, "error", [shortError(err)], 4000);
+      await this.flash(a, "error", [shortError(err, uiLocaleCache)], 4000);
     }
   }
 
@@ -611,7 +659,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       switch (msg?.cmd) {
         case "init": {
           const { listAudioDevices } = await import("../lib/recorder.js");
-          const uiLocale = resolveUiLocale(global.uiLang, appLanguage());
+          const uiLocale = await refreshUiLocale(global);
           reply({
             event: "init",
             devices: (await listAudioDevices(ffmpeg)).map((d) => d.name),
@@ -663,6 +711,27 @@ export class Dictation extends SingletonAction<ActionSettings> {
           break;
         }
 
+        // A tecla desenhada, para o painel mostrar ao vivo o efeito de cor, ícone,
+        // rótulo e corpo de fonte. As configurações vêm NA mensagem, e não de
+        // `a.getSettings()`, porque o painel grava com atraso de 150 ms — lendo do
+        // Stream Deck, a prévia mostraria sempre o penúltimo caractere digitado.
+        case "keyPreview": {
+          const s = withDefaults(msg.settings);
+          reply({
+            event: "keyPreview",
+            image: idleImage(s, uiLocaleCache),
+            // As grades custam ~20 KB e só mudam quando muda a cor ou a direção —
+            // não a cada tecla digitada no rótulo. Por isso o painel pede à parte.
+            icons: msg.withThumbs
+              ? ICON_NAMES.map((n) => ({ name: n, image: iconThumb(n, s.keyStyle, s.colorIdle) }))
+              : undefined,
+            styles: msg.withThumbs
+              ? KEY_STYLES.map((st) => ({ name: st, image: iconThumb(s.icon === "none" ? "mic" : s.icon, st, s.colorIdle) }))
+              : undefined,
+          });
+          break;
+        }
+
         case "setKey":
           await setApiKey(msg.key);
           await streamDeck.settings.setGlobalSettings({ ...global, hasKey: true });
@@ -684,6 +753,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
             contentLang: msg.contentLang ?? global.contentLang,
           };
           await streamDeck.settings.setGlobalSettings(next);
+          // A tecla também escreve no idioma do painel: trocar o seletor tem de
+          // repintar as teclas visíveis, não só o painel.
+          await refreshUiLocale(next);
+          for (const other of this.actions) {
+            if (other.isKey()) await this.render(other, await other.getSettings());
+          }
           // Trocar o idioma de conteúdo renomeia e reescreve os presets de fábrica,
           // então o painel precisa da lista nova junto com a confirmação.
           reply({
@@ -771,6 +846,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 type PiMessage =
   | { cmd: "init"; autoLabel?: string }
   | { cmd: "preview" }
+  | { cmd: "keyPreview"; settings?: ActionSettings; withThumbs?: boolean }
   | { cmd: "setKey"; key: string }
   | { cmd: "clearKey" }
   | { cmd: "setGlobal"; canonTerms?: string; ffmpegPath?: string; uiLang?: LangPref; contentLang?: LangPref }

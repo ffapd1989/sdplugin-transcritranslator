@@ -19,6 +19,9 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 
+import { keyText } from "./key-text.js";
+import type { Locale } from "./prompt-text.js";
+
 export type ApiErrorKind = "auth" | "transient" | "filter" | "fatal";
 
 export class ApiError extends Error {
@@ -195,16 +198,17 @@ export async function runText(opts: {
   });
 }
 
-/** Mensagem curta o bastante para caber na tecla. */
-export function shortError(err: unknown): string {
+/** Mensagem curta o bastante para caber na tecla, no idioma do painel. */
+export function shortError(err: unknown, locale: Locale = "pt"): string {
+  const T = keyText(locale);
   if (err instanceof ApiError) {
     switch (err.kind) {
-      case "auth": return "chave invalida";
-      case "filter": return "bloqueado";
-      case "transient": return `erro ${err.status ?? ""}`.trim();
-      default: return err.status ? `erro ${err.status}` : "erro";
+      case "auth": return T.errBadKey;
+      case "filter": return T.errBlocked;
+      case "transient": return `${T.errGeneric} ${err.status ?? ""}`.trim();
+      default: return err.status ? `${T.errGeneric} ${err.status}` : T.errGeneric;
     }
   }
-  if (err instanceof Error && err.name === "TimeoutError") return "timeout";
-  return "erro";
+  if (err instanceof Error && err.name === "TimeoutError") return T.errTimeout;
+  return T.errGeneric;
 }

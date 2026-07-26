@@ -3438,12 +3438,12 @@ var require_websocket_server = __commonJS({
         }
         if (options.port != null) {
           this._server = http.createServer((req, res) => {
-            const body = http.STATUS_CODES[426];
+            const body2 = http.STATUS_CODES[426];
             res.writeHead(426, {
-              "Content-Length": body.length,
+              "Content-Length": body2.length,
               "Content-Type": "text/plain"
             });
-            res.end(body);
+            res.end(body2);
           });
           this._server.listen(
             options.port,
@@ -17782,6 +17782,7 @@ var DEFAULTS = {
   colorIdle: "#404650",
   colorRec: "#C44040",
   colorDone: "#2E8C3C",
+  keyStyle: "neon",
   icon: "mic",
   showLabel: true,
   showTimer: true,
@@ -18009,7 +18010,23 @@ var TARGET_CODES = [
   "zh",
   "ko",
   "ru",
-  "ar"
+  "ar",
+  "uk",
+  "pl",
+  "tr",
+  "he",
+  "hi",
+  "id",
+  "sv",
+  "no",
+  "da",
+  "fi",
+  "el",
+  "cs",
+  "ro",
+  "hu",
+  "vi",
+  "th"
 ];
 var cache = /* @__PURE__ */ new Map();
 function displayNames(locale) {
@@ -18103,6 +18120,91 @@ function buildTextSystemPrompt(o) {
 // src/lib/openai.ts
 import { readFile as readFile2 } from "node:fs/promises";
 import { basename } from "node:path";
+
+// src/lib/key-text.ts
+var TEXT = {
+  pt: {
+    defaultLabel: "Ditado",
+    opening: "abrindo",
+    sending: "enviando",
+    writing: "escrevendo",
+    releaseCancel: ["SOLTE P/", "CANCELAR"],
+    wait: "aguarde",
+    cancelled: "cancelado",
+    tooShort: "curto demais",
+    busy: ["gravando em", "outra tecla"],
+    noKey: "sem chave",
+    noFfmpeg: "sem ffmpeg",
+    noSpeech: "sem fala",
+    nothingToDo: ["nada a", "fazer"],
+    noText: "sem texto",
+    copied: ["copiado", "Ctrl+V"],
+    rawBlocked: ["cru \u2014", "bloqueado"],
+    word: "palavra",
+    words: "palavras",
+    errBadKey: "chave inv\xE1lida",
+    errBlocked: "bloqueado",
+    errTimeout: "timeout",
+    errGeneric: "erro"
+  },
+  en: {
+    defaultLabel: "Dictate",
+    opening: "opening",
+    sending: "sending",
+    writing: "writing",
+    releaseCancel: ["RELEASE TO", "CANCEL"],
+    wait: "wait",
+    cancelled: "cancelled",
+    tooShort: "too short",
+    busy: ["recording on", "another key"],
+    noKey: "no key",
+    noFfmpeg: "no ffmpeg",
+    noSpeech: "no speech",
+    nothingToDo: ["nothing", "to do"],
+    noText: "no text",
+    copied: ["copied", "Ctrl+V"],
+    rawBlocked: ["raw \u2014", "blocked"],
+    word: "word",
+    words: "words",
+    errBadKey: "bad key",
+    errBlocked: "blocked",
+    errTimeout: "timeout",
+    errGeneric: "error"
+  },
+  es: {
+    defaultLabel: "Dictado",
+    opening: "abriendo",
+    sending: "enviando",
+    writing: "escribiendo",
+    releaseCancel: ["SUELTA P/", "CANCELAR"],
+    wait: "espera",
+    cancelled: "cancelado",
+    tooShort: "muy corto",
+    busy: ["grabando en", "otra tecla"],
+    noKey: "sin clave",
+    noFfmpeg: "sin ffmpeg",
+    noSpeech: "sin voz",
+    nothingToDo: ["nada que", "hacer"],
+    noText: "sin texto",
+    copied: ["copiado", "Ctrl+V"],
+    rawBlocked: ["crudo \u2014", "bloqueado"],
+    word: "palabra",
+    words: "palabras",
+    errBadKey: "clave inv\xE1lida",
+    errBlocked: "bloqueado",
+    errTimeout: "timeout",
+    errGeneric: "error"
+  }
+};
+function keyText(locale) {
+  return TEXT[locale] ?? TEXT.en;
+}
+function wordCountLines(n, locale) {
+  const T = keyText(locale);
+  return [String(n), n === 1 ? T.word : T.words];
+}
+
+// src/lib/openai.ts
 var ApiError = class extends Error {
   constructor(message, kind, status) {
     super(message);
@@ -18144,10 +18246,10 @@ var REFUSAL_PREFIXES = [
   "i'm unable to",
   "as an ai"
 ];
-function isFilterError(body) {
-  const code = body?.error?.code || body?.error?.innererror?.code || body?.code || "";
+function isFilterError(body2) {
+  const code = body2?.error?.code || body2?.error?.innererror?.code || body2?.code || "";
   if (FILTER_CODES.has(code)) return true;
-  const msg = String(body?.error?.message || body?.message || "").toLowerCase();
+  const msg = String(body2?.error?.message || body2?.message || "").toLowerCase();
   return FILTER_PHRASES.some((p) => msg.includes(p));
 }
 function isRefusalText(text) {
@@ -18156,8 +18258,8 @@ function isRefusalText(text) {
   const lower = text.toLowerCase();
   return REFUSAL_PREFIXES.some((p) => lower.startsWith(p));
 }
-function classify(status, body) {
-  if (isFilterError(body)) return "filter";
+function classify(status, body2) {
+  if (isFilterError(body2)) return "filter";
   if (status === 401 || status === 403) return "auth";
   if (status === 429 || status >= 500) return "transient";
   return "fatal";
@@ -18191,9 +18293,9 @@ async function withRetries(fn) {
   throw lastErr;
 }
 async function parseError(res) {
-  const body = await res.json().catch(() => ({}));
-  const kind = classify(res.status, body);
-  const msg = body?.error?.message || res.statusText || `HTTP ${res.status}`;
+  const body2 = await res.json().catch(() => ({}));
+  const kind = classify(res.status, body2);
+  const msg = body2?.error?.message || res.statusText || `HTTP ${res.status}`;
   return new ApiError(msg, kind, res.status);
 }
 async function transcribe(opts) {
@@ -18250,21 +18352,22 @@ async function runText(opts) {
     return out;
   });
 }
-function shortError(err) {
+function shortError(err, locale = "pt") {
+  const T = keyText(locale);
   if (err instanceof ApiError) {
     switch (err.kind) {
       case "auth":
-        return "chave invalida";
+        return T.errBadKey;
       case "filter":
-        return "bloqueado";
+        return T.errBlocked;
       case "transient":
-        return `erro ${err.status ?? ""}`.trim();
+        return `${T.errGeneric} ${err.status ?? ""}`.trim();
       default:
-        return err.status ? `erro ${err.status}` : "erro";
+        return err.status ? `${T.errGeneric} ${err.status}` : T.errGeneric;
     }
   }
-  if (err instanceof Error && err.name === "TimeoutError") return "timeout";
-  return "erro";
+  if (err instanceof Error && err.name === "TimeoutError") return T.errTimeout;
+  return T.errGeneric;
 }
 
 // src/lib/deliver.ts
@@ -18393,39 +18496,216 @@ var SWATCHES = [
 
 // src/lib/icons.ts
 var SIZE = 72;
+var BG = "#0C0C10";
+var EDGE = "#26262E";
+var INK = "#EFF2F7";
+var NATURAL = 42;
 function esc2(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 var f = (n) => n.toFixed(2);
-function glyph(name) {
-  const stroke = `stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"`;
-  switch (name) {
-    case "mic":
-      return `<rect x="30" y="12" width="12" height="21" rx="6" fill="#ffffff"/><path d="M 25 28 A 11 11 0 0 0 47 28" ${stroke}/><line x1="36" y1="39" x2="36" y2="45" ${stroke}/><line x1="29" y1="45" x2="43" y2="45" ${stroke}/>`;
-    case "globe":
-      return `<circle cx="36" cy="28" r="15" ${stroke}/><ellipse cx="36" cy="28" rx="6.5" ry="15" ${stroke}/><line x1="21" y1="28" x2="51" y2="28" ${stroke}/><path d="M 24 19 Q 36 24 48 19" ${stroke}/><path d="M 24 37 Q 36 32 48 37" ${stroke}/>`;
-    case "bubble":
-      return `<rect x="19" y="14" width="34" height="24" rx="7" ${stroke}/><path d="M 28 38 L 27 46 L 36 38" ${stroke}/>`;
-    case "pen":
-      return `<path d="M 44 14 L 50 20 L 27 43 L 19 45 L 21 37 Z" ${stroke}/><line x1="40" y1="18" x2="46" y2="24" ${stroke}/>`;
-    default:
-      return "";
+var body = (el, a, d) => ({ role: "body", el, a, d });
+var ink = (el, a, d, w) => ({ role: "ink", el, a, d, w });
+var cut = (el, a, d, w) => ({ role: "cut", el, a, d, w });
+var cutfill = (el, a) => ({ role: "cutfill", el, a });
+var fill = (el, a, d) => ({ role: "fill", el, a, d });
+function emit(sh, attrs) {
+  const a = sh.a ?? [];
+  switch (sh.el) {
+    case "rect":
+      return `<rect x="${f(a[0])}" y="${f(a[1])}" width="${f(a[2])}" height="${f(a[3])}" rx="${f(a[4] ?? 0)}" ${attrs}/>`;
+    case "circle":
+      return `<circle cx="${f(a[0])}" cy="${f(a[1])}" r="${f(a[2])}" ${attrs}/>`;
+    case "ellipse":
+      return `<ellipse cx="${f(a[0])}" cy="${f(a[1])}" rx="${f(a[2])}" ry="${f(a[3])}" ${attrs}/>`;
+    case "line":
+      return `<line x1="${f(a[0])}" y1="${f(a[1])}" x2="${f(a[2])}" y2="${f(a[3])}" ${attrs}/>`;
+    case "path":
+      return `<path d="${sh.d}" ${attrs}/>`;
   }
 }
-function checkGlyph() {
-  return `<polyline points="24,28 32,36 49,19" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>`;
+var strokeAttrs = (c, w, extra = "") => `fill="none" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" stroke-linejoin="round" ${extra}`;
+function renderSolid(shapes, tint, s, behind) {
+  return shapes.map((sh) => {
+    const w = s * (sh.w ?? 1);
+    switch (sh.role) {
+      case "body":
+      case "fill":
+        return emit(sh, `fill="${tint}"`);
+      case "ink":
+        return emit(sh, strokeAttrs(tint, w));
+      case "cut":
+        return emit(sh, strokeAttrs(behind, w * 0.62));
+      case "cutfill":
+        return emit(sh, `fill="${behind}"`);
+      case "slash":
+        return emit(sh, strokeAttrs(behind, w * 2.1)) + emit(sh, strokeAttrs(tint, w));
+    }
+  }).join("");
 }
-function crossGlyph() {
-  const s = `stroke="#ffffff" stroke-width="6" stroke-linecap="round"`;
-  return `<line x1="26" y1="18" x2="46" y2="38" ${s}/><line x1="46" y1="18" x2="26" y2="38" ${s}/>`;
+function renderOutline(shapes, tint, s, extra = "") {
+  return shapes.map((sh) => {
+    const w = s * (sh.w ?? 1);
+    switch (sh.role) {
+      case "fill":
+      case "cutfill":
+        return emit(sh, `fill="${tint}" ${extra}`);
+      case "slash":
+        return emit(sh, strokeAttrs(BG, w * 2.1)) + emit(sh, strokeAttrs(tint, w, extra));
+      default:
+        return emit(sh, strokeAttrs(tint, w, extra));
+    }
+  }).join("");
 }
-function warnGlyph() {
-  return `<path d="M 36 14 L 50 39 L 22 39 Z" fill="none" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/><line x1="36" y1="24" x2="36" y2="31" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/><circle cx="36" cy="35.5" r="2" fill="#ffffff"/>`;
+function star(cx, cy, r) {
+  const m = r * 0.42;
+  return fill(
+    "path",
+    void 0,
+    `M ${cx} ${cy - r} L ${cx + m} ${cy - m} L ${cx + r} ${cy} L ${cx + m} ${cy + m} L ${cx} ${cy + r} L ${cx - m} ${cy + m} L ${cx - r} ${cy} L ${cx - m} ${cy - m} Z`
+  );
 }
-function dotsGlyph(phase) {
+var MIC = [
+  body("rect", [30.5, 12, 11, 18, 5.5]),
+  ink("path", void 0, "M 26 26 A 10 10 0 0 0 46 26"),
+  ink("line", [36, 36, 36, 42]),
+  ink("line", [30, 42, 42, 42])
+];
+var GLYPHS = {
+  mic: MIC,
+  micOff: [...MIC, { role: "slash", el: "line", a: [22.5, 14.5, 49.5, 41.5] }],
+  waves: [10, 20, 28, 20, 10].map((h, i) => body("rect", [23 + i * 5.6, 28 - h / 2, 4, h, 2])),
+  headset: [
+    ink("path", void 0, "M 23 33 A 13 13 0 0 1 49 33", 1.25),
+    body("rect", [20, 30, 7, 13, 3.5]),
+    body("rect", [45, 30, 7, 13, 3.5])
+  ],
+  globe: [
+    body("circle", [36, 28, 15]),
+    cut("ellipse", [36, 28, 6.4, 15]),
+    cut("line", [21.5, 28, 50.5, 28])
+  ],
+  // Duas setas opostas dizem "troca de idioma" sem depender de fonte com CJK.
+  translate: [
+    ink("path", void 0, "M 22 22 H 47", 1.15),
+    ink("path", void 0, "M 41 16.5 L 47 22 L 41 27.5", 1.15),
+    ink("path", void 0, "M 50 34 H 25", 1.15),
+    ink("path", void 0, "M 31 28.5 L 25 34 L 31 39.5", 1.15)
+  ],
+  bubble: [
+    body("rect", [21, 14, 30, 21, 7]),
+    body("path", void 0, "M 28 34 L 27 42 L 36 34 Z")
+  ],
+  quote: [24, 38].flatMap((x) => [
+    body("rect", [x, 17, 10, 10, 3.5]),
+    body("path", void 0, `M ${x} 26 L ${x} 32 L ${x + 7} 26 Z`)
+  ]),
+  doc: [
+    body("path", void 0, "M 25 13 H 40 L 47 20 V 43 H 25 Z"),
+    cut("path", void 0, "M 40 13 V 20 H 47"),
+    cut("line", [30, 28, 42, 28]),
+    cut("line", [30, 35, 42, 35])
+  ],
+  list: [18, 27, 36].flatMap((y) => [
+    body("circle", [24, y, 2.4]),
+    body("rect", [31, y - 2, 18, 4, 2])
+  ]),
+  keyboard: [
+    body("rect", [20, 17, 32, 22, 4.5]),
+    ...[0, 1].flatMap((row) => [0, 1, 2, 3, 4].map((col) => cutfill("rect", [24 + col * 5.4, 21.5 + row * 5.4, 3.4, 3.4, 1]))),
+    cutfill("rect", [27, 32.3, 18, 3.4, 1.5])
+  ],
+  code: [
+    ink("path", void 0, "M 29 17 L 20 28 L 29 39", 1.25),
+    ink("path", void 0, "M 43 17 L 52 28 L 43 39", 1.25)
+  ],
+  pen: [
+    body("path", void 0, "M 43 16 L 48 21 L 31 38 L 24 40 L 26 33 Z"),
+    cut("line", [39.5, 19.5, 44.5, 24.5])
+  ],
+  wand: [
+    ink("line", [25, 41, 41, 25], void 0, 2),
+    cut("line", [34, 32, 38, 36]),
+    star(46, 17, 4.5),
+    star(44, 29, 3),
+    star(31, 19, 3.2)
+  ],
+  bolt: [body("path", void 0, "M 39 12 L 26 31 H 34 L 32 44 L 46 24 H 37 Z")],
+  check: [ink("path", void 0, "M 24 28.5 L 32.5 37 L 48 19", 1.9)],
+  mail: [
+    body("rect", [21, 16, 30, 23, 4.5]),
+    cut("path", void 0, "M 24 21 L 36 30.5 L 48 21")
+  ],
+  calendar: [
+    ink("line", [28, 12, 28, 19]),
+    ink("line", [44, 12, 44, 19]),
+    body("rect", [21, 16, 30, 26, 4.5]),
+    cut("line", [21, 24.5, 51, 24.5]),
+    ...[0, 1].flatMap((row) => [0, 1, 2].map((col) => cutfill("circle", [28 + col * 8, 30.5 + row * 7, 1.9])))
+  ]
+};
+var WARN = [
+  body("path", void 0, "M 36 10.5 L 54 41.5 L 18 41.5 Z"),
+  cut("line", [36, 22, 36, 31], void 0, 1.3),
+  cutfill("circle", [36, 36.5, 2.2])
+];
+var ICON_NAMES = [
+  "mic",
+  "micOff",
+  "waves",
+  "headset",
+  "globe",
+  "translate",
+  "bubble",
+  "quote",
+  "doc",
+  "list",
+  "keyboard",
+  "code",
+  "pen",
+  "wand",
+  "bolt",
+  "check",
+  "mail",
+  "calendar",
+  "none"
+];
+var KEY_STYLES = ["neon", "aurora", "ring"];
+function strokeFor(k) {
+  return 3.1 / Math.sqrt(k);
+}
+function styleArt(style, shapes, color, k) {
+  const { lite, base } = shade(color);
+  const s = strokeFor(k);
+  switch (style) {
+    case "neon": {
+      return {
+        defs: `<radialGradient id="h" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${lite}" stop-opacity="0.34"/><stop offset="0.55" stop-color="${base}" stop-opacity="0.13"/><stop offset="1" stop-color="${base}" stop-opacity="0"/></radialGradient>`,
+        backdrop: "",
+        glyph: `<circle cx="36" cy="28" r="31" fill="url(#h)"/>` + renderOutline(shapes, base, s * 2.6, `opacity="0.30"`) + renderOutline(shapes, lite, s * 1.05) + renderOutline(shapes, "#FFFFFF", s * 0.4, `opacity="0.85"`)
+      };
+    }
+    case "aurora": {
+      return {
+        defs: `<radialGradient id="h" cx="0.38" cy="0.30" r="0.75"><stop offset="0" stop-color="${lite}" stop-opacity="0.55"/><stop offset="0.5" stop-color="${base}" stop-opacity="0.22"/><stop offset="1" stop-color="${base}" stop-opacity="0"/></radialGradient>`,
+        backdrop: `<rect x="2.5" y="2.5" width="67" height="67" rx="13.5" fill="url(#h)"/>`,
+        glyph: renderSolid(shapes, INK, s, BG)
+      };
+    }
+    case "ring": {
+      return {
+        defs: `<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/></linearGradient>`,
+        backdrop: "",
+        glyph: `<circle cx="36" cy="28" r="21" fill="${base}" opacity="0.10"/><path d="M 25.5 46.2 A 21 21 0 1 1 46.5 46.2" fill="none" stroke="url(#h)" stroke-width="${f(s * 0.85)}" stroke-linecap="round"/><g transform="translate(36 28) scale(0.72) translate(-36 -28)">` + renderSolid(shapes, INK, s * 1.2, BG) + `</g>`
+      };
+    }
+  }
+}
+function dotsGlyph(color, phase) {
+  const { lite } = shade(color);
   return [0, 1, 2].map((i) => {
     const on = i === phase % 3;
-    return `<circle cx="${24 + i * 12}" cy="28" r="${on ? 5 : 3.5}" fill="#ffffff" opacity="${on ? 1 : 0.55}"/>`;
+    return `<circle cx="${24 + i * 12}" cy="28" r="${on ? 5.5 : 3.8}" fill="${lite}" opacity="${on ? 1 : 0.5}"/>`;
   }).join("");
 }
 function waveGlyph(levels) {
@@ -18435,23 +18715,27 @@ function waveGlyph(levels) {
   const total = BARS * w + (BARS - 1) * gap;
   const x0 = (SIZE - total) / 2;
   const cy = 27;
-  const maxH = 26;
+  const maxH = 28;
   const data = levels.slice(-BARS);
   while (data.length < BARS) data.unshift(0);
   return data.map((v, i) => {
     const h = Math.max(3, v * maxH);
     const x = x0 + i * (w + gap);
-    const op = 0.55 + 0.45 * (i / (BARS - 1));
-    return `<rect x="${f(x)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${f(h)}" rx="${f(w / 2)}" fill="#ffffff" opacity="${f(op)}"/>`;
+    const op = 0.5 + 0.5 * (i / (BARS - 1));
+    return `<rect x="${f(x)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${f(h)}" rx="${f(w / 2)}" fill="url(#h)" opacity="${f(op)}"/>`;
   }).join("");
 }
+var waveDefs = (color) => {
+  const { lite, base } = shade(color);
+  return `<linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/></linearGradient>`;
+};
 var TEXT_WIDTH = 62;
 var CHAR_RATIO = 0.56;
-function textEl(s, y, size = 14) {
+function textEl(s, y, size) {
   const t = esc2(s);
   const width = s.length * size * CHAR_RATIO;
   const fitted = width > TEXT_WIDTH ? Math.max(7, size * TEXT_WIDTH / width) : size;
-  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(fitted)}" font-weight="600" fill="#ffffff">${t}</text>`;
+  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(fitted)}" font-weight="600" fill="${INK}">${t}</text>`;
 }
 function wrapLabel(text, size, maxLines = 3) {
   const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -18473,63 +18757,89 @@ function wrapLabel(text, size, maxLines = 3) {
   if (current) lines.push(current);
   return lines.slice(0, maxLines);
 }
-function textLayout(count, size, gap) {
-  if (count <= 0) return [];
-  const step = size + gap;
-  const bottom = 68 - (size - 14) * 0.25;
-  const first = bottom - (count - 1) * step;
-  return Array.from({ length: count }, (_, i) => first + i * step);
+function textLayout(sizes, gap) {
+  const n = sizes.length;
+  if (n <= 0) return [];
+  const ys = new Array(n);
+  ys[n - 1] = 68 - (sizes[n - 1] - 14) * 0.25;
+  for (let i = n - 2; i >= 0; i--) {
+    ys[i] = ys[i + 1] - (0.75 * sizes[i + 1] + 0.25 * sizes[i] + gap);
+  }
+  return ys;
 }
-function badgeSvg(text) {
-  const t = esc2(text.slice(0, 3).toUpperCase());
-  const w = t.length <= 2 ? 22 : 27;
-  return `<rect x="${69 - w}" y="4" width="${w}" height="16" rx="5" fill="#000000" opacity="0.42"/><text x="${69 - w / 2}" y="16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="11" font-weight="700" fill="#ffffff">${t}</text>`;
-}
-function keyImage(spec) {
-  const { lite, base, border } = shade(spec.color);
-  let center = "";
+function shapesFor(spec) {
   switch (spec.special) {
     case "check":
-      center = checkGlyph();
-      break;
+      return GLYPHS.check;
     case "cross":
-      center = crossGlyph();
-      break;
+      return GLYPHS.micOff;
     case "warn":
-      center = warnGlyph();
-      break;
+      return WARN;
     case "dots":
-      center = dotsGlyph(spec.phase ?? 0);
-      break;
     case "wave":
-      center = waveGlyph(spec.levels ?? []);
-      break;
-    default:
-      center = glyph(spec.icon ?? "mic");
+      return null;
+    // têm desenho próprio
+    default: {
+      const icon = spec.icon ?? "mic";
+      return icon === "none" ? [] : GLYPHS[icon] ?? GLYPHS.mic;
+    }
   }
+}
+function keyImage(spec) {
+  const style = spec.style ?? "neon";
   const lines = (spec.lines ?? []).filter((l) => l && l.length).slice(0, 3);
   const gap = spec.lineGap ?? 0;
-  const wanted = spec.fontSize ?? 14;
-  const height = lines.length * wanted + Math.max(0, lines.length - 1) * gap;
-  const size = height > 38 ? Math.max(8, wanted * 38 / height) : wanted;
-  const text = textLayout(lines.length, size, gap).map((y, i) => textEl(lines[i], y, size)).join("");
-  const ys = textLayout(lines.length, size, gap);
-  const textTop = ys.length ? ys[0] - size : SIZE;
+  const wanted = lines.map((_, i) => spec.fontSizes?.[i] ?? spec.fontSize ?? 14);
+  const height = wanted.reduce((a, b) => a + b, 0) + Math.max(0, lines.length - 1) * gap;
+  const sizes = height > 38 ? wanted.map((s) => Math.max(8, s * 38 / height)) : wanted;
+  const ys = textLayout(sizes, gap);
+  const text = ys.map((y, i) => textEl(lines[i], y, sizes[i])).join("");
+  const textTop = ys.length ? ys[0] - sizes[0] : SIZE;
   const boxTop = 5;
   const boxBottom = Math.min(SIZE - 4, textTop - 3);
   const available = boxBottom - boxTop;
-  const NATURAL = 42;
+  let defs = "";
+  let backdrop = "";
   let art = "";
   if (available >= 12) {
     const k = Math.min(1, available / NATURAL);
+    const shapes = shapesFor(spec);
+    let center;
+    if (spec.special === "dots") {
+      center = dotsGlyph(spec.color, spec.phase ?? 0);
+    } else if (spec.special === "wave") {
+      defs = waveDefs(spec.color);
+      center = waveGlyph(spec.levels ?? []);
+    } else if (shapes && shapes.length) {
+      const a = styleArt(style, shapes, spec.color, k);
+      defs = a.defs;
+      backdrop = a.backdrop;
+      center = a.glyph;
+    } else {
+      center = "";
+    }
     if (k >= 0.995) {
       art = center;
-    } else {
+    } else if (center) {
       const cy = boxTop + available / 2;
       art = `<g transform="translate(36 ${f(cy)}) scale(${f(k)}) translate(-36 -28)">${center}</g>`;
     }
   }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${lite}"/><stop offset="1" stop-color="${base}"/></linearGradient></defs><rect x="2.5" y="2.5" width="67" height="67" rx="13" fill="url(#g)" stroke="${border}" stroke-width="2.5"/>` + art + text + (spec.badge ? badgeSvg(spec.badge) : "") + `</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}">` + (defs ? `<defs>${defs}</defs>` : "") + `<rect x="1.5" y="1.5" width="69" height="69" rx="14" fill="${BG}" stroke="${EDGE}" stroke-width="1.5"/>` + backdrop + art + text + (spec.badge ? badgeSvg(spec.badge) : "") + `</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+function badgeSvg(text) {
+  const t = esc2(text.slice(0, 3).toUpperCase());
+  const w = t.length <= 2 ? 22 : 27;
+  return `<rect x="${68 - w}" y="4" width="${w}" height="16" rx="5" fill="#1A1A22" stroke="${EDGE}" stroke-width="1"/><text x="${68 - w / 2}" y="16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="11" font-weight="700" fill="${INK}">${t}</text>`;
+}
+function iconThumb(icon, style, color) {
+  if (icon === "none") {
+    const svg2 = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="8 0 56 56"><circle cx="36" cy="28" r="19" fill="none" stroke="${EDGE}" stroke-width="2"/><line x1="24" y1="16" x2="48" y2="40" ${strokeAttrs(EDGE, 2.6)}/></svg>`;
+    return `data:image/svg+xml;base64,${Buffer.from(svg2, "utf8").toString("base64")}`;
+  }
+  const a = styleArt(style, GLYPHS[icon] ?? GLYPHS.mic, color, 1);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="8 0 56 56"><defs>${a.defs}</defs>` + (a.backdrop ? `<rect x="8" y="0" width="56" height="56" fill="url(#h)"/>` : "") + a.glyph + `</svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
 function clock(ms) {
@@ -18893,6 +19203,7 @@ var HOLD_MS = 1e3;
 var PTT_MIN_MS = 400;
 var MIN_AUDIO_MS = 800;
 var TICK_MS = 125;
+var DONE_SIZES = [22, 10];
 function ffmpegOf(g) {
   return g?.ffmpegPath?.trim() || "ffmpeg";
 }
@@ -18908,12 +19219,32 @@ async function presetSummaries(locale) {
 function appLanguage() {
   return plugin_default.info?.application?.language;
 }
+var uiLocaleCache = "pt";
+async function refreshUiLocale(g) {
+  const global = g ?? await plugin_default.settings.getGlobalSettings();
+  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage());
+  return uiLocaleCache;
+}
 function contentLocale(g, spoken) {
   return resolveContentLocale({
     contentLang: g?.contentLang,
     spokenLanguage: spoken,
     uiLang: g?.uiLang,
     appLanguage: appLanguage()
+  });
+}
+function idleImage(s, locale) {
+  return keyImage({
+    color: s.colorIdle,
+    style: s.keyStyle,
+    icon: s.icon,
+    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
+    // quebra sozinho por palavra em vez de espremer tudo numa linha.
+    lines: s.showLabel ? wrapLabel(s.label || keyText(locale).defaultLabel, s.labelSize) : [],
+    fontSize: s.labelSize,
+    lineGap: s.labelGap,
+    // A tecla que traduz diz para onde, sem precisar abrir o painel.
+    badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : void 0
   });
 }
 function textOptions(s, canonTerms, locale) {
@@ -18933,6 +19264,7 @@ var Dictation = class extends (_a = SingletonAction) {
   // ---------- ciclo de vida ----------
   async onWillAppear(ev) {
     if (!ev.action.isKey()) return;
+    await refreshUiLocale();
     await this.render(ev.action, ev.payload.settings);
     this.ensureTicker();
   }
@@ -18963,11 +19295,12 @@ var Dictation = class extends (_a = SingletonAction) {
   async render(a, raw) {
     const s = withDefaults(raw);
     const st = getState(a.id);
-    const labelLines = s.showLabel ? wrapLabel(s.label || "Ditado", s.labelSize) : [];
+    const T = keyText(uiLocaleCache);
+    const style = s.keyStyle;
     let img;
     switch (st.phase) {
       case "arming":
-        img = keyImage({ color: s.colorRec, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["abrindo"] });
+        img = keyImage({ color: s.colorRec, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.opening] });
         break;
       case "recording": {
         const lines = [];
@@ -18976,6 +19309,7 @@ var Dictation = class extends (_a = SingletonAction) {
         } else if (s.showTimer) lines.push(clock(Date.now() - st.startedAt));
         img = keyImage({
           color: s.colorRec,
+          style,
           special: s.showWave && !st.message ? "wave" : "dots",
           levels: st.levels,
           phase: Math.floor(Date.now() / 300),
@@ -18985,30 +19319,28 @@ var Dictation = class extends (_a = SingletonAction) {
       }
       case "stopping":
       case "transcribing":
-        img = keyImage({ color: s.colorRec, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["enviando"] });
+        img = keyImage({ color: s.colorRec, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.sending] });
         break;
       case "texting":
-        img = keyImage({ color: s.colorIdle, special: "dots", phase: Math.floor(Date.now() / 300), lines: ["escrevendo"] });
+        img = keyImage({ color: s.colorIdle, style, special: "dots", phase: Math.floor(Date.now() / 300), lines: [T.writing] });
         break;
       case "done":
-        img = keyImage({ color: s.colorDone, special: "check", lines: st.message ?? [] });
+        img = keyImage({
+          color: s.colorDone,
+          style,
+          special: "check",
+          lines: st.message ?? [],
+          fontSizes: DONE_SIZES
+        });
         break;
       case "warn":
-        img = keyImage({ color: "#B8791F", special: "warn", lines: st.message ?? [] });
+        img = keyImage({ color: "#B8791F", style, special: "warn", lines: st.message ?? [] });
         break;
       case "error":
-        img = keyImage({ color: "#C44040", special: "cross", lines: st.message ?? [] });
+        img = keyImage({ color: "#C44040", style, special: "cross", lines: st.message ?? [] });
         break;
       default:
-        img = keyImage({
-          color: s.colorIdle,
-          icon: s.icon,
-          lines: labelLines,
-          fontSize: s.labelSize,
-          lineGap: s.labelGap,
-          // A tecla que traduz diz para onde, sem precisar abrir o painel.
-          badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : void 0
-        });
+        img = idleImage(s, uiLocaleCache);
     }
     await a.setImage(img);
   }
@@ -19041,7 +19373,7 @@ var Dictation = class extends (_a = SingletonAction) {
       st.holdTimer = setTimeout(() => {
         const cur = getState(ev.action.id);
         if (cur.downAt) {
-          cur.message = ["SOLTE P/", "CANCELAR"];
+          cur.message = [...keyText(uiLocaleCache).releaseCancel];
           void ev.action.getSettings().then((x) => this.render(ev.action, x));
         }
       }, HOLD_MS);
@@ -19056,22 +19388,23 @@ var Dictation = class extends (_a = SingletonAction) {
     clearTimeout(st.holdTimer);
     st.message = void 0;
     const s = withDefaults(ev.payload.settings);
+    const T = keyText(uiLocaleCache);
     if (st.phase === "transcribing" || st.phase === "texting") {
       if (held >= HOLD_MS) {
         st.abort?.abort();
-        await this.abortRun(a, s, "cancelado");
+        await this.abortRun(a, s, T.cancelled);
       } else {
-        await this.flash(a, "warn", ["aguarde"], 1200);
+        await this.flash(a, "warn", [T.wait], 1200);
       }
       return;
     }
     if (st.phase === "arming" || st.phase === "stopping") return;
     if (st.phase === "recording") {
       if (s.mode === "ptt") {
-        if (held < PTT_MIN_MS) await this.abortRun(a, s, "curto demais");
+        if (held < PTT_MIN_MS) await this.abortRun(a, s, T.tooShort);
         else await this.stopAndProcess(a, ev.payload.settings);
       } else if (held >= HOLD_MS) {
-        await this.abortRun(a, s, "cancelado");
+        await this.abortRun(a, s, T.cancelled);
       } else {
         await this.stopAndProcess(a, ev.payload.settings);
       }
@@ -19084,18 +19417,19 @@ var Dictation = class extends (_a = SingletonAction) {
     const s = withDefaults(raw);
     const st = getState(a.id);
     const global = await plugin_default.settings.getGlobalSettings();
+    const T = keyText(await refreshUiLocale(global));
     if (!s.transcribeOn) {
       await this.runTextOnly(a, s, global);
       return;
     }
     if (isBusyElsewhere(a.id)) {
-      await this.flash(a, "warn", ["gravando em", "outra tecla"], 1600);
+      await this.flash(a, "warn", [...T.busy], 1600);
       return;
     }
     if (!acquireLock(a.id)) return;
     if (!await getApiKey()) {
       releaseLock(a.id);
-      await this.flash(a, "error", ["sem chave"], 4e3);
+      await this.flash(a, "error", [T.noKey], 4e3);
       return;
     }
     const ffmpeg = ffmpegOf(global);
@@ -19142,7 +19476,7 @@ var Dictation = class extends (_a = SingletonAction) {
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = void 0;
-      void this.flash(a, "error", ["sem ffmpeg"], 4e3);
+      void this.flash(a, "error", [keyText(uiLocaleCache).noFfmpeg], 4e3);
     });
     rec.start();
     await trackPid(rec.pid);
@@ -19195,19 +19529,20 @@ var Dictation = class extends (_a = SingletonAction) {
       if (audioPath) await unlink2(audioPath).catch(() => {
       });
       st.levels = [];
-      await this.flash(a, "warn", ["sem fala"], 1800);
+      await this.flash(a, "warn", [keyText(uiLocaleCache).noSpeech], 1800);
       return;
     }
     await this.runPipeline(a, s, global, { audioPath, durationMs });
   }
   /** Tecla sem etapa de áudio: pega a seleção (Ctrl+C) e reescreve. */
   async runTextOnly(a, s, global) {
+    const T = keyText(uiLocaleCache);
     if (!hasTextWork(textOptions(s, [], contentLocale(global, s.language)))) {
-      await this.flash(a, "warn", ["nada a", "fazer"], 2e3);
+      await this.flash(a, "warn", [...T.nothingToDo], 2e3);
       return;
     }
     if (!await getApiKey()) {
-      await this.flash(a, "error", ["sem chave"], 4e3);
+      await this.flash(a, "error", [T.noKey], 4e3);
       return;
     }
     const st = getState(a.id);
@@ -19216,7 +19551,7 @@ var Dictation = class extends (_a = SingletonAction) {
     await this.render(a, await a.getSettings());
     const input = await readSelectionOrClipboard();
     if (!input) {
-      await this.flash(a, "warn", ["sem texto"], 2e3);
+      await this.flash(a, "warn", [T.noText], 2e3);
       return;
     }
     await this.runPipeline(a, s, global, { input });
@@ -19226,6 +19561,7 @@ var Dictation = class extends (_a = SingletonAction) {
     const apiKey = await getApiKey();
     const terms = parseTerms(global?.canonTerms);
     const ffmpeg = ffmpegOf(global);
+    const T = keyText(uiLocaleCache);
     const models = [];
     let note;
     let raw = src.input ?? "";
@@ -19250,7 +19586,7 @@ var Dictation = class extends (_a = SingletonAction) {
           await unlink2(src.audioPath).catch(() => {
           });
           st.levels = [];
-          await this.flash(a, "warn", ["sem fala"], 1800);
+          await this.flash(a, "warn", [T.noSpeech], 1800);
           return;
         }
         raw = applyCanon(result.text, terms);
@@ -19296,11 +19632,11 @@ var Dictation = class extends (_a = SingletonAction) {
       });
       st.levels = [];
       if (note) {
-        await this.flash(a, "warn", ["cru \u2014", "bloqueado"], 4e3);
+        await this.flash(a, "warn", [...T.rawBlocked], 4e3);
       } else if (how === "copied" && s.autoPaste) {
-        await this.flash(a, "warn", ["copiado", "Ctrl+V"], 3500);
+        await this.flash(a, "warn", [...T.copied], 3500);
       } else {
-        await this.flash(a, "done", [`${wordCount(final)} pal.`], 2e3);
+        await this.flash(a, "done", [...wordCountLines(wordCount(final), uiLocaleCache)], 2e3);
       }
     } catch (err) {
       plugin_default.logger.error("pipeline falhou", err);
@@ -19312,7 +19648,7 @@ var Dictation = class extends (_a = SingletonAction) {
       }
       st.levels = [];
       if (s.beep) beep(ffmpeg, "error");
-      await this.flash(a, "error", [shortError(err)], 4e3);
+      await this.flash(a, "error", [shortError(err, uiLocaleCache)], 4e3);
     }
   }
   // ---------- ponte com o painel ----------
@@ -19328,7 +19664,7 @@ var Dictation = class extends (_a = SingletonAction) {
       switch (msg?.cmd) {
         case "init": {
           const { listAudioDevices: listAudioDevices2 } = await Promise.resolve().then(() => (init_recorder(), recorder_exports));
-          const uiLocale = resolveUiLocale(global.uiLang, appLanguage());
+          const uiLocale = await refreshUiLocale(global);
           reply({
             event: "init",
             devices: (await listAudioDevices2(ffmpeg)).map((d) => d.name),
@@ -19340,8 +19676,8 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.0.1.2",
-            versionDate: "2026-07-25",
+            version: "1.2.0.0",
+            versionDate: "2026-07-26",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -19378,6 +19714,22 @@ var Dictation = class extends (_a = SingletonAction) {
           });
           break;
         }
+        // A tecla desenhada, para o painel mostrar ao vivo o efeito de cor, ícone,
+        // rótulo e corpo de fonte. As configurações vêm NA mensagem, e não de
+        // `a.getSettings()`, porque o painel grava com atraso de 150 ms — lendo do
+        // Stream Deck, a prévia mostraria sempre o penúltimo caractere digitado.
+        case "keyPreview": {
+          const s = withDefaults(msg.settings);
+          reply({
+            event: "keyPreview",
+            image: idleImage(s, uiLocaleCache),
+            // As grades custam ~20 KB e só mudam quando muda a cor ou a direção —
+            // não a cada tecla digitada no rótulo. Por isso o painel pede à parte.
+            icons: msg.withThumbs ? ICON_NAMES.map((n) => ({ name: n, image: iconThumb(n, s.keyStyle, s.colorIdle) })) : void 0,
+            styles: msg.withThumbs ? KEY_STYLES.map((st) => ({ name: st, image: iconThumb(s.icon === "none" ? "mic" : s.icon, st, s.colorIdle) })) : void 0
+          });
+          break;
+        }
         case "setKey":
           await setApiKey(msg.key);
           await plugin_default.settings.setGlobalSettings({ ...global, hasKey: true });
@@ -19397,6 +19749,10 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: msg.contentLang ?? global.contentLang
           };
           await plugin_default.settings.setGlobalSettings(next);
+          await refreshUiLocale(next);
+          for (const other of this.actions) {
+            if (other.isKey()) await this.render(other, await other.getSettings());
+          }
           reply({
             event: "globalSaved",
             presets: await presetSummaries(contentLocale(next)),

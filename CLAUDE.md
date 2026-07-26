@@ -80,6 +80,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/lib/openai.ts](src/lib/openai.ts) | As duas chamadas, retries, detecção de recusa, anti-eco |
 | [src/lib/prompts.ts](src/lib/prompts.ts) | Composição do system prompt em camadas |
 | [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | **Texto** dos prompts em pt/en/es — é o que a IA lê |
+| [src/lib/key-text.ts](src/lib/key-text.ts) | **Texto da tecla** em pt/en/es — "enviando", "sem fala", "palavras" |
 | [src/lib/preset-text.ts](src/lib/preset-text.ts) | Nomes e instruções dos presets em pt/en/es |
 | [src/lib/presets.ts](src/lib/presets.ts) | Moldes de fábrica + salvar/aplicar os do usuário |
 | [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: orçamento de 224 tokens + correção por regex |
@@ -102,8 +103,14 @@ Não são a mesma coisa e não precisam concordar:
 | Presets e prompts (o que a **IA** lê) | `GlobalSettings.contentLang` | `resolveContentLocale()` → idioma falado → painel → app |
 | Idioma falado (por tecla) | `ActionSettings.language` | vai direto no parâmetro `language` da API |
 
-Texto de interface vive em `ui/i18n.js`; texto que a IA lê vive em `src/lib/*-text.ts`. **Nunca
-duplique uma frase nos dois lados** — o painel recebe do plugin o que já foi resolvido.
+Texto de interface vive em `ui/i18n.js`; texto que a IA lê vive em `src/lib/prompt-text.ts` e
+`preset-text.ts`; texto que aparece **na tecla** vive em `src/lib/key-text.ts`. **Nunca duplique
+uma frase entre eles** — o painel recebe do plugin o que já foi resolvido.
+
+A tecla segue o idioma do **painel** (`uiLang`), não o da fala: quem olha a tecla é quem
+configurou o plugin. O `uiLocaleCache` em `dictation.ts` guarda esse idioma porque a tecla é
+redesenhada a 8 fps — um `getGlobalSettings()` por quadro seria absurdo. Ele é atualizado no
+`willAppear`, no `init` do painel e depois de cada `setGlobal`.
 
 ### REGRA: tudo que é texto tem de existir nos três idiomas
 
@@ -115,7 +122,9 @@ qualquer texto, os três (`pt`, `en`, `es`) entram na mesma mudança:
 | Rótulo, dica ou botão do painel | `ui/i18n.js` — os três blocos |
 | Regra na camada de limpeza, trava, instrução de tradução | `src/lib/prompt-text.ts` — os três blocos |
 | Preset de fábrica (nome ou instrução) | `src/lib/preset-text.ts` — os três blocos |
+| Palavra que aparece **na tecla** (estado, aviso, erro) | `src/lib/key-text.ts` — os três blocos |
 | Nome de idioma | **nada** — vem do `Intl.DisplayNames` |
+| Idioma novo de tradução | **só o código** em `TARGET_CODES` — nome e ordem vêm do `Intl` |
 
 Duas verificações rápidas antes de commitar:
 
@@ -181,7 +190,30 @@ prompt should match the audio language."*
 **9. Estado das gravações vive em `sessions.ts`, fora da instância da ação.** O SDK dispara
 `willDisappear` ao trocar de página/perfil; na instância, o ditado morreria junto.
 
-**10. Na tecla, o texto manda no espaço e o ícone cede.** Com duas ou três linhas de rótulo o
+**10. Cada ícone é desenhado UMA vez, e os dois modos saem dele.** Em `icons.ts` um ícone é
+uma lista de formas com papéis (`body`, `ink`, `cut`, `cutfill`, `fill`, `slash`). O estilo
+`neon` renderiza essa lista como contorno; `aurora` e `ring`, como silhueta cheia. Se um dia
+alguém for "simplificar" escrevendo dois conjuntos de glifos, os dois divergem no mês seguinte.
+Todo ícone vive na grade de 32×32 centrada em (36,28) — há teste reprovando coordenada fora dela.
+
+**11. O traço encolhido é compensado por `1/√k`, não por `1/k`.** Medido: com rótulo de três
+linhas o glifo cai para `k ≈ 0,4` e um traço de 3,1 px vira 1,2 px e some. Compensar por
+inteiro — que é o que `vector-effect="non-scaling-stroke"` faz — devolve 3,1 px e o glifo vira
+uma mancha, porque num desenho a 40% aquilo é proporcionalmente enorme. A raiz fica no meio.
+**Não trocar por `non-scaling-stroke`:** já foi avaliado e é a resposta errada, não a fácil.
+
+**12. Nada de `<filter>` no SVG da tecla.** Brilho e halo são gradientes — o mesmo mecanismo
+que a tecla sempre usou e que sabemos que o renderizador do Stream Deck aceita. O halo do
+`neon` são três passadas do mesmo contorno (larga e apagada, média na cor, filete branco).
+Blur de verdade só entra se alguém validar no aparelho físico primeiro.
+
+**13. A prévia da tecla no painel usa a MESMA função que desenha a tecla.** `idleImage()` é
+chamada pelo `render()` e pelo comando `keyPreview`. Se um dia a prévia for reimplementada em
+HTML "para ficar mais rápido", ela passa a mentir no dia seguinte, e uma prévia que mente é pior
+que nenhuma. As configurações viajam **na mensagem** do painel, não são lidas de `getSettings()`:
+o painel grava com 150 ms de atraso e a prévia mostraria sempre o penúltimo caractere digitado.
+
+**14. Na tecla, o texto manda no espaço e o ícone cede.** Com duas ou três linhas de rótulo o
 glifo encolhe e sobe (`<g transform="…scale(…)">` em `keyImage`). Sem isso, "Relato de
 atendimento" imprime as linhas **em cima** do microfone. Há teste travando a não-sobreposição;
 se mexer no layout da tecla, renderize e olhe — o teste garante a geometria, não a estética.
@@ -262,6 +294,20 @@ quando o `i18n.js` faltava.
 
 **O caminho principal funciona** — validado com voz real em 25/07/2026 (v1.0.1.1): gravar,
 transcrever e colar, de ponta a ponta.
+
+Em 26/07/2026 (v1.1.0.0) entraram quatro itens do roadmap: chave da OpenAI colável dentro do
+próprio modal de ajuda, 28 idiomas de destino (eram 12), confirmação em duas linhas com o
+número grande, e **prévia da tecla ao vivo no painel** — esta última encurta muito o ciclo de
+ajuste de aparência, porque tira o Stream Deck físico do caminho. Junto veio a tradução de
+todo o texto da tecla para os três idiomas (`key-text.ts`).
+
+Na v1.2.0.0, no mesmo dia, a **virada visual** (roadmap 2.1 e 2.4): fundo quase-preto, cor só
+no que informa, **três direções escolhíveis por tecla** (`neon`, `aurora`, `ring`) e o conjunto
+de ícones de 5 para 18. Oito propostas foram desenhadas e comparadas antes de escrever o código
+definitivo — as folhas ficaram em [docs/estilos/](docs/estilos/), e vale abrir antes de propor
+uma nona. Escolher ícone e estilo agora é uma grade de miniaturas, não um `<select>`.
+
+**Nada disso foi visto na tecla física ainda** — só no render headless.
 
 O que falta são os **casos de borda**, que não se exercitam no uso normal e falham em silêncio:
 trocar de janela durante o processamento, trocar de página no XL durante a gravação, e a

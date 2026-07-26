@@ -37,6 +37,8 @@ window.TT_I18N = {
     labelGap: "Espaço entre linhas",
     langDetect: "Detectar (ou misturo idiomas)",
     labelPh: "Ditado",
+    preview: "Prévia da tecla",
+    previewHint: "É a imagem que o Stream Deck recebe, em tamanho real. Mostra a tecla ociosa.",
     mic: "Microfone",
     micDefault: "Padrão do sistema (primeiro da lista)",
     test: "Testar",
@@ -124,11 +126,34 @@ window.TT_I18N = {
     colorRec: "Gravando",
     colorDone: "Pronto",
     icon: "Ícone",
-    iconMic: "Microfone",
-    iconGlobe: "Globo",
-    iconBubble: "Balão de fala",
-    iconPen: "Caneta",
-    iconNone: "Nenhum",
+    keyStyle: "Estilo da tecla",
+    style_neon: "Neon",
+    style_aurora: "Aurora",
+    style_ring: "Anel",
+    styleHint_neon: "Contorno aceso com halo de cor. É o que mais salta num deck cheio.",
+    styleHint_aurora: "Ícone branco sobre uma névoa de cor. O mais discreto dos três.",
+    styleHint_ring: "Arco na cor em volta do ícone, como um medidor. Cara de instrumento.",
+
+    icon_mic: "Microfone",
+    icon_micOff: "Microfone mudo",
+    icon_waves: "Ondas sonoras",
+    icon_headset: "Fone",
+    icon_globe: "Globo",
+    icon_translate: "Tradução",
+    icon_bubble: "Balão de fala",
+    icon_quote: "Aspas",
+    icon_doc: "Documento",
+    icon_list: "Lista",
+    icon_keyboard: "Teclado",
+    icon_code: "Código",
+    icon_pen: "Caneta",
+    icon_wand: "Varinha",
+    icon_bolt: "Raio",
+    icon_check: "Confirmação",
+    icon_mail: "E-mail",
+    icon_calendar: "Calendário",
+    icon_none: "Nenhum",
+
     showLabel: "Mostrar rótulo",
     showTimer: "Mostrar cronômetro",
     showWave: "Mostrar as barras de voz",
@@ -137,6 +162,9 @@ window.TT_I18N = {
     save: "Salvar",
     keyOk: "Chave configurada no cofre.",
     keyMissing: "Nenhuma chave — a tecla vai mostrar erro.",
+    keyEmpty: "Cole a chave antes de salvar.",
+    keyBadFormat: "Isso não parece uma chave da OpenAI — ela começa com sk-.",
+    keySaving: "guardando no cofre…",
     keyHint:
       "Guardada cifrada por DPAPI (só abre nesta conta do Windows), nunca nas configurações do " +
       "Stream Deck, que ficam em texto plano no disco.",
@@ -154,11 +182,16 @@ window.TT_I18N = {
     langSection: "Idiomas",
     langUi: "Painel",
     langContent: "Presets e prompts",
+    langUiTitle: "Idioma do painel",
     langContentAuto: "Segue o idioma falado da tecla",
-    langFollowApp: "Segue o Stream Deck",
+    // Fica em inglês de propósito, como os nomes dos idiomas ao lado: é a única opção
+    // do seletor que não é um idioma, e ela precisa ser legível para quem abriu o
+    // painel numa língua que não lê e está justamente procurando como trocar.
+    langFollowApp: "Default",
     langHint:
       "São coisas diferentes: o painel é o que VOCÊ lê; os presets e os prompts são o que a IA lê. " +
-      "Dá para manter o Stream Deck em inglês e trabalhar em português.",
+      "Dá para manter o Stream Deck em inglês e trabalhar em português. " +
+      "Em Painel, Default significa acompanhar o idioma do app Stream Deck.",
 
     // dicionário
     dictOpen: "Abrir dicionário",
@@ -182,7 +215,7 @@ window.TT_I18N = {
       "Adicione crédito em Billing. A API é pré-paga e separada da assinatura do ChatGPT — " +
       "ter ChatGPT Plus NÃO dá acesso à API.",
     helpStep3: "Vá em API keys e clique em “Create new secret key”.",
-    helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo do painel.",
+    helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo aqui embaixo.",
     helpCost:
       "Custo aproximado: cerca de US$ 0,003 por minuto de áudio, mais alguns centavos por mil " +
       "palavras reescritas. Um dia inteiro de ditado costuma custar menos que um café.",
@@ -266,6 +299,8 @@ window.TT_I18N = {
     labelGap: "Line spacing",
     langDetect: "Detect (or I mix languages)",
     labelPh: "Dictate",
+    preview: "Key preview",
+    previewHint: "The very image Stream Deck receives, at full size. Shows the key while idle.",
     mic: "Microphone",
     micDefault: "System default (first in the list)",
     test: "Test",
@@ -349,11 +384,34 @@ window.TT_I18N = {
     colorRec: "Recording",
     colorDone: "Done",
     icon: "Icon",
-    iconMic: "Microphone",
-    iconGlobe: "Globe",
-    iconBubble: "Speech bubble",
-    iconPen: "Pen",
-    iconNone: "None",
+    keyStyle: "Key style",
+    style_neon: "Neon",
+    style_aurora: "Aurora",
+    style_ring: "Ring",
+    styleHint_neon: "Lit outline with a colour halo. The one that stands out most on a full deck.",
+    styleHint_aurora: "White icon over a haze of colour. The quietest of the three.",
+    styleHint_ring: "A coloured arc around the icon, like a gauge. Instrument-panel look.",
+
+    icon_mic: "Microphone",
+    icon_micOff: "Muted microphone",
+    icon_waves: "Sound waves",
+    icon_headset: "Headphones",
+    icon_globe: "Globe",
+    icon_translate: "Translation",
+    icon_bubble: "Speech bubble",
+    icon_quote: "Quotes",
+    icon_doc: "Document",
+    icon_list: "List",
+    icon_keyboard: "Keyboard",
+    icon_code: "Code",
+    icon_pen: "Pen",
+    icon_wand: "Wand",
+    icon_bolt: "Bolt",
+    icon_check: "Check",
+    icon_mail: "Email",
+    icon_calendar: "Calendar",
+    icon_none: "None",
+
     showLabel: "Show label",
     showTimer: "Show timer",
     showWave: "Show voice bars",
@@ -362,6 +420,9 @@ window.TT_I18N = {
     save: "Save",
     keyOk: "Key stored in the vault.",
     keyMissing: "No key — the key will show an error.",
+    keyEmpty: "Paste the key before saving.",
+    keyBadFormat: "That does not look like an OpenAI key — they start with sk-.",
+    keySaving: "storing in the vault…",
     keyHint:
       "Stored encrypted with DPAPI (only opens under this Windows account), never in the Stream Deck " +
       "settings, which sit in plain text on disk.",
@@ -378,11 +439,13 @@ window.TT_I18N = {
     langSection: "Languages",
     langUi: "Panel",
     langContent: "Presets and prompts",
+    langUiTitle: "Panel language",
     langContentAuto: "Follow the key's spoken language",
-    langFollowApp: "Follow Stream Deck",
+    langFollowApp: "Default",
     langHint:
       "These are different things: the panel is what YOU read; presets and prompts are what the AI " +
-      "reads. You can keep Stream Deck in English and work in another language.",
+      "reads. You can keep Stream Deck in English and work in another language. " +
+      "Under Panel, Default means following the Stream Deck app's language.",
 
     dictOpen: "Open dictionary",
     dictTerms: "terms",
@@ -404,7 +467,7 @@ window.TT_I18N = {
       "Add credit under Billing. The API is prepaid and separate from the ChatGPT subscription — " +
       "having ChatGPT Plus does NOT grant API access.",
     helpStep3: "Go to API keys and click “Create new secret key”.",
-    helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the panel.",
+    helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the field just below.",
     helpCost:
       "Rough cost: about US$0.003 per minute of audio, plus a few cents per thousand rewritten words. " +
       "A full day of dictation usually costs less than a coffee.",
@@ -488,6 +551,8 @@ window.TT_I18N = {
     labelGap: "Espacio entre líneas",
     langDetect: "Detectar (o mezclo idiomas)",
     labelPh: "Dictado",
+    preview: "Vista previa de la tecla",
+    previewHint: "Es la imagen que recibe el Stream Deck, a tamaño real. Muestra la tecla inactiva.",
     mic: "Micrófono",
     micDefault: "Predeterminado del sistema (el primero de la lista)",
     test: "Probar",
@@ -571,11 +636,34 @@ window.TT_I18N = {
     colorRec: "Grabando",
     colorDone: "Listo",
     icon: "Icono",
-    iconMic: "Micrófono",
-    iconGlobe: "Globo",
-    iconBubble: "Bocadillo",
-    iconPen: "Pluma",
-    iconNone: "Ninguno",
+    keyStyle: "Estilo de la tecla",
+    style_neon: "Neón",
+    style_aurora: "Aurora",
+    style_ring: "Anillo",
+    styleHint_neon: "Contorno encendido con halo de color. El que más destaca en un deck lleno.",
+    styleHint_aurora: "Icono blanco sobre una neblina de color. El más discreto de los tres.",
+    styleHint_ring: "Un arco de color alrededor del icono, como un medidor. Aire de instrumento.",
+
+    icon_mic: "Micrófono",
+    icon_micOff: "Micrófono silenciado",
+    icon_waves: "Ondas sonoras",
+    icon_headset: "Auriculares",
+    icon_globe: "Globo",
+    icon_translate: "Traducción",
+    icon_bubble: "Bocadillo",
+    icon_quote: "Comillas",
+    icon_doc: "Documento",
+    icon_list: "Lista",
+    icon_keyboard: "Teclado",
+    icon_code: "Código",
+    icon_pen: "Pluma",
+    icon_wand: "Varita",
+    icon_bolt: "Rayo",
+    icon_check: "Confirmación",
+    icon_mail: "Correo",
+    icon_calendar: "Calendario",
+    icon_none: "Ninguno",
+
     showLabel: "Mostrar etiqueta",
     showTimer: "Mostrar cronómetro",
     showWave: "Mostrar las barras de voz",
@@ -584,6 +672,9 @@ window.TT_I18N = {
     save: "Guardar",
     keyOk: "Clave guardada en la bóveda.",
     keyMissing: "Sin clave — la tecla mostrará error.",
+    keyEmpty: "Pega la clave antes de guardar.",
+    keyBadFormat: "Eso no parece una clave de OpenAI — empiezan por sk-.",
+    keySaving: "guardando en la bóveda…",
     keyHint:
       "Guardada cifrada con DPAPI (solo se abre en esta cuenta de Windows), nunca en la configuración " +
       "de Stream Deck, que queda en texto plano en el disco.",
@@ -600,11 +691,13 @@ window.TT_I18N = {
     langSection: "Idiomas",
     langUi: "Panel",
     langContent: "Presets y prompts",
+    langUiTitle: "Idioma del panel",
     langContentAuto: "Sigue el idioma hablado de la tecla",
-    langFollowApp: "Sigue a Stream Deck",
+    langFollowApp: "Default",
     langHint:
       "Son cosas distintas: el panel es lo que TÚ lees; los presets y prompts son lo que lee la IA. " +
-      "Puedes tener Stream Deck en inglés y trabajar en otro idioma.",
+      "Puedes tener Stream Deck en inglés y trabajar en otro idioma. " +
+      "En Panel, Default significa seguir el idioma de la app Stream Deck.",
 
     dictOpen: "Abrir diccionario",
     dictTerms: "términos",
@@ -626,7 +719,7 @@ window.TT_I18N = {
       "Añade crédito en Billing. La API es de prepago y va aparte de la suscripción de ChatGPT — " +
       "tener ChatGPT Plus NO da acceso a la API.",
     helpStep3: "Ve a API keys y pulsa “Create new secret key”.",
-    helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el panel.",
+    helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el campo de aquí abajo.",
     helpCost:
       "Coste aproximado: unos US$ 0,003 por minuto de audio, más unos céntimos por cada mil palabras " +
       "reescritas. Un día entero de dictado suele costar menos que un café.",

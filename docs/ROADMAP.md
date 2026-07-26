@@ -131,34 +131,51 @@ suporta (a seção *Saída* do painel), então o trabalho é a janela em si, nã
 
 ---
 
-## 2. A tecla: fundo preto e mais elegância
+## 2. A tecla: fundo preto e mais elegância — ✅ feito (v1.2.0.0)
 
-Hoje o fundo inteiro é a cor do estado (vermelho ao gravar), com barras e texto brancos por
-cima. Fica saturado e "de protótipo". A direção: **fundo preto, e a cor só no que informa.**
+O fundo inteiro era a cor do estado, com barras e texto brancos por cima: saturado e "de
+protótipo". Agora o fundo é quase-preto (`#0C0C10`) e **a cor só aparece no que informa**.
+
+Foram desenhadas **oito** propostas e comparadas lado a lado antes de escrever qualquer código
+definitivo — as folhas estão em [docs/estilos/](estilos/). Sobraram três, e a decisão foi
+**não eleger uma**: viraram opção por tecla (`keyStyle`), porque as três servem a gostos
+diferentes e o custo de manter as três é quase zero — o desenho dos ícones é um só.
+
+| Direção | O que é |
+|---|---|
+| `neon` (padrão) | contorno aceso com halo de cor — a que mais salta num deck cheio |
+| `aurora` | ícone branco sobre uma névoa de cor — a mais discreta |
+| `ring` | arco-medidor na cor em volta do ícone — cara de instrumento |
 
 Tudo em [src/lib/icons.ts](../src/lib/icons.ts) — SVG gerado em runtime, sem dependência.
 
-### 2.1 Barras de voz
+### 2.1 Barras de voz — ✅ feito
 
-- [ ] Fundo quase-preto (`#0d0d0f`), a cor do estado migra para as **barras**
-- [ ] Barras com gradiente vertical e brilho sutil; considerar as centrais mais altas por
-      construção, como um VU de verdade
-- [ ] Testar se o `<filter>` de *glow* sobrevive ao renderizador do Stream Deck — se não,
-      simular com uma barra semitransparente por baixo, mais larga
-- [ ] Manter as 9 barras rolantes: o valor está em ver a voz **andando**, não pulsando
+- [x] Fundo quase-preto, a cor do estado migrou para as **barras**
+- [x] Barras com gradiente vertical
+- [x] **`<filter>` foi descartado, não testado — de propósito.** Todo brilho do projeto é
+      `radialGradient`/`linearGradient`, o mesmo mecanismo que a tecla já usava e que sabemos
+      que o renderizador do Stream Deck aceita. O halo do `neon` é feito com três passadas do
+      mesmo contorno (larga e apagada, média na cor, filete branco no miolo) — dá a impressão
+      de luz sem depender de um recurso que não temos como validar sem o aparelho na mão
+- [x] Mantidas as 9 barras rolantes
+- [ ] Centrais mais altas por construção, como um VU de verdade — não feito, e talvez não deva
+      ser: a altura hoje é o nível REAL, e enfeitar isso é mentir sobre o que a barra mede
 
-### 2.2 Estado de processamento (hoje "enviando" / "escrevendo")
+### 2.2 Estado de processamento (hoje "enviando" / "escrevendo") — **o que sobrou do item 2**
+
+É a única parte do item 2 que não entrou na v1.2.0.0, e ficou barata: o `key-text.ts` já existe,
+então acrescentar palavra é acrescentar três linhas em três blocos.
 
 - [ ] Trocar os três pontinhos por algo que sugira trabalho contínuo — barra indeterminada,
-      linhas de texto surgindo, ou um traço que varre a tecla
+      linhas de texto surgindo, ou um traço que varre a tecla. **Cuidado:** os pontinhos são
+      redesenhados a 8 fps pelo `tick()`; qualquer coisa mais pesada passa a custar a cada quadro
 - [ ] **Repensar a palavra.** "Escrevendo" é vago. Melhor seria contextual, porque o plugin
       já sabe o que está fazendo: `traduzindo` quando `styleMode === "translate"`,
       `revisando` quando só há limpeza, `reescrevendo` quando há instrução livre.
-      Precisa das três traduções (ver regra trilíngue no CLAUDE.md)
+      Precisa das três traduções — agora em [key-text.ts](../src/lib/key-text.ts), não no i18n
 
-### 2.3 Confirmação final
-
-- [ ] Número e palavra em **linhas separadas**, número grande:
+### 2.3 Confirmação final — ✅ feito (v1.1.0.0)
 
 ```
    ✓            ✓
@@ -166,79 +183,87 @@ Tudo em [src/lib/icons.ts](../src/lib/icons.ts) — SVG gerado em runtime, sem d
 palavras     palavras
 ```
 
-- [ ] Já existe suporte a múltiplas linhas (`wrapLabel` / `textLayout`) — o trabalho é escolher
-      os corpos de fonte e conferir que o check não fica espremido
-- [ ] `words` / `palabras` nas outras línguas; hoje o texto é montado em
-      [dictation.ts](../src/actions/dictation.ts) com `"pal."` fixo em português
+- [x] Número e palavra em linhas separadas, número grande (22 px) e palavra pequena (10 px)
+- [x] `keyImage` ganhou `fontSizes` — corpo de fonte **por linha**. Com corpos iguais o
+      espaçamento continua idêntico ao de antes, então nenhuma tecla existente mudou
+- [x] Singular certo: "1 palavra", "142 palavras"
+- [x] `words` / `palabras` nas outras línguas
+
+**Efeito colateral que valeu a pena:** para traduzir "palavras" foi preciso levar o idioma do
+painel até o desenho da tecla. Com o caminho aberto, **todo** o texto da tecla foi traduzido —
+`abrindo`, `enviando`, `escrevendo`, `SOLTE P/ CANCELAR`, `sem fala`, `copiado`, as mensagens de
+erro. Vive agora em [key-text.ts](../src/lib/key-text.ts), o terceiro lugar de texto do projeto
+(painel · prompt · **tecla**). Era uma violação da regra trilíngue que bloquearia a publicação
+na loja.
 
 > **Cuidado:** o teste `ícone e texto não se sobrepõem` trava a geometria, não a estética.
 > Ao mexer, renderize e olhe — há um harness pronto descrito no CLAUDE.md (*Como testar*).
 
-### 2.4 Biblioteca de ícones — mais opções, e melhores
+### 2.4 Biblioteca de ícones — ✅ feito (v1.2.0.0)
 
-Hoje são **cinco** (`mic`, `globe`, `bubble`, `pen`, `none`), desenhados à mão em SVG dentro de
-[icons.ts](../src/lib/icons.ts). Poucos para diferenciar 32 teclas de um XL — e desenhados para
-fundo colorido, não para o fundo escuro que o item 2.1 vai trazer.
+Eram **cinco** (`mic`, `globe`, `bubble`, `pen`, `none`). Agora são **18 + `none`**, cobrindo
+os quatro grupos que faltavam. Os cinco antigos continuam existindo com o mesmo id — settings
+já gravadas nas teclas não quebram, e há teste travando isso.
 
-**Ampliar e reestilizar são o mesmo trabalho**, e nessa ordem: definir o estilo primeiro,
-depois desenhar o conjunto inteiro nele. Ampliar no estilo atual é retrabalho garantido.
+| Grupo | Ícones |
+|---|---|
+| Captura | `mic` `micOff` `waves` `headset` |
+| Idioma | `globe` `translate` `bubble` `quote` |
+| Texto | `doc` `list` `keyboard` `code` |
+| Ação | `pen` `wand` `bolt` `check` |
+| Contexto | `mail` `calendar` |
 
-#### Estilo, antes de desenhar
+#### O que se aprendeu desenhando
 
-- [ ] Decidir entre **contorno** (como hoje) e **preenchimento sólido**. Em fundo escuro, sólido
-      tem mais presença e sofre menos com escala; contorno é mais leve mas exige traço grosso
-- [ ] **Traço que sobrevive ao encolhimento** — armadilha já conhecida deste código: quando o
-      glifo é reduzido para dar lugar ao texto (`scale(k)` em `keyImage`), o `stroke-width`
-      encolhe junto. Com `k ≈ 0.4`, um traço de 3 px vira 1,2 px e quase some. Testar
-      `vector-effect="non-scaling-stroke"`; se o renderizador do Stream Deck ignorar, compensar
-      o traço em função de `k` na hora de montar
-- [ ] Grade e peso comuns: mesmo tamanho óptico, mesma espessura, mesmo raio de canto. Ícone
-      solto em estilo diferente estraga o conjunto todo
-- [ ] Contraste conferido **em fundo escuro e claro** — a cor é configurável por tecla, então o
-      ícone precisa aguentar de `#0d0d0f` a um âmbar claro. Branco puro nem sempre é a melhor
-      resposta; considerar um branco levemente frio ou opacidade
+- [x] **Contorno vs. sólido virou uma pergunta errada.** Cada ícone é descrito UMA vez, como
+      lista de formas com papéis (corpo · traço · vazado). O `neon` renderiza essa lista como
+      contorno; a `aurora` e o `ring`, como silhueta cheia. Desenhar 18 ícones duas vezes seria
+      garantir que um dia os dois conjuntos divergissem
+- [x] **Traço que sobrevive ao encolhimento — MEDIDO, e a resposta não era a esperada.** Com o
+      rótulo em 3 linhas o glifo cai para `k ≈ 0,4` e um traço de 3,1 px vira 1,2 px e some.
+      Mas compensar por inteiro (`1/k` — que é exatamente o que `vector-effect="non-scaling-stroke"`
+      faria) devolve os 3,1 px, e num glifo a 40% isso fica proporcionalmente enorme: o
+      microfone vira uma mancha. **A raiz fica no meio: `3,1/√k`**, ~2,0 px efetivos. Ou seja,
+      `non-scaling-stroke` não só era desnecessário como estaria errado
+- [x] Grade comum de 32×32 centrada em (36,28), com teste automatizado que reprova qualquer
+      coordenada fora dela — foi o que pegou o primeiro lápis, que vazava do desenho
+- [x] Contraste resolvido por construção: o glifo é sempre branco levemente frio (`#EFF2F7`),
+      então não depende da cor que a pessoa escolher
 
-#### Conjunto a cobrir
+#### Cuidados — todos endereçados
 
-- [ ] Captura: microfone, microfone cortado (mudo), ondas sonoras, fone
-- [ ] Texto: documento, parágrafo, lista, aspas, teclado
-- [ ] Ação: tradução (setas opostas, ou `A` ↔ `文`), varinha/limpeza, raio (rápido/cru),
-      lápis, verificação
-- [ ] Contexto: e-mail, chat, código, calendário
-- [ ] Manter `none` — tecla só com rótulo é legítima e às vezes a mais legível
-
-#### Cuidados
-
-- [ ] Cada ícone novo é opção no painel: rever se o `<select>` ainda serve ou se vira uma grade
-      visual de miniaturas (o preview do item 3 ajudaria aqui)
-- [ ] `IconName` em [settings.ts](../src/lib/settings.ts) e o `switch` em `glyph()` crescem
-      juntos — vale uma tabela `nome → path` em vez do switch, quando passarem de ~10
-- [ ] Ícone é identidade: se algum dia o plugin for para a loja, o conjunto vira parte da cara
-      dele. Vale desenhar pensando nisso
+- [x] O `<select>` de ícone **virou grade visual de miniaturas**, e a de estilo também. As
+      miniaturas são geradas pelo próprio plugin, no estilo e na cor da tecla — a grade mostra
+      o que a tecla vai mostrar, não uma ilustração feita à parte. Os `<select>` continuam lá,
+      escondidos: a grade escreve neles e dispara `change`, então gravação, prévia e preset
+      seguem passando por um caminho só
+- [x] O `switch` de `glyph()` virou a tabela `GLYPHS` (`nome → formas`), como previsto
+- [ ] Ícone é identidade e o plugin vai para a loja: revisitar o conjunto quando houver uso
+      real, para ver quais sobram sem uso e o que falta
 
 ---
 
 ## 3. Painel mais high-tech
 
-### 3.0 Colar a chave dentro do próprio modal de ajuda — *rápido de fazer*
+### 3.0 Colar a chave dentro do próprio modal de ajuda — ✅ feito (v1.1.0.0)
 
-O modal "Como obter uma chave da OpenAI" termina no passo 4 dizendo **"cole no campo do
-painel"** — e aí a pessoa precisa fechar o modal, achar *Configuração da máquina*, abrir a
-seção e só então colar. Ela acabou de copiar a chave da OpenAI, com ela ainda no clipboard: o
-campo tem de estar **ali**.
+O modal "Como obter uma chave da OpenAI" terminava no passo 4 dizendo "cole no campo do
+painel" — e aí a pessoa precisava fechar o modal, achar *Configuração da máquina*, abrir a
+seção e só então colar. Ela acabou de copiar a chave, com ela ainda no clipboard: o campo
+tinha de estar **ali**.
 
-- [ ] Campo de senha + botão *Salvar* no rodapé do modal, antes do *Fechar*
-- [ ] Reusar o comando `setKey` que já existe — nada de caminho novo para o cofre DPAPI
-- [ ] Ao salvar com sucesso: fechar o modal, sumir com o banner de aviso e atualizar os **dois**
-      indicadores (o do modal e o da seção da máquina), que hoje são desenhados por
-      `refreshKeyStatus()`
-- [ ] Erro visível ali mesmo, sem fechar — chave colada errada é o caso mais provável
-- [ ] Os dois campos escrevem no mesmo lugar; manter um só ponto de verdade e não duplicar
-      validação
+- [x] Campo de senha + botão *Salvar* no rodapé do modal, antes do *Fechar*
+- [x] Reusa o comando `setKey` que já existia — nenhum caminho novo para o cofre DPAPI
+- [x] Ao salvar com sucesso: fecha o modal, some o banner de aviso e os **dois** indicadores
+      se atualizam (`refreshKeyStatus()` agora escreve nos dois)
+- [x] Erro visível ali mesmo, sem fechar: campo vazio e chave que não começa com `sk-`
+- [x] Um caminho só (`submitKey()`) para os dois campos — a validação nasceu compartilhada, e
+      com ela o campo da *Configuração da máquina* também passou a validar
+- [x] Enter no campo salva, já que a mão está no teclado logo depois de colar
 
-> Vale como primeira tarefa de quem retomar o projeto: mexe em um arquivo só
-> ([dictation.html](../com.felipe.transcritranslator.sdPlugin/ui/dictation.html)), tem efeito
-> visível e serve para reentrar no código sem risco.
+> Verificado com o painel renderizado fora do Stream Deck: campo vazio e chave malformada
+> mostram o erro sem fechar; chave válida mostra "guardando no cofre…", e a resposta de
+> sucesso fecha o modal, limpa o campo e some com o banner.
 
 ### 3.1 Revisão completa dos textos da interface
 
@@ -267,10 +292,20 @@ Reescrever pt e depois traduzir; não traduzir texto ruim.
 - [ ] **"Prompt" é jargão.** Aparece em *Presets e prompts*, *Ver o que será enviado*, *prompt
       de transcrição*. Quem nunca usou API não sabe o que é. Ver se dá para dizer "instruções"
       sem perder precisão — e onde a precisão importa, manter e explicar uma vez
+- [x] **Seletor de idioma do painel — feito (v1.1.0.1).** O topo agora traz `🌐 UI` ao lado do
+      seletor, e as quatro opções são invariáveis: `Default · Português · English · Español`.
+      O ponto é preciso: quem abriu o painel numa língua que não lê está justamente
+      procurando como trocar, e não pode depender de ler nada em volta para achar. Saiu o
+      *"Segue o Stream Deck"*, que era o único item traduzido da lista; o que ele explicava
+      passou para o fim do `langHint` ("Default significa acompanhar o idioma do app"). O
+      tooltip do seletor, que estava fixo em português no HTML, virou chave de i18n — o
+      `applyLang()` ganhou suporte a `data-i18n-title`
 - [ ] Inconsistências de forma: *"Limpar o ditado"* (verbo) e *"Limpeza de ditado"* (substantivo)
-      para a mesma coisa; *"Segue o Stream Deck"* e *"Segue o idioma falado da tecla"* no mesmo
-      seletor, com estruturas diferentes
-- [ ] `"pal."` abreviado na tecla de confirmação (ver 2.3) — decidir junto com a quebra de linha
+      para a mesma coisa. O seletor de *Presets e prompts* ainda diz *"Segue o idioma falado da
+      tecla"* — **não** é o mesmo caso do de cima: ali o automático tem um significado próprio
+      que "Default" sozinho não contaria, então resolver junto com o primeiro item desta seção
+- [x] `"pal."` abreviado na tecla de confirmação — resolvido junto com o 2.3: virou a palavra
+      inteira, em duas linhas, nos três idiomas (`key-text.ts`)
 - [ ] Termos inevitáveis (`ffmpeg`, `tokens`, `DPAPI`) precisam aparecer explicados **na primeira
       vez**, não em toda menção
 
@@ -287,10 +322,14 @@ Reescrever pt e depois traduzir; não traduzir texto ruim.
 
 O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
-- [ ] **Preview da tecla ao vivo dentro do painel.** É o item de maior retorno: hoje é preciso
-      olhar o Stream Deck físico para ver o efeito de cor, rótulo, fonte e ícone. O SVG já é
-      gerado no plugin — bastaria mandá-lo ao painel a cada mudança e desenhar num `<img>`.
-      Resolveria de vez o ciclo lento de ajustar aparência.
+- [x] **Preview da tecla ao vivo dentro do painel — feito (v1.1.0.0).** Fica em *Preset e
+      essencial*, logo abaixo do rótulo, e aparece também no modo simples. É a MESMA imagem que
+      vai para a tecla: `idleImage()` saiu de dentro do `render()` e é chamada pelos dois, para
+      que prévia e tecla física não tenham como divergir.
+      Duas decisões que valem registro: as configurações viajam **na mensagem** `keyPreview`, e
+      não são lidas de `getSettings()`, porque o painel grava com 150 ms de atraso — lendo do
+      Stream Deck a prévia mostraria sempre o penúltimo caractere digitado; e o pedido é
+      debounced em 120 ms, para digitar o rótulo não virar uma rajada de round-trips.
 - [ ] Tipografia e ritmo: escala de tamanhos coerente, respiro entre seções, alinhamento dos
       rótulos
 - [ ] Transições curtas ao abrir/fechar seções e ao trocar de modo de estilo
@@ -302,23 +341,26 @@ O painel funciona e é honesto, mas parece um formulário. Sem virar enfeite:
 
 ## 4. Tradução
 
-### 4.0 Ampliar os idiomas de destino
+### 4.0 Ampliar os idiomas de destino — ✅ feito (v1.1.0.0)
 
-Hoje são **12** destinos (`TARGET_CODES` em [languages.ts](../src/lib/languages.ts)) contra
-**30** idiomas falados (`SPOKEN_CODES`). A assimetria não tem razão de ser: quem fala 30 pode
-querer traduzir para mais que 12.
+Eram **12** destinos contra **30** idiomas falados. Agora são **28**
+(`TARGET_CODES` em [languages.ts](../src/lib/languages.ts)).
 
-- [ ] Ampliar `TARGET_CODES` — acrescentar código à lista **basta**, o nome vem traduzido do
-      `Intl.DisplayNames` e a ordenação alfabética se ajusta sozinha. Nada de tabela para manter
-- [ ] Cobrir pelo menos os europeus que faltam (polonês, tcheco, romeno, húngaro, grego, sueco,
-      norueguês, dinamarquês, finlandês, ucraniano, turco), hebraico, híndi, indonésio,
-      vietnamita, tailandês — os mesmos já aceitos como falados
-- [ ] Decidir onde parar: a OpenAI declara 98 idiomas treinados, mas com aviso de que fora da
-      lista principal a qualidade cai. Listar o que não funciona bem é pior que não listar
-- [ ] **Se a lista passar de ~30, o `<select>` simples fica ruim.** Avaliar campo com busca, ou
-      manter no topo os últimos usados
-- [ ] Conferir o badge de 2 letras da tecla: com muitos idiomas surgem siglas ambíguas para
-      quem lê (`ko`, `hu`, `he`). Talvez valha o nome curto em vez do código
+- [x] Acrescentados os 16 que faltavam: polonês, tcheco, romeno, húngaro, grego, sueco,
+      norueguês, dinamarquês, finlandês, ucraniano, turco, hebraico, híndi, indonésio,
+      vietnamita, tailandês
+- [x] Confirmado na prática: bastou o código. Nome e ordenação alfabética vieram do
+      `Intl.DisplayNames`, nos três idiomas do painel — há teste travando isso
+- [x] **Onde parou:** nos idiomas já aceitos como falados, menos catalão e galego. Ficaram de
+      fora porque a qualidade de tradução *para* eles é a mais duvidosa da lista, e oferecer um
+      destino que traduz mal é pior que não oferecer. Entram como fala, não como destino —
+      trocar isso é uma linha, se a experiência disser o contrário
+- [ ] Com 28 o `<select>` ainda passa; se um dia chegar a ~35, avaliar campo com busca ou os
+      últimos usados no topo
+- [ ] O badge de 2 letras continua sendo o código, e agora há siglas opacas de ler (`el` para
+      grego, `he` para hebraico, `cs` para tcheco). Mantido de propósito por ora: as descrições
+      dos presets dizem "a tecla mostra EN no canto", então mudar para nome curto é uma decisão
+      com efeitos em cadeia — decidir junto com o item 2.4
 
 ### 4.1 Tradução de seleção: fluxo mais direto
 
@@ -356,7 +398,10 @@ Já discutido e deliberadamente fora do escopo inicial:
 
 - [ ] [dictation.ts](../src/actions/dictation.ts) passou de 800 linhas e acumula máquina de
       estados + ponte com o painel. A ponte (`onSendToPlugin`) sairia limpa para um módulo
-      próprio
+      próprio — e cresceu de novo na v1.2.0.0, com o `keyPreview` servindo as duas grades
+- [ ] [icons.ts](../src/lib/icons.ts) dobrou de tamanho com os 18 ícones e as três direções.
+      A tabela `GLYPHS` é dado puro e sairia limpa para um arquivo só dela, deixando em
+      `icons.ts` só o motor (layout do texto, escala, composição da tecla)
 - [ ] `CHAR_RATIO = 0.56` em icons.ts é estimativa da largura média de caractere; erra para
       textos com muitas maiúsculas ou muitos "i". Se virar problema, medir por caractere
 - [ ] O painel não tem teste automatizado — só o render headless manual. Um smoke test que
