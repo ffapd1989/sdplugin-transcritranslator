@@ -2,6 +2,29 @@
   "snyk.advanced.autoSelectOrganization": true,
   "window.title": "🟦 TRANSCRITRANSLATOR  —  ${activeEditorShort}${separator}${rootName}${separator}${dirty}",
   "workbench.colorCustomizations": {
-    "activityBar.activeBorder": "#FFFFFF"
-  }
+    "titleBar.activeBackground": "#1F3557",
+    "titleBar.activeForeground": "#E6E6EA",
+    "titleBar.inactiveBackground": "#182944",
+    "titleBar.inactiveForeground": "#E6E6EA99",
+    "titleBar.border": "#182944",
+    "activityBar.background": "#1F3557",
+    "activityBar.foreground": "#E6E6EA",
+    "activityBar.inactiveForeground": "#E6E6EA99",
+    "activityBar.activeBorder": "#E6E6EA",
+    "activityBarBadge.background": "#E6E6EA",
+    "activityBarBadge.foreground": "#182944",
+    "statusBar.background": "#182944",
+    "statusBar.foreground": "#E6E6EA",
+    "statusBar.border": "#182944",
+    "statusBarItem.hoverBackground": "#1F3557",
+    "statusBarItem.remoteBackground": "#1F3557",
+    "statusBarItem.remoteForeground": "#E6E6EA",
+    "sash.hoverBorder": "#1F3557"
+  },
+  "peacock.color": "#1F3557",
+  "peacock.affectedElements": [
+    "titleBar",
+    "activityBar",
+    "statusBar"
+  ]
 }
