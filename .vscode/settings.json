@@ -1,3 +1,7 @@
 {
-    "snyk.advanced.autoSelectOrganization": true
+  "snyk.advanced.autoSelectOrganization": true,
+  "window.title": "🟦 TRANSCRITRANSLATOR  —  ${activeEditorShort}${separator}${rootName}${separator}${dirty}",
+  "workbench.colorCustomizations": {
+    "activityBar.activeBorder": "#FFFFFF"
+  }
 }
