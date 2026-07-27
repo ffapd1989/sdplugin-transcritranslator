@@ -504,6 +504,28 @@
       <label for="beep" data-i18n="beep">Bip ao iniciar e parar</label>
     </div>
     <div class="hint full" data-i18n="beepHint"></div>
+
+    <!-- ATALHO DE TECLADO.
+         O apelido é, ao mesmo tempo, o endereço da tecla e o interruptor da coisa:
+         tecla sem apelido não é alcançável de fora. Como qualquer programa da máquina
+         pode disparar um endereço streamdeck://, o campo vazio é a posição segura. -->
+    <div class="row">
+      <label data-i18n="shortcut">Atalho de teclado</label>
+      <div class="ctl">
+        <input type="text" id="shortcutAlias" data-setting="shortcutAlias" data-type="str"
+               data-i18n-ph="shortcutPh" autocomplete="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="hint" data-i18n="shortcutHint"></div>
+    <div class="row" id="shortcutUrlRow" style="display:none">
+      <label data-i18n="shortcutUrlLabel">Endereço</label>
+      <div class="ctl">
+        <input type="text" id="shortcutUrl" readonly spellcheck="false">
+        <button id="shortcutCopy" data-i18n="copy">Copiar</button>
+      </div>
+    </div>
+    <div class="status" id="shortcutStatus"></div>
+    <div class="hint full" id="shortcutHow" data-i18n="shortcutHow"></div>
   </div>
 </details>
 
@@ -809,6 +831,7 @@ function buildLangPickers(prefs) {
 const DEFAULTS = {
   label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 2.5,
   maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-4o-mini-transcribe",
+  shortcutAlias: "",
   language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
   textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
   autoPaste: true, history: true, historyDir: "", keepAudio: false,
@@ -960,6 +983,9 @@ function handlePlugin(p) {
       refreshKeyStatus();
       ready = true;
       applyToForm();
+      // Mostra o endereço já pronto quando a tecla tem apelido; de quebra, é o que
+      // acusa o apelido duplicado assim que o painel abre.
+      if (settings.shortcutAlias) toPlugin({ cmd: "shortcutCheck", alias: settings.shortcutAlias });
       break;
     }
     case "presets":
@@ -988,6 +1014,15 @@ function handlePlugin(p) {
       if (p.presets) renderPresets(p.presets);
       break;
     case "micResult": status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err"); break;
+    case "shortcutState": {
+      document.getElementById("shortcutUrl").value = p.url || "";
+      document.getElementById("shortcutUrlRow").style.display = p.url ? "" : "none";
+      const st = document.getElementById("shortcutStatus");
+      if (p.conflictWith) status(st, t("shortcutTaken").replace("{key}", p.conflictWith), "warn");
+      else if (p.alias) status(st, t("shortcutReady").replace("{alias}", p.alias), "ok");
+      else st.textContent = "";
+      break;
+    }
     case "budget": {
       const pct = Math.min(100, Math.round((p.used / p.limit) * 100));
       const meter = document.getElementById("budgetMeter");
@@ -1351,6 +1386,41 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGlobal();
   });
   document.getElementById("ffmpegPath").addEventListener("input", saveGlobal);
+
+  // --- atalho de teclado ---
+  //
+  // Quem aplaina o apelido é o PLUGIN, não este painel: se as duas pontas tivessem
+  // cada uma a sua regra de tirar acento, a que valeria na hora de acionar seria
+  // sempre a do plugin, e o endereço mostrado aqui poderia mentir.
+  const aliasInput = document.getElementById("shortcutAlias");
+  let aliasTimer;
+  const checkAlias = () => {
+    clearTimeout(aliasTimer);
+    aliasTimer = setTimeout(() => toPlugin({ cmd: "shortcutCheck", alias: aliasInput.value }), 250);
+  };
+  aliasInput.addEventListener("input", checkAlias);
+  // No blur o campo assume a forma normalizada: o que está gravado passa a ser
+  // exatamente o que o endereço usa.
+  aliasInput.addEventListener("blur", () => {
+    const url = document.getElementById("shortcutUrl").value;
+    const norm = url ? decodeURIComponent(url.split("key=")[1].split("&")[0]) : "";
+    if (norm !== aliasInput.value) {
+      aliasInput.value = norm;
+      settings.shortcutAlias = norm;
+      saveSettings();
+    }
+  });
+
+  document.getElementById("shortcutCopy").onclick = () => {
+    const el = document.getElementById("shortcutUrl");
+    el.select();
+    el.setSelectionRange(0, 999);
+    // execCommand em vez de navigator.clipboard: o Property Inspector é um webview
+    // sem permissão de clipboard garantida, e aqui há gesto do usuário de qualquer jeito.
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch { ok = false; }
+    status(document.getElementById("shortcutStatus"), t(ok ? "shortcutCopied" : "shortcutCopyFail"), ok ? "ok" : "err");
+  };
 });
 </script>
 </body>

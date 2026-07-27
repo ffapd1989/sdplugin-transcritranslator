@@ -3818,6 +3818,8 @@ var init_recorder = __esm({
       silenceSince;
       speechSince;
       maxTimer;
+      /** Um `q` só. O segundo chegaria num cano já fechado. */
+      stopped = false;
       /** Ficou true assim que houve fala sustentada. Base da blindagem anti-eco. */
       speechDetected = false;
       /** Maior nível visto, em dBFS. -Infinity se nunca chegou nada. */
@@ -3882,11 +3884,19 @@ var init_recorder = __esm({
       stop() {
         clearTimeout(this.maxTimer);
         const p = this.proc;
-        if (!p || p.exitCode !== null) return;
-        try {
-          p.stdin?.write("q");
-          p.stdin?.end();
-        } catch {
+        if (!p || p.exitCode !== null || this.stopped) return;
+        this.stopped = true;
+        const stdin = p.stdin;
+        if (stdin) {
+          stdin.on("error", () => {
+          });
+          try {
+            if (stdin.writable) {
+              stdin.write("q");
+              stdin.end();
+            }
+          } catch {
+          }
         }
         setTimeout(() => {
           if (this.proc && this.proc.exitCode === null) {
@@ -5212,9 +5222,9 @@ function assertNever(_x) {
 }
 function assert(_) {
 }
-function getEnumValues(entries) {
-  const numericValues = Object.values(entries).filter((v) => typeof v === "number");
-  const values = Object.entries(entries).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
+function getEnumValues(entries2) {
+  const numericValues = Object.values(entries2).filter((v) => typeof v === "number");
+  const values = Object.entries(entries2).filter(([k, _]) => numericValues.indexOf(+k) === -1).map(([_, v]) => v);
   return values;
 }
 function joinValues(array2, separator = "|") {
@@ -13663,17 +13673,17 @@ function _set(Class2, valueType, params) {
   });
 }
 function _enum(Class2, values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries2 = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
   return new Class2({
     type: "enum",
-    entries,
+    entries: entries2,
     ...normalizeParams(params)
   });
 }
-function _nativeEnum(Class2, entries, params) {
+function _nativeEnum(Class2, entries2, params) {
   return new Class2({
     type: "enum",
-    entries,
+    entries: entries2,
     ...normalizeParams(params)
   });
 }
@@ -15171,17 +15181,17 @@ var ZodMiniEnum = /* @__PURE__ */ $constructor("ZodMiniEnum", (inst, def) => {
   ZodMiniType.init(inst, def);
 });
 function _enum2(values, params) {
-  const entries = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
+  const entries2 = Array.isArray(values) ? Object.fromEntries(values.map((v) => [v, v])) : values;
   return new ZodMiniEnum({
     type: "enum",
-    entries,
+    entries: entries2,
     ...util_exports.normalizeParams(params)
   });
 }
-function nativeEnum(entries, params) {
+function nativeEnum(entries2, params) {
   return new ZodMiniEnum({
     type: "enum",
-    entries,
+    entries: entries2,
     ...util_exports.normalizeParams(params)
   });
 }
@@ -17759,6 +17769,7 @@ var DEFAULTS = {
   presetId: "clean",
   label: "",
   micDevice: "",
+  shortcutAlias: "",
   mode: "toggle",
   silenceStop: true,
   silenceSeconds: 2.5,
@@ -17797,7 +17808,7 @@ function withDefaults(s) {
     const v = s[k];
     if (v !== void 0 && v !== null && v !== "") out[k] = v;
   }
-  for (const k of ["label", "style", "transcribeContext", "historyDir", "language"]) {
+  for (const k of ["label", "style", "transcribeContext", "historyDir", "language", "shortcutAlias"]) {
     if (s[k] !== void 0) out[k] = s[k];
   }
   return out;
@@ -17829,6 +17840,7 @@ var AUDIO_DIR = join2(ROOT, "audio");
 var FAILED_DIR = join2(AUDIO_DIR, "falhou");
 var HISTORY_DIR = join2(ROOT, "historico");
 var PIDS_FILE = join2(ROOT, "ffmpeg-pids.json");
+var SHORTCUTS_FILE = join2(ROOT, "atalhos.json");
 async function ensureDirs() {
   for (const d of [ROOT, AUDIO_DIR, FAILED_DIR, HISTORY_DIR]) {
     await mkdir(d, { recursive: true });
@@ -18378,12 +18390,12 @@ import { tmpdir } from "node:os";
 function psQuote(s) {
   return `'${s.replace(/'/g, "''")}'`;
 }
-function powershell(script) {
+function powershell(script, timeout) {
   return new Promise((resolve, reject) => {
     execFile3(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script],
-      { windowsHide: true, maxBuffer: 1 << 20 },
+      { windowsHide: true, maxBuffer: 1 << 20, timeout },
       (err, stdout, stderr) => err ? reject(new Error(stderr || err.message)) : resolve(stdout.trim())
     );
   });
@@ -18400,6 +18412,17 @@ async function getFocusPid() {
     return Number.isFinite(pid) ? pid : 0;
   } catch {
     return 0;
+  }
+}
+async function isForegroundFullscreen() {
+  try {
+    const out = await powershell(
+      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms;$el = [System.Windows.Automation.AutomationElement]::FocusedElement;$root = [System.Windows.Automation.AutomationElement]::RootElement;$walk = [System.Windows.Automation.TreeWalker]::ControlViewWalker;while ($el -ne $null) { $p = $walk.GetParent($el);  if ($p -eq $null -or [System.Windows.Automation.Automation]::Compare($p, $root)) { break }  $el = $p }$r = $el.Current.BoundingRectangle;$full = $false;foreach ($s in [System.Windows.Forms.Screen]::AllScreens) { $b = $s.Bounds;  if ($r.Left -le ($b.Left + 2) -and $r.Top -le ($b.Top + 2) -and      $r.Right -ge ($b.Right - 2) -and $r.Bottom -ge ($b.Bottom - 2)) { $full = $true } }if ($full) { 'S' } else { 'N' }",
+      1800
+    );
+    return out.trim().endsWith("S");
+  } catch {
+    return false;
   }
 }
 async function deliver(text, opts) {
@@ -18457,6 +18480,65 @@ async function appendHistory(entry, dir) {
     parts.push(entry.final || entry.raw, "");
   }
   await appendFile(file2, parts.join("\n"), "utf8");
+}
+
+// src/lib/shortcuts.ts
+import { readFile as readFile4, writeFile as writeFile3 } from "node:fs/promises";
+var entries = /* @__PURE__ */ new Map();
+var loaded = false;
+var writeTimer;
+function normalizeAlias(raw) {
+  return (raw ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+}
+function shortcutUrl(alias, pluginUuid = "com.felipe.transcritranslator") {
+  return `streamdeck://plugins/message/${pluginUuid}/dictate?key=${encodeURIComponent(alias)}&streamdeck=hidden`;
+}
+async function loadShortcuts() {
+  if (loaded) return;
+  loaded = true;
+  try {
+    const data = JSON.parse(await readFile4(SHORTCUTS_FILE, "utf8"));
+    if (data && typeof data === "object") {
+      for (const [alias, entry] of Object.entries(data)) {
+        if (entry && typeof entry.actionId === "string") entries.set(alias, entry);
+      }
+    }
+  } catch {
+  }
+}
+function persist() {
+  clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => {
+    void writeFile3(SHORTCUTS_FILE, JSON.stringify(Object.fromEntries(entries), null, 2), "utf8").catch(
+      () => {
+      }
+    );
+  }, 400);
+}
+function rememberKey(actionId, settings2) {
+  const alias = normalizeAlias(settings2.shortcutAlias);
+  for (const [key, entry] of entries) {
+    if (entry.actionId === actionId && key !== alias) {
+      entries.delete(key);
+      persist();
+    }
+  }
+  if (!alias) return { status: "cleared" };
+  const existing = entries.get(alias);
+  if (existing && existing.actionId !== actionId) {
+    return { status: "taken", byLabel: existing.settings.label?.trim() || alias };
+  }
+  entries.set(alias, { actionId, settings: settings2, seenAt: Date.now() });
+  persist();
+  return { status: "ok" };
+}
+function lookup(alias) {
+  return entries.get(normalizeAlias(alias));
+}
+function ownerOf(alias) {
+  const entry = entries.get(normalizeAlias(alias));
+  if (!entry) return void 0;
+  return { actionId: entry.actionId, label: entry.settings.label?.trim() || normalizeAlias(alias) };
 }
 
 // src/lib/theme.ts
@@ -18947,7 +19029,7 @@ async function clearApiKey() {
 }
 
 // src/lib/presets.ts
-import { readFile as readFile4, writeFile as writeFile3, mkdir as mkdir3 } from "node:fs/promises";
+import { readFile as readFile5, writeFile as writeFile4, mkdir as mkdir3 } from "node:fs/promises";
 import { join as join6, dirname as dirname2 } from "node:path";
 
 // src/lib/preset-text.ts
@@ -19145,7 +19227,7 @@ function builtinPresets(locale) {
 }
 async function readUserPresets() {
   try {
-    const raw = await readFile4(PRESETS_FILE, "utf8");
+    const raw = await readFile5(PRESETS_FILE, "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -19171,13 +19253,13 @@ async function savePreset(name, settings2, locale) {
   if (idx >= 0) users[idx] = preset;
   else users.push(preset);
   await mkdir3(dirname2(PRESETS_FILE), { recursive: true });
-  await writeFile3(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
+  await writeFile4(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
   return preset;
 }
 async function deletePreset(id) {
   const users = (await readUserPresets()).filter((p) => p.id !== id);
   await mkdir3(dirname2(PRESETS_FILE), { recursive: true });
-  await writeFile3(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
+  await writeFile4(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
 }
 var PRESET_FIELDS = [
   "label",
@@ -19247,6 +19329,13 @@ function idleImage(s, locale) {
     badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : void 0
   });
 }
+var borrowed = null;
+var LINK_DEBOUNCE_MS = 600;
+var lastLink = /* @__PURE__ */ new Map();
+var linkRunning = false;
+function isAnimated(phase) {
+  return phase !== "idle" && phase !== "done" && phase !== "warn" && phase !== "error";
+}
 function textOptions(s, canonTerms, locale) {
   return {
     locale,
@@ -19261,10 +19350,15 @@ var _Dictation_decorators, _init, _a;
 _Dictation_decorators = [action({ UUID: "com.felipe.transcritranslator.dictate" })];
 var Dictation = class extends (_a = SingletonAction) {
   ticker;
+  constructor() {
+    super();
+    plugin_default.system.onDidReceiveDeepLink((ev) => void this.onDeepLink(ev));
+  }
   // ---------- ciclo de vida ----------
   async onWillAppear(ev) {
     if (!ev.action.isKey()) return;
     await refreshUiLocale();
+    rememberKey(ev.action.id, ev.payload.settings);
     await this.render(ev.action, ev.payload.settings);
     this.ensureTicker();
   }
@@ -19275,7 +19369,9 @@ var Dictation = class extends (_a = SingletonAction) {
     }
   }
   async onDidReceiveSettings(ev) {
-    if (ev.action.isKey()) await this.render(ev.action, ev.payload.settings);
+    if (!ev.action.isKey()) return;
+    rememberKey(ev.action.id, ev.payload.settings);
+    await this.render(ev.action, ev.payload.settings);
   }
   ensureTicker() {
     if (this.ticker) return;
@@ -19283,16 +19379,118 @@ var Dictation = class extends (_a = SingletonAction) {
   }
   /** Redesenha apenas as teclas cujo estado está animado. */
   async tick() {
+    if (borrowed && isAnimated(getState(borrowed.id).phase)) {
+      await this.render(borrowed, await borrowed.getSettings());
+    }
     for (const a of this.actions) {
       if (!a.isKey()) continue;
       const st = getState(a.id);
-      if (st.phase === "idle" || st.phase === "done" || st.phase === "error" || st.phase === "warn") continue;
+      if (!isAnimated(st.phase)) continue;
       const settings2 = await a.getSettings();
       await this.render(a, settings2);
     }
   }
+  // ---------- visor emprestado ----------
+  /**
+   * A tecla que está exibindo o ditado disparado pelo teclado.
+   *
+   * Preferência para a tecla DONA do ditado, se ela estiver visível — nesse caso o
+   * empréstimo é invisível, tudo aparece onde deveria. Se não estiver, serve qualquer
+   * tecla do plugin que esteja ociosa. Se não houver nenhuma, o ditado roda sem visor:
+   * os bipes continuam, e o texto chega do mesmo jeito.
+   */
+  lender() {
+    if (!borrowed) return void 0;
+    let fallback;
+    for (const a of this.actions) {
+      if (!a.isKey()) continue;
+      if (a.id === borrowed.preferId) return a;
+      if (!fallback && getState(a.id).phase === "idle") fallback = a;
+    }
+    return fallback;
+  }
+  /** Superfície de um ditado sem tecla própria na tela. */
+  borrowSurface(alias, settings2, preferId) {
+    const snapshot = { ...settings2, mode: "toggle" };
+    return {
+      id: `sc:${alias}`,
+      preferId,
+      getSettings: async () => snapshot,
+      setImage: async (image) => {
+        await this.lender()?.setImage(image);
+      },
+      onIdle: async () => {
+        const back = this.lender();
+        borrowed = null;
+        if (back) await this.render(back, await back.getSettings());
+      }
+    };
+  }
+  /** A superfície emprestada, quando é ESTA tecla que está exibindo o ditado. */
+  borrowedHere(actionId) {
+    if (!borrowed) return null;
+    return this.lender()?.id === actionId ? borrowed : null;
+  }
+  // ---------- atalho de teclado ----------
+  /**
+   * Recado de fora: `streamdeck://plugins/message/<uuid>/dictate?key=<apelido>`.
+   *
+   * Alterna sempre — o mesmo atalho começa e termina —, porque um endereço é um pulso
+   * e não existe "soltou a tecla" para o modo de segurar.
+   */
+  async onDeepLink(ev) {
+    if (linkRunning) return;
+    const path0 = ev.url.path.replace(/^\/+|\/+$/g, "");
+    const alias0 = normalizeAlias(ev.url.queryParameters.get("key") ?? path0.split("/")[1] ?? "");
+    const now = Date.now();
+    const prev = lastLink.get(alias0) ?? 0;
+    lastLink.set(alias0, now);
+    if (now - prev < LINK_DEBOUNCE_MS) return;
+    linkRunning = true;
+    try {
+      await this.runDeepLink(ev);
+    } finally {
+      linkRunning = false;
+    }
+  }
+  async runDeepLink(ev) {
+    const global = await plugin_default.settings.getGlobalSettings();
+    const ffmpeg = ffmpegOf(global);
+    const fail = (why) => {
+      plugin_default.logger.warn(`atalho: ${why}`);
+      beep(ffmpeg, "error");
+    };
+    const path5 = ev.url.path.replace(/^\/+|\/+$/g, "");
+    const [verb, tail] = path5.split("/");
+    if (verb && verb !== "dictate") return fail(`comando desconhecido "${verb}"`);
+    const alias = normalizeAlias(ev.url.queryParameters.get("key") ?? tail ?? "");
+    if (!alias) return fail("endere\xE7o sem apelido");
+    const entry = lookup(alias);
+    if (!entry) return fail(`apelido "${alias}" n\xE3o corresponde a nenhuma tecla conhecida`);
+    const surface = borrowed?.id === `sc:${alias}` ? borrowed : this.borrowSurface(alias, entry.settings, entry.actionId);
+    const st = getState(surface.id);
+    if (st.phase === "recording" || st.phase === "arming") {
+      await this.stopAndProcess(surface, await surface.getSettings());
+      return;
+    }
+    if (isAnimated(st.phase)) {
+      beep(ffmpeg, "cancel");
+      return;
+    }
+    if (await isForegroundFullscreen()) {
+      plugin_default.logger.info(`atalho "${alias}" ignorado: janela em tela cheia`);
+      return;
+    }
+    if (isBusyElsewhere(surface.id)) {
+      beep(ffmpeg, "cancel");
+      return;
+    }
+    borrowed = surface;
+    await this.startRecording(surface, await surface.getSettings());
+  }
   // ---------- desenho ----------
   async render(a, raw) {
+    if (borrowed && a.id !== borrowed.id && this.lender()?.id === a.id) return;
     const s = withDefaults(raw);
     const st = getState(a.id);
     const T = keyText(uiLocaleCache);
@@ -19355,6 +19553,10 @@ var Dictation = class extends (_a = SingletonAction) {
       cur.phase = "idle";
       cur.message = void 0;
       cur.levels = [];
+      if (a.onIdle) {
+        void a.onIdle();
+        return;
+      }
       void a.getSettings().then((s) => this.render(a, s));
     }, ms);
   }
@@ -19364,6 +19566,18 @@ var Dictation = class extends (_a = SingletonAction) {
     const st = getState(ev.action.id);
     st.downAt = Date.now();
     const s = withDefaults(ev.payload.settings);
+    const lent = this.borrowedHere(ev.action.id);
+    if (lent) {
+      const bst = getState(lent.id);
+      clearTimeout(st.holdTimer);
+      st.holdTimer = setTimeout(() => {
+        if (getState(ev.action.id).downAt) {
+          bst.message = [...keyText(uiLocaleCache).releaseCancel];
+          void lent.getSettings().then((x) => this.render(lent, x));
+        }
+      }, HOLD_MS);
+      return;
+    }
     if (s.mode === "ptt" && st.phase === "idle") {
       await this.startRecording(ev.action, ev.payload.settings);
       return;
@@ -19389,6 +19603,24 @@ var Dictation = class extends (_a = SingletonAction) {
     st.message = void 0;
     const s = withDefaults(ev.payload.settings);
     const T = keyText(uiLocaleCache);
+    const lent = this.borrowedHere(a.id);
+    if (lent) {
+      const bs = withDefaults(await lent.getSettings());
+      const bst = getState(lent.id);
+      bst.message = void 0;
+      if (bst.phase === "recording") {
+        if (held >= HOLD_MS) await this.abortRun(lent, bs, T.cancelled);
+        else await this.stopAndProcess(lent, await lent.getSettings());
+      } else if (bst.phase === "transcribing" || bst.phase === "texting") {
+        if (held >= HOLD_MS) {
+          bst.abort?.abort();
+          await this.abortRun(lent, bs, T.cancelled);
+        } else {
+          await this.flash(lent, "warn", [T.wait], 1200);
+        }
+      }
+      return;
+    }
     if (st.phase === "transcribing" || st.phase === "texting") {
       if (held >= HOLD_MS) {
         st.abort?.abort();
@@ -19676,8 +19908,8 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.2.0.0",
-            versionDate: "2026-07-26",
+            version: "1.3.0.1",
+            versionDate: "2026-07-27",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -19819,6 +20051,21 @@ var Dictation = class extends (_a = SingletonAction) {
             ...promptBudget(parseTerms(global.canonTerms), msg.context ?? "")
           });
           break;
+        // O painel manda o que foi digitado e recebe de volta a forma normalizada, o
+        // endereço pronto para copiar e o aviso de apelido já usado. A normalização
+        // vive no plugin, e não no painel, para não haver duas regras de aplainar
+        // acento — a que valeria é sempre a do plugin.
+        case "shortcutCheck": {
+          const alias = normalizeAlias(msg.alias);
+          const owner = alias ? ownerOf(alias) : void 0;
+          reply({
+            event: "shortcutState",
+            alias,
+            url: alias ? shortcutUrl(alias) : "",
+            conflictWith: owner && owner.actionId !== a.id ? owner.label : null
+          });
+          break;
+        }
       }
     } catch (err) {
       plugin_default.logger.error("painel: comando falhou", err);
@@ -19862,6 +20109,7 @@ plugin_default.logger.setLevel("info");
 try {
   await ensureDirs();
   await cleanupOrphans();
+  await loadShortcuts();
 } catch (err) {
   plugin_default.logger.warn("boot: preparo do ambiente falhou", err);
 }

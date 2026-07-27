@@ -14,6 +14,7 @@ import {
 import { keyText, wordCountLines } from "../src/lib/key-text.js";
 import { shade } from "../src/lib/theme.js";
 import { withDefaults, resolveContentLocale, resolveUiLocale } from "../src/lib/settings.js";
+import { normalizeAlias, shortcutUrl, rememberKey, lookup, ownerOf, resetShortcuts } from "../src/lib/shortcuts.js";
 
 let pass = 0, fail = 0;
 function ok(name: string, cond: boolean, extra = "") {
@@ -381,6 +382,41 @@ for (const loc of LOCALES) {
   const small = [...svg.matchAll(/font-size="([\d.]+)"/g)].map((m) => parseFloat(m[1]))[1];
   ok(`a palavra cabe sem encolher em ${loc}`, small === 10, `corpo=${small}`);
 }
+
+console.log("\n— apelido do atalho de teclado —");
+resetShortcuts();
+ok("acento sai do apelido", normalizeAlias("Inglês") === "ingles", normalizeAlias("Inglês"));
+ok("espaço vira hífen", normalizeAlias("Relato de atendimento") === "relato-de-atendimento");
+ok("cedilha e maiúscula somem", normalizeAlias("Correção Rápida") === "correcao-rapida", normalizeAlias("Correção Rápida"));
+ok("hífen sobrando é aparado", normalizeAlias("  --e-mail!!  ") === "e-mail", normalizeAlias("  --e-mail!!  "));
+ok("vazio continua vazio", normalizeAlias(undefined) === "" && normalizeAlias("!!!") === "");
+ok("apelido não passa de 40 caracteres", normalizeAlias("a".repeat(80)).length === 40);
+ok("endereço sai no formato do deep link",
+  shortcutUrl("ingles") ===
+    "streamdeck://plugins/message/com.felipe.transcritranslator/dictate?key=ingles&streamdeck=hidden",
+  shortcutUrl("ingles"));
+ok("endereço passivo (não traz o Stream Deck para a frente)", shortcutUrl("x").includes("streamdeck=hidden"));
+
+ok("tecla anotada é encontrada pelo apelido",
+  rememberKey("ctx-1", { shortcutAlias: "Inglês", label: "→ EN" }).status === "ok" &&
+    lookup("ingles")?.actionId === "ctx-1");
+ok("a cópia das configurações vai junto", lookup("ingles")?.settings.label === "→ EN");
+ok("apelido duplicado NÃO rouba a tecla original", (() => {
+  const r = rememberKey("ctx-2", { shortcutAlias: "ingles", label: "cópia" });
+  return r.status === "taken" && lookup("ingles")?.actionId === "ctx-1";
+})());
+ok("painel sabe de quem é o apelido tomado", ownerOf("ingles")?.label === "→ EN");
+ok("apagar o apelido tira a tecla do alcance externo", (() => {
+  rememberKey("ctx-1", { shortcutAlias: "", label: "→ EN" });
+  return lookup("ingles") === undefined;
+})());
+ok("trocar o apelido não deixa o antigo para trás", (() => {
+  rememberKey("ctx-3", { shortcutAlias: "email" });
+  rememberKey("ctx-3", { shortcutAlias: "e-mail-formal" });
+  return lookup("email") === undefined && lookup("e-mail-formal")?.actionId === "ctx-3";
+})());
+ok("apelido nasce vazio nos padrões", withDefaults(undefined).shortcutAlias === "");
+resetShortcuts();
 
 console.log(`\n${pass} ok, ${fail} falhas\n`);
 process.exit(fail ? 1 : 0);

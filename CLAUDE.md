@@ -15,7 +15,7 @@ Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [R
 
 ```powershell
 npm run check     # tipos (tsc --noEmit)
-npm run test      # 80 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
+npm run test      # 230 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
 npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # rebuild automático
@@ -86,6 +86,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: orçamento de 224 tokens + correção por regex |
 | [src/lib/deliver.ts](src/lib/deliver.ts) | Foco, clipboard, colagem, histórico |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | Estado global das teclas, trava de gravação única, PIDs órfãos |
+| [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Apelido → tecla, para o atalho de teclado alcançar tecla fora da tela |
 | [src/lib/icons.ts](src/lib/icons.ts) | A tecla desenhada em SVG (ícones, waveform, badges) |
 | [src/lib/settings.ts](src/lib/settings.ts) | Tipos, defaults e a cascata de resolução de idioma |
 | [src/lib/vault.ts](src/lib/vault.ts) | Cofre DPAPI da chave da OpenAI |
@@ -220,6 +221,27 @@ se mexer no layout da tecla, renderize e olhe — o teste garante a geometria, n
 
 ---
 
+**15. O ditado não precisa de tecla na tela — quem manda é a `Surface`.** O SDK só
+entrega as ações **visíveis** (`SingletonAction.actions` é literalmente *"the visible
+actions"*), e o atalho de teclado existe justamente para acionar a tecla da tela 5
+estando na tela 1. Por isso o pipeline recebe uma `Surface` (id, `getSettings`,
+`setImage`), que tanto uma `KeyAction` real quanto a superfície emprestada satisfazem.
+A emprestada lê de uma cópia guardada em `shortcuts.ts` e desenha em **qualquer** tecla
+do plugin que esteja à vista — preferindo a dona, se ela aparecer. Se não houver
+nenhuma, o ditado roda sem visor e os bipes fazem o serviço. **Não trocar por "buscar a
+tecla no SDK":** ela não está lá, e é essa a razão do caderninho existir.
+
+**16. O apelido do atalho é o interruptor da porta de fora.** Qualquer programa da
+máquina pode disparar um `streamdeck://`. Tecla sem apelido é inalcançável, e o campo
+nasce vazio — a exposição é sempre um ato consciente, uma tecla por vez. Não
+acrescentar um "permitir acionamento externo" separado: seriam dois interruptores para
+a mesma porta, e um deles ficaria mentindo.
+
+**17. Acionamento por teclado é sempre alternado.** O recado do Windows é um pulso; não
+existe "soltou o atalho". Tecla configurada como *segurar para falar* roda como
+alternada quando vem do teclado, em vez de recusar — recusar puniria a pessoa por uma
+limitação do transporte.
+
 ## Decisões de produto (definidas com o usuário)
 
 Não são acidentes de implementação — foram escolhidas explicitamente:
@@ -254,6 +276,12 @@ O histórico completo dessas decisões está no plano em
   de parâmetro. Sempre entre parênteses: `(Mix-Channel $r (-0.42))`.
 - **Acentuação completa em português** em comentários, prompts e interface. Os prompts vão para
   a API em português correto — não em ASCII.
+- **O atalho de teclado REPETE enquanto a tecla é segurada.** Medido: o PowerToys
+  dispara a ação a cada repetição automática do teclado, ~30 ms uma da outra — um toque
+  um pouco demorado virou 28 recados e oito gravações simultâneas do mesmo microfone.
+  Por isso `onDeepLink` tem duas travas **síncronas** (janela de 600 ms por apelido e
+  ferrolho de reentrância) antes de qualquer `await`. Não mover essas travas para
+  depois de um `await`: é exatamente na espera que a rajada entra.
 - **A tecla demora a refletir o novo build.** Depois de `streamdeck restart`, a imagem na tecla
   física pode continuar a antiga por alguns segundos. Já custou um diagnóstico errado: um
   rótulo cortado parecia bug de layout e era só o desenho velho ainda na tela. Antes de sair
@@ -306,6 +334,13 @@ no que informa, **três direções escolhíveis por tecla** (`neon`, `aurora`, `
 de ícones de 5 para 18. Oito propostas foram desenhadas e comparadas antes de escrever o código
 definitivo — as folhas ficaram em [docs/estilos/](docs/estilos/), e vale abrir antes de propor
 uma nona. Escolher ícone e estilo agora é uma grade de miniaturas, não um `<select>`.
+
+Na v1.3.0.0 (27/07/2026) entrou o **atalho de teclado**: um endereço
+`streamdeck://plugins/message/<uuid>/dictate?key=<apelido>&streamdeck=hidden` aciona a
+tecla mesmo que ela esteja em outra tela do deck. Medido nesta máquina: **434 ms** entre
+disparar o endereço e o plugin receber, e o modo passivo (`streamdeck=hidden`)
+**não rouba o foco** — verificado comparando a janela em foco antes e depois, o que é
+condição para o texto ser colado no lugar certo.
 
 **Nada disso foi visto na tecla física ainda** — só no render headless.
 

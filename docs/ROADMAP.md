@@ -27,6 +27,11 @@ situação que só aparece quando dá errado:
 - [ ] Dicionário: cadastrar sigla, ditar, conferir a grafia canônica
 - [ ] Comandos falados: "vírgula", "novo parágrafo"
 - [ ] Guardrail: ditar algo que a política recuse → deve colar o **texto cru**, não perder a fala
+- [x] Atalho de teclado: acionar e encerrar (validado com voz em 27/07/2026)
+- [ ] Atalho com a tecla em **outra página/perfil** → o visor emprestado assume, e tocar nele
+      encerra o ditado alheio
+- [ ] Atalho com **nenhuma** tecla do plugin à vista → roda no escuro, só com os bipes
+- [ ] Atalho com **jogo em tela cheia** → não grava, não bipa, não gasta nada
 
 > Os três em negrito são os que envolvem lógica que ninguém testou ainda e que falha em
 > silêncio — se o anti-eco não funcionar, um toque acidental cola a sua lista de siglas dentro
@@ -387,7 +392,9 @@ Já discutido e deliberadamente fora do escopo inicial:
 - [ ] Capturar **áudio do sistema** (loopback) para reuniões — exige VB-Cable ou WASAPI
 - [ ] **Streaming** da transcrição (os modelos GPT-4o suportam)
 - [ ] Fila de **reenvio** do áudio que falhou — hoje ele é preservado, mas o reenvio é manual
-- [ ] Atalho global de teclado, sem depender do Stream Deck
+- [x] Atalho global de teclado, sem depender de **apertar** o Stream Deck — feito na
+      v1.3.0.0, ver seção 7. Continua dependendo do **app** da Elgato rodando, porque é
+      nele que o plugin vive; o que deixou de ser necessário é a tecla estar à mão
 - [ ] Rastreamento de custo (foi decidido **não** fazer; revisitar só se houver demanda)
 - [ ] Publicar na loja da Elgato: `streamdeck validate`, `streamdeck pack`, ícones em todas as
       resoluções exigidas e revisão do texto do catálogo
@@ -396,9 +403,11 @@ Já discutido e deliberadamente fora do escopo inicial:
 
 ## 6. Dívidas técnicas conhecidas
 
-- [ ] [dictation.ts](../src/actions/dictation.ts) passou de 800 linhas e acumula máquina de
-      estados + ponte com o painel. A ponte (`onSendToPlugin`) sairia limpa para um módulo
-      próprio — e cresceu de novo na v1.2.0.0, com o `keyPreview` servindo as duas grades
+- [ ] [dictation.ts](../src/actions/dictation.ts) passou de **1160 linhas** e acumula máquina
+      de estados + ponte com o painel + tratador do atalho de teclado. A ponte
+      (`onSendToPlugin`) sairia limpa para um módulo próprio — cresceu na v1.2.0.0 com o
+      `keyPreview` servindo as duas grades, e de novo na v1.3.0.0 com o `Surface` e o visor
+      emprestado. É a dívida que mais cresce a cada rodada
 - [ ] [icons.ts](../src/lib/icons.ts) dobrou de tamanho com os 18 ícones e as três direções.
       A tabela `GLYPHS` é dado puro e sairia limpa para um arquivo só dela, deixando em
       `icons.ts` só o motor (layout do texto, escala, composição da tecla)
@@ -408,3 +417,43 @@ Já discutido e deliberadamente fora do escopo inicial:
       carrega o HTML e confere que `handlePlugin({event:"init"})` popula tudo evitaria
       regressões silenciosas (foi assim que se descobriu o painel morrendo sem o i18n.js)
 - [ ] `npm run mic` grava do microfone e não roda em CI; manter como teste local mesmo
+
+---
+
+## 7. Atalho de teclado — ✅ feito (v1.3.0.1)
+
+Uma tecla do teclado aciona o ditado sem tocar no Stream Deck, **inclusive quando a tecla do
+deck está em outra página ou outro perfil**. Desenhado em grelha com o usuário em 27/07/2026;
+as decisões estão em [CLAUDE.md](../CLAUDE.md), itens 15 a 17 de *Decisões que não devem ser
+revertidas*.
+
+Como funciona: um endereço `streamdeck://plugins/message/<uuid>/dictate?key=<apelido>` chega ao
+plugin, que acha a tecla pelo apelido em [shortcuts.ts](../src/lib/shortcuts.ts) e roda o ditado
+a partir de uma cópia das configurações — o SDK só entrega as ações **visíveis**, então sem esse
+caderninho a tecla da tela 5 não existiria.
+
+**Medido nesta máquina:** 434 ms entre disparar o endereço e o plugin receber; o modo passivo
+(`streamdeck=hidden`) **não rouba o foco**, que é a condição para o texto ser colado no lugar
+certo.
+
+O que ficou de fora, e por quê:
+
+- **Segurar para falar pelo atalho.** O recado é um pulso, não existe "soltou". Descobriu-se
+  depois que daria para inferir pelo repique da tecla — e a conclusão foi **não fazer**:
+  depende da configuração de repetição do Windows e de comportamento não documentado do
+  PowerToys.
+- **Acionar botão de outro plugin ou ação de fábrica.** Impossível: o deep link é entregue ao
+  plugin dono do UUID. Só o Bitfocus Companion resolveria, substituindo o software da Elgato.
+- **Lista de programas onde o atalho vale.** Chegou a existir e foi removida a pedido: falhar
+  em silêncio num programa fora da lista é pior que o incômodo em jogo. Restou a trava de tela
+  cheia do plugin.
+
+### Armadilha do PowerToys (custou uma hora)
+
+O remapeamento é escrito à mão em `%LOCALAPPDATA%\Microsoft\PowerToys\Keyboard Manager\default.json`,
+em `remapShortcuts.global` com `operationType: 2` e `openUri` — a seção `remapShortcutsToRunProgram`
+existe nas constantes do PowerToys mas **não é lida**. A engine não observa o arquivo: precisa do
+evento `PowerToys_KeyboardManager_Event_Settings`.
+
+**Abrir o editor do Keyboard Manager apaga o remapeamento e mata o gancho de teclado.** Religar
+só reiniciando o PowerToys elevado ou alternando o módulo pela interface.

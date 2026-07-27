@@ -91,6 +91,14 @@ export type ActionSettings = {
   label?: string;
   /** Nome DirectShow do microfone. Vazio = primeiro dispositivo encontrado. */
   micDevice?: string;
+  /**
+   * Apelido que endereça esta tecla num atalho de teclado (ver shortcuts.ts).
+   *
+   * Vazio = a tecla NÃO é alcançável de fora. Isso é de propósito: qualquer programa
+   * da máquina pode disparar um endereço `streamdeck://`, e uma tecla sem apelido é
+   * uma tecla que ninguém abre pelas costas. O campo é o próprio interruptor.
+   */
+  shortcutAlias?: string;
 
   // --- captura ---
   mode?: CaptureMode;
@@ -154,6 +162,7 @@ export const DEFAULTS: Required<ActionSettings> = {
   presetId: "clean",
   label: "",
   micDevice: "",
+  shortcutAlias: "",
 
   mode: "toggle",
   silenceStop: true,
@@ -199,7 +208,7 @@ export function withDefaults(s: ActionSettings | undefined): Required<ActionSett
     if (v !== undefined && v !== null && v !== "") (out as any)[k] = v;
   }
   // Campos onde string vazia é um valor legitimo (não deve cair no default).
-  for (const k of ["label", "style", "transcribeContext", "historyDir", "language"] as const) {
+  for (const k of ["label", "style", "transcribeContext", "historyDir", "language", "shortcutAlias"] as const) {
     if (s[k] !== undefined) (out as any)[k] = s[k];
   }
   return out;

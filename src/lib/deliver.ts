@@ -19,12 +19,12 @@ function psQuote(s: string): string {
   return `'${s.replace(/'/g, "''")}'`;
 }
 
-function powershell(script: string): Promise<string> {
+function powershell(script: string, timeout?: number): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script],
-      { windowsHide: true, maxBuffer: 1 << 20 },
+      { windowsHide: true, maxBuffer: 1 << 20, timeout },
       (err, stdout, stderr) => (err ? reject(new Error(stderr || err.message)) : resolve(stdout.trim())),
     );
   });
@@ -50,6 +50,44 @@ export async function getFocusPid(): Promise<number> {
     return Number.isFinite(pid) ? pid : 0;
   } catch {
     return 0;
+  }
+}
+
+/**
+ * A janela em foco ocupa a tela inteira?
+ *
+ * Serve a um caso só: o atalho de TECLADO não deve acionar ditado enquanto há jogo em
+ * tela cheia. A comparação é com `Bounds` da tela, não com `WorkingArea`, e é isso que
+ * separa "tela cheia" de "maximizada" — a janela maximizada para na barra de tarefas,
+ * a de tela cheia não.
+ *
+ * FALHA PARA O LADO PERMISSIVO de propósito: se a leitura demorar, der erro, ou o jogo
+ * não conversar com UIAutomation, a resposta é `false` e o ditado acontece. Perder um
+ * ditado por um falso positivo seria pior que o incômodo que isto evita — e a defesa
+ * de verdade é o atalho nem existir dentro do jogo (lista de programas no PowerToys).
+ */
+export async function isForegroundFullscreen(): Promise<boolean> {
+  try {
+    const out = await powershell(
+      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms;" +
+        "$el = [System.Windows.Automation.AutomationElement]::FocusedElement;" +
+        "$root = [System.Windows.Automation.AutomationElement]::RootElement;" +
+        "$walk = [System.Windows.Automation.TreeWalker]::ControlViewWalker;" +
+        // Sobe até a janela de topo: o elemento focado costuma ser um controle lá dentro.
+        "while ($el -ne $null) { $p = $walk.GetParent($el);" +
+        "  if ($p -eq $null -or [System.Windows.Automation.Automation]::Compare($p, $root)) { break }" +
+        "  $el = $p }" +
+        "$r = $el.Current.BoundingRectangle;" +
+        "$full = $false;" +
+        "foreach ($s in [System.Windows.Forms.Screen]::AllScreens) { $b = $s.Bounds;" +
+        "  if ($r.Left -le ($b.Left + 2) -and $r.Top -le ($b.Top + 2) -and" +
+        "      $r.Right -ge ($b.Right - 2) -and $r.Bottom -ge ($b.Bottom - 2)) { $full = $true } }" +
+        "if ($full) { 'S' } else { 'N' }",
+      1800,
+    );
+    return out.trim().endsWith("S");
+  } catch {
+    return false;
   }
 }
 

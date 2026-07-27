@@ -12,6 +12,7 @@ import streamDeck, {
   type WillAppearEvent,
   type WillDisappearEvent,
   type DidReceiveSettingsEvent,
+  type DidReceiveDeepLinkEvent,
   type SendToPluginEvent,
   type KeyAction,
 } from "@elgato/streamdeck";
@@ -29,7 +30,15 @@ import {
   type LangPref,
 } from "../lib/settings.js";
 import { Recorder } from "../lib/recorder.js";
-import { getState, acquireLock, releaseLock, isBusyElsewhere, trackPid, untrackPid } from "../lib/sessions.js";
+import {
+  getState,
+  acquireLock,
+  releaseLock,
+  isBusyElsewhere,
+  trackPid,
+  untrackPid,
+  type Phase,
+} from "../lib/sessions.js";
 import { AUDIO_DIR, FAILED_DIR, stamp } from "../lib/paths.js";
 import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget } from "../lib/canon.js";
 import {
@@ -39,7 +48,14 @@ import {
   type TextPromptOptions,
 } from "../lib/prompts.js";
 import { transcribe, runText, ApiError, shortError } from "../lib/openai.js";
-import { deliver, readSelectionOrClipboard, appendHistory, getFocusPid } from "../lib/deliver.js";
+import {
+  deliver,
+  readSelectionOrClipboard,
+  appendHistory,
+  getFocusPid,
+  isForegroundFullscreen,
+} from "../lib/deliver.js";
+import { lookup, normalizeAlias, ownerOf, rememberKey, shortcutUrl } from "../lib/shortcuts.js";
 import { keyImage, clock, wordCount, wrapLabel, iconThumb, ICON_NAMES, KEY_STYLES } from "../lib/icons.js";
 import { keyText, wordCountLines } from "../lib/key-text.js";
 import { SWATCHES } from "../lib/theme.js";
@@ -137,6 +153,58 @@ function idleImage(s: Required<ActionSettings>, locale: Locale): string {
   });
 }
 
+/**
+ * Onde um ditado se desenha e de onde ele lê as configurações.
+ *
+ * Existe porque o ditado disparado por ATALHO DE TECLADO pode não ter tecla nenhuma na
+ * tela: `SingletonAction.actions` só entrega as ações VISÍVEIS, e o ponto do atalho é
+ * justamente acionar a tecla da tela 5 estando na tela 1. Uma `KeyAction` de verdade
+ * satisfaz este tipo; a superfície emprestada (abaixo) também, lendo de uma cópia das
+ * configurações e desenhando em qualquer tecla do plugin que esteja à vista.
+ */
+type Surface = {
+  readonly id: string;
+  getSettings(): Promise<ActionSettings>;
+  setImage(image: string): Promise<void>;
+  /** Tecla preferida para o desenho, quando ela estiver visível. */
+  readonly preferId?: string;
+  /** Chamado quando o ditado volta ao ocioso — devolve a tecla emprestada. */
+  onIdle?(): Promise<void>;
+};
+
+/**
+ * Ditado em curso que não tem tecla própria na tela, e por isso pega emprestada a de
+ * outra. Só pode haver um: a trava global do `sessions.ts` já garante uma gravação por
+ * vez na máquina, então nunca há duas coisas disputando o visor.
+ */
+let borrowed: Surface | null = null;
+
+/**
+ * Repique do atalho de teclado.
+ *
+ * MEDIDO: uma única tecla SEGURADA entrega ao plugin uma rajada de recados — o
+ * PowerToys dispara a ação a cada repetição automática do teclado, ~30 ms uma da
+ * outra. Sem isto, segurar Alt+L por meio segundo abria oito gravações do mesmo
+ * microfone, e sete ficavam órfãs. A janela é atualizada a cada recado, então segurar
+ * a tecla continua valendo por UMA ação, não importa quanto tempo você segure.
+ */
+const LINK_DEBOUNCE_MS = 600;
+const lastLink = new Map<string, number>();
+
+/**
+ * Trava de reentrância do atalho.
+ *
+ * O debounce sozinho não bastaria: o corpo do tratador tem `await` antes de a fase
+ * virar "arming" (cofre, settings, tela cheia), e nesse intervalo um segundo recado
+ * ainda encontraria a tecla "ociosa" e começaria outra gravação.
+ */
+let linkRunning = false;
+
+/** Fases que mudam de quadro a quadro e por isso precisam do ticker. */
+function isAnimated(phase: Phase): boolean {
+  return phase !== "idle" && phase !== "done" && phase !== "warn" && phase !== "error";
+}
+
 /** Traduz as settings da tecla para o formato que a montagem de prompt espera. */
 function textOptions(
   s: Required<ActionSettings>,
@@ -157,11 +225,19 @@ function textOptions(
 export class Dictation extends SingletonAction<ActionSettings> {
   private ticker: NodeJS.Timeout | undefined;
 
+  constructor() {
+    super();
+    // O recado do atalho de teclado chega por aqui. Registrado no construtor porque a
+    // instância é única e nasce no boot, antes de `connect()`.
+    streamDeck.system.onDidReceiveDeepLink((ev) => void this.onDeepLink(ev));
+  }
+
   // ---------- ciclo de vida ----------
 
   override async onWillAppear(ev: WillAppearEvent<ActionSettings>): Promise<void> {
     if (!ev.action.isKey()) return;
     await refreshUiLocale();
+    rememberKey(ev.action.id, ev.payload.settings);
     await this.render(ev.action, ev.payload.settings);
     this.ensureTicker();
   }
@@ -176,7 +252,11 @@ export class Dictation extends SingletonAction<ActionSettings> {
   }
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ActionSettings>): Promise<void> {
-    if (ev.action.isKey()) await this.render(ev.action, ev.payload.settings);
+    if (!ev.action.isKey()) return;
+    // É aqui que a cópia guardada no caderninho fica fresca: toda gravação do painel
+    // passa por este evento.
+    rememberKey(ev.action.id, ev.payload.settings);
+    await this.render(ev.action, ev.payload.settings);
   }
 
   private ensureTicker(): void {
@@ -186,18 +266,153 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   /** Redesenha apenas as teclas cujo estado está animado. */
   private async tick(): Promise<void> {
+    // O ditado emprestado não está em `this.actions` — sem isto, a waveform dele
+    // ficaria parada no primeiro quadro.
+    if (borrowed && isAnimated(getState(borrowed.id).phase)) {
+      await this.render(borrowed, await borrowed.getSettings());
+    }
     for (const a of this.actions) {
       if (!a.isKey()) continue;
       const st = getState(a.id);
-      if (st.phase === "idle" || st.phase === "done" || st.phase === "error" || st.phase === "warn") continue;
+      if (!isAnimated(st.phase)) continue;
       const settings = await a.getSettings();
       await this.render(a, settings);
     }
   }
 
+  // ---------- visor emprestado ----------
+
+  /**
+   * A tecla que está exibindo o ditado disparado pelo teclado.
+   *
+   * Preferência para a tecla DONA do ditado, se ela estiver visível — nesse caso o
+   * empréstimo é invisível, tudo aparece onde deveria. Se não estiver, serve qualquer
+   * tecla do plugin que esteja ociosa. Se não houver nenhuma, o ditado roda sem visor:
+   * os bipes continuam, e o texto chega do mesmo jeito.
+   */
+  private lender(): KeyAction<ActionSettings> | undefined {
+    if (!borrowed) return undefined;
+    let fallback: KeyAction<ActionSettings> | undefined;
+    for (const a of this.actions) {
+      if (!a.isKey()) continue;
+      if (a.id === borrowed.preferId) return a;
+      if (!fallback && getState(a.id).phase === "idle") fallback = a;
+    }
+    return fallback;
+  }
+
+  /** Superfície de um ditado sem tecla própria na tela. */
+  private borrowSurface(alias: string, settings: ActionSettings, preferId: string): Surface {
+    // O modo "segurar para falar" não existe no teclado: o recado do Windows é um
+    // pulso, não há "soltou". Decisão de produto: converte para alternado em vez de
+    // recusar o ditado.
+    const snapshot: ActionSettings = { ...settings, mode: "toggle" };
+    return {
+      id: `sc:${alias}`,
+      preferId,
+      getSettings: async () => snapshot,
+      setImage: async (image) => {
+        await this.lender()?.setImage(image);
+      },
+      onIdle: async () => {
+        const back = this.lender();
+        borrowed = null;
+        if (back) await this.render(back, await back.getSettings());
+      },
+    };
+  }
+
+  /** A superfície emprestada, quando é ESTA tecla que está exibindo o ditado. */
+  private borrowedHere(actionId: string): Surface | null {
+    if (!borrowed) return null;
+    return this.lender()?.id === actionId ? borrowed : null;
+  }
+
+  // ---------- atalho de teclado ----------
+
+  /**
+   * Recado de fora: `streamdeck://plugins/message/<uuid>/dictate?key=<apelido>`.
+   *
+   * Alterna sempre — o mesmo atalho começa e termina —, porque um endereço é um pulso
+   * e não existe "soltou a tecla" para o modo de segurar.
+   */
+  private async onDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
+    // As duas travas são SÍNCRONAS de propósito: qualquer `await` antes delas abriria
+    // a janela em que a rajada de repetição do teclado se transforma em N gravações.
+    if (linkRunning) return;
+    const path0 = ev.url.path.replace(/^\/+|\/+$/g, "");
+    const alias0 = normalizeAlias(ev.url.queryParameters.get("key") ?? path0.split("/")[1] ?? "");
+    const now = Date.now();
+    const prev = lastLink.get(alias0) ?? 0;
+    lastLink.set(alias0, now);
+    if (now - prev < LINK_DEBOUNCE_MS) return;
+
+    linkRunning = true;
+    try {
+      await this.runDeepLink(ev);
+    } finally {
+      linkRunning = false;
+    }
+  }
+
+  private async runDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
+    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const ffmpeg = ffmpegOf(global);
+    const fail = (why: string): void => {
+      streamDeck.logger.warn(`atalho: ${why}`);
+      beep(ffmpeg, "error");
+    };
+
+    const path = ev.url.path.replace(/^\/+|\/+$/g, "");
+    const [verb, tail] = path.split("/");
+    if (verb && verb !== "dictate") return fail(`comando desconhecido "${verb}"`);
+
+    const alias = normalizeAlias(ev.url.queryParameters.get("key") ?? tail ?? "");
+    if (!alias) return fail("endereço sem apelido");
+
+    const entry = lookup(alias);
+    if (!entry) return fail(`apelido "${alias}" não corresponde a nenhuma tecla conhecida`);
+
+    const surface =
+      borrowed?.id === `sc:${alias}`
+        ? borrowed
+        : this.borrowSurface(alias, entry.settings, entry.actionId);
+    const st = getState(surface.id);
+
+    if (st.phase === "recording" || st.phase === "arming") {
+      await this.stopAndProcess(surface, await surface.getSettings());
+      return;
+    }
+    // Já está transcrevendo ou escrevendo: o atalho não cancela (cancelar é segurar
+    // uma tecla, gesto que o teclado não tem). Só avisa que chegou tarde.
+    if (isAnimated(st.phase)) {
+      beep(ffmpeg, "cancel");
+      return;
+    }
+
+    // Jogo em tela cheia: não grava. Calado de propósito — um bipe por cima do jogo
+    // seria exatamente o incômodo que esta trava existe para evitar.
+    if (await isForegroundFullscreen()) {
+      streamDeck.logger.info(`atalho "${alias}" ignorado: janela em tela cheia`);
+      return;
+    }
+
+    if (isBusyElsewhere(surface.id)) {
+      beep(ffmpeg, "cancel");
+      return;
+    }
+
+    borrowed = surface;
+    await this.startRecording(surface, await surface.getSettings());
+  }
+
   // ---------- desenho ----------
 
-  private async render(a: KeyAction<ActionSettings>, raw: ActionSettings): Promise<void> {
+  private async render(a: Surface, raw: ActionSettings): Promise<void> {
+    // Tecla emprestando a tela não pode redesenhar o próprio estado por cima do
+    // ditado alheio que está exibindo.
+    if (borrowed && a.id !== borrowed.id && this.lender()?.id === a.id) return;
+
     const s = withDefaults(raw);
     const st = getState(a.id);
     const T = keyText(uiLocaleCache);
@@ -264,7 +479,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
   }
 
   private async flash(
-    a: KeyAction<ActionSettings>,
+    a: Surface,
     phase: "done" | "warn" | "error",
     lines: string[],
     ms: number,
@@ -279,6 +494,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
       cur.phase = "idle";
       cur.message = undefined;
       cur.levels = [];
+      // Todo desfecho passa por aqui — é o ponto em que a tecla emprestada volta a
+      // ser ela mesma, em vez de desenhar o ocioso de um ditado que não é dela.
+      if (a.onIdle) {
+        void a.onIdle();
+        return;
+      }
       void a.getSettings().then((s) => this.render(a, s));
     }, ms);
   }
@@ -291,6 +512,22 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.downAt = Date.now();
 
     const s = withDefaults(ev.payload.settings);
+
+    // Emprestando a tela: esta tecla é o botão de parada do ditado que ela exibe, e
+    // não a tecla dela mesma. Vem ANTES do ptt, senão o keyDown iniciaria uma segunda
+    // gravação que a trava global só recusaria depois.
+    const lent = this.borrowedHere(ev.action.id);
+    if (lent) {
+      const bst = getState(lent.id);
+      clearTimeout(st.holdTimer);
+      st.holdTimer = setTimeout(() => {
+        if (getState(ev.action.id).downAt) {
+          bst.message = [...keyText(uiLocaleCache).releaseCancel];
+          void lent.getSettings().then((x) => this.render(lent, x));
+        }
+      }, HOLD_MS);
+      return;
+    }
 
     if (s.mode === "ptt" && st.phase === "idle") {
       await this.startRecording(ev.action, ev.payload.settings);
@@ -321,6 +558,27 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     const s = withDefaults(ev.payload.settings);
     const T = keyText(uiLocaleCache);
+
+    // Emprestando a tela: age sobre o ditado exibido, com a mesma gramática de sempre
+    // — toque para e entrega, segurar cancela.
+    const lent = this.borrowedHere(a.id);
+    if (lent) {
+      const bs = withDefaults(await lent.getSettings());
+      const bst = getState(lent.id);
+      bst.message = undefined;
+      if (bst.phase === "recording") {
+        if (held >= HOLD_MS) await this.abortRun(lent, bs, T.cancelled);
+        else await this.stopAndProcess(lent, await lent.getSettings());
+      } else if (bst.phase === "transcribing" || bst.phase === "texting") {
+        if (held >= HOLD_MS) {
+          bst.abort?.abort();
+          await this.abortRun(lent, bs, T.cancelled);
+        } else {
+          await this.flash(lent, "warn", [T.wait], 1200);
+        }
+      }
+      return;
+    }
 
     // Processando: toque avisa, segurar aborta.
     if (st.phase === "transcribing" || st.phase === "texting") {
@@ -353,7 +611,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   // ---------- pipeline ----------
 
-  private async startRecording(a: KeyAction<ActionSettings>, raw: ActionSettings): Promise<void> {
+  private async startRecording(a: Surface, raw: ActionSettings): Promise<void> {
     const s = withDefaults(raw);
     const st = getState(a.id);
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
@@ -436,7 +694,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     return list[0]?.name ?? "";
   }
 
-  private async abortRun(a: KeyAction<ActionSettings>, s: Required<ActionSettings>, why: string): Promise<void> {
+  private async abortRun(a: Surface, s: Required<ActionSettings>, why: string): Promise<void> {
     const st = getState(a.id);
     const pid = st.recorder?.pid;
     st.recorder?.cancel();
@@ -453,7 +711,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.flash(a, "warn", [why], 1600);
   }
 
-  private async stopAndProcess(a: KeyAction<ActionSettings>, raw: ActionSettings): Promise<void> {
+  private async stopAndProcess(a: Surface, raw: ActionSettings): Promise<void> {
     const st = getState(a.id);
     if (st.phase !== "recording" && st.phase !== "arming") return;
 
@@ -498,7 +756,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   /** Tecla sem etapa de áudio: pega a seleção (Ctrl+C) e reescreve. */
   private async runTextOnly(
-    a: KeyAction<ActionSettings>,
+    a: Surface,
     s: Required<ActionSettings>,
     global: GlobalSettings | undefined,
   ): Promise<void> {
@@ -527,7 +785,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
   }
 
   private async runPipeline(
-    a: KeyAction<ActionSettings>,
+    a: Surface,
     s: Required<ActionSettings>,
     global: GlobalSettings | undefined,
     src: { audioPath?: string; durationMs?: number; input?: string },
@@ -835,6 +1093,22 @@ export class Dictation extends SingletonAction<ActionSettings> {
             ...promptBudget(parseTerms(global.canonTerms), msg.context ?? ""),
           });
           break;
+
+        // O painel manda o que foi digitado e recebe de volta a forma normalizada, o
+        // endereço pronto para copiar e o aviso de apelido já usado. A normalização
+        // vive no plugin, e não no painel, para não haver duas regras de aplainar
+        // acento — a que valeria é sempre a do plugin.
+        case "shortcutCheck": {
+          const alias = normalizeAlias(msg.alias);
+          const owner = alias ? ownerOf(alias) : undefined;
+          reply({
+            event: "shortcutState",
+            alias,
+            url: alias ? shortcutUrl(alias) : "",
+            conflictWith: owner && owner.actionId !== a.id ? owner.label : null,
+          });
+          break;
+        }
       }
     } catch (err) {
       streamDeck.logger.error("painel: comando falhou", err);
@@ -854,7 +1128,8 @@ type PiMessage =
   | { cmd: "savePreset"; name: string }
   | { cmd: "deletePreset"; id: string }
   | { cmd: "testMic"; device: string }
-  | { cmd: "budget"; context: string };
+  | { cmd: "budget"; context: string }
+  | { cmd: "shortcutCheck"; alias?: string };
 
 /** Usado pelo Property Inspector para o botão "Testar" do microfone. */
 export async function probeMic(ffmpeg: string, device: string, seconds: number): Promise<{ peakDb: number; ok: boolean }> {

@@ -64,6 +64,8 @@ export class Recorder extends EventEmitter {
   private silenceSince: number | undefined;
   private speechSince: number | undefined;
   private maxTimer: NodeJS.Timeout | undefined;
+  /** Um `q` só. O segundo chegaria num cano já fechado. */
+  private stopped = false;
 
   /** Ficou true assim que houve fala sustentada. Base da blindagem anti-eco. */
   speechDetected = false;
@@ -136,12 +138,26 @@ export class Recorder extends EventEmitter {
   stop(): void {
     clearTimeout(this.maxTimer);
     const p = this.proc;
-    if (!p || p.exitCode !== null) return;
-    try {
-      p.stdin?.write("q");
-      p.stdin?.end();
-    } catch {
-      /* já morreu */
+    if (!p || p.exitCode !== null || this.stopped) return;
+    this.stopped = true;
+
+    const stdin = p.stdin;
+    if (stdin) {
+      // O erro de "write after end" NÃO é lançado aqui: ele chega assíncrono, como
+      // evento `error` do stream. Sem este listener ele vira exceção não tratada e
+      // derruba o processo do plugin — foi o que aconteceu quando dois pedidos de
+      // parada chegaram juntos pelo atalho de teclado.
+      stdin.on("error", () => {
+        /* o ffmpeg já fechou o cano; o `q` não tinha mais para onde ir */
+      });
+      try {
+        if (stdin.writable) {
+          stdin.write("q");
+          stdin.end();
+        }
+      } catch {
+        /* já morreu */
+      }
     }
     // Rede de segurança: se não encerrar sozinho, mata.
     setTimeout(() => {
