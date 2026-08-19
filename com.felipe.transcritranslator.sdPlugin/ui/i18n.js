@@ -91,7 +91,7 @@ window.TT_I18N = {
     silenceSecs: "Silêncio (s)",
     silenceHint:
       "Só arma depois que você começa a falar — a pausa inicial não encerra nada. " +
-      "Ignorado no modo Segurar.",
+      "Padrão 10 s; de 2,5 a 30 s. Ignorado no modo Segurar.",
     maxMin: "Limite (min)",
     maxHint: "Corte automático. 0 desliga. O teto da API são 25 MB, cerca de 70 minutos.",
     beep: "Bip ao iniciar e parar",
@@ -360,7 +360,9 @@ window.TT_I18N = {
     captureHint: "In toggle mode, holding the key while recording cancels without spending API.",
     silenceStop: "Stop by itself after silence",
     silenceSecs: "Silence (s)",
-    silenceHint: "Only arms after you start speaking — the initial pause ends nothing. Ignored in Hold mode.",
+    silenceHint:
+      "Only arms after you start speaking — the initial pause ends nothing. " +
+      "Default 10 s; from 2.5 to 30 s. Ignored in Hold mode.",
     maxMin: "Limit (min)",
     maxHint: "Automatic cutoff. 0 disables it. The API ceiling is 25 MB, about 70 minutes.",
     beep: "Beep on start and stop",
@@ -622,7 +624,9 @@ window.TT_I18N = {
     captureHint: "En modo toggle, mantener la tecla durante la grabación cancela sin gastar API.",
     silenceStop: "Parar solo tras el silencio",
     silenceSecs: "Silencio (s)",
-    silenceHint: "Solo se arma después de que empieces a hablar. Ignorado en modo Mantener.",
+    silenceHint:
+      "Solo se arma después de que empieces a hablar. " +
+      "Predeterminado 10 s; de 2,5 a 30 s. Ignorado en modo Mantener.",
     maxMin: "Límite (min)",
     maxHint: "Corte automático. 0 lo desactiva. El techo de la API son 25 MB, unos 70 minutos.",
     beep: "Bip al iniciar y parar",

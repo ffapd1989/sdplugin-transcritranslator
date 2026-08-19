@@ -17772,7 +17772,7 @@ var DEFAULTS = {
   shortcutAlias: "",
   mode: "toggle",
   silenceStop: true,
-  silenceSeconds: 2.5,
+  silenceSeconds: 10,
   maxMinutes: 10,
   beep: true,
   transcribeOn: true,
@@ -17801,9 +17801,11 @@ var DEFAULTS = {
   labelSize: 14,
   labelGap: 1
 };
+var SILENCE_MIN = 2.5;
+var SILENCE_MAX = 30;
 function withDefaults(s) {
   const out = { ...DEFAULTS };
-  if (!s) return out;
+  if (!s) return clampSilence(out);
   for (const k of Object.keys(DEFAULTS)) {
     const v = s[k];
     if (v !== void 0 && v !== null && v !== "") out[k] = v;
@@ -17811,6 +17813,12 @@ function withDefaults(s) {
   for (const k of ["label", "style", "transcribeContext", "historyDir", "language", "shortcutAlias"]) {
     if (s[k] !== void 0) out[k] = s[k];
   }
+  return clampSilence(out);
+}
+function clampSilence(out) {
+  const v = out.silenceSeconds;
+  if (!Number.isFinite(v)) out.silenceSeconds = DEFAULTS.silenceSeconds;
+  else out.silenceSeconds = Math.min(SILENCE_MAX, Math.max(SILENCE_MIN, v));
   return out;
 }
 var TRANSCRIBE_MODELS = [
@@ -19908,8 +19916,8 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.3.0.1",
-            versionDate: "2026-07-27",
+            version: "1.3.1.0",
+            versionDate: "2026-08-19",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,

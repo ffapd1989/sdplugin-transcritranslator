@@ -13,7 +13,7 @@ import {
 } from "../src/lib/languages.js";
 import { keyText, wordCountLines } from "../src/lib/key-text.js";
 import { shade } from "../src/lib/theme.js";
-import { withDefaults, resolveContentLocale, resolveUiLocale } from "../src/lib/settings.js";
+import { withDefaults, resolveContentLocale, resolveUiLocale, DEFAULTS, SILENCE_MIN, SILENCE_MAX } from "../src/lib/settings.js";
 import { normalizeAlias, shortcutUrl, rememberKey, lookup, ownerOf, resetShortcuts } from "../src/lib/shortcuts.js";
 
 let pass = 0, fail = 0;
@@ -417,6 +417,21 @@ ok("trocar o apelido não deixa o antigo para trás", (() => {
 })());
 ok("apelido nasce vazio nos padrões", withDefaults(undefined).shortcutAlias === "");
 resetShortcuts();
+
+// --- pausa que encerra a gravação ---
+// A faixa é imposta no withDefaults porque settings antigas aceitavam 0,5 s e o
+// <input type="number"> do painel não barra valor digitado a mão.
+ok("padrão da pausa é 10 s", withDefaults(undefined).silenceSeconds === 10, DEFAULTS.silenceSeconds);
+ok("valor gravado abaixo do mínimo sobe para 2,5 s",
+  withDefaults({ silenceSeconds: 0.5 }).silenceSeconds === SILENCE_MIN,
+  withDefaults({ silenceSeconds: 0.5 }).silenceSeconds);
+ok("valor gravado acima do máximo cai para 30 s",
+  withDefaults({ silenceSeconds: 120 }).silenceSeconds === SILENCE_MAX);
+ok("valor dentro da faixa é respeitado", withDefaults({ silenceSeconds: 7 }).silenceSeconds === 7);
+ok("valor inválido cai no padrão, não em NaN",
+  withDefaults({ silenceSeconds: NaN }).silenceSeconds === DEFAULTS.silenceSeconds);
+ok("o padrão está dentro da própria faixa",
+  DEFAULTS.silenceSeconds >= SILENCE_MIN && DEFAULTS.silenceSeconds <= SILENCE_MAX);
 
 console.log(`\n${pass} ok, ${fail} falhas\n`);
 process.exit(fail ? 1 : 0);

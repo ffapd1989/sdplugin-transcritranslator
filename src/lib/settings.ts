@@ -102,7 +102,10 @@ export type ActionSettings = {
 
   // --- captura ---
   mode?: CaptureMode;
-  /** Encerrar sozinho após N segundos de silêncio. Ignorado no modo ptt. */
+  /**
+   * Encerrar sozinho após N segundos de silêncio. Ignorado no modo ptt.
+   * Limitado a [SILENCE_MIN, SILENCE_MAX] em `withDefaults` — ver a nota lá.
+   */
   silenceStop?: boolean;
   silenceSeconds?: number;
   /** Corte automático, para nunca estourar os 25 MB nem gravar por engano. */
@@ -166,7 +169,7 @@ export const DEFAULTS: Required<ActionSettings> = {
 
   mode: "toggle",
   silenceStop: true,
-  silenceSeconds: 2.5,
+  silenceSeconds: 10,
   maxMinutes: 10,
   beep: true,
 
@@ -200,9 +203,24 @@ export const DEFAULTS: Required<ActionSettings> = {
   labelGap: 1,
 };
 
+/**
+ * Faixa aceita para a pausa que encerra a gravação.
+ *
+ * O piso de 2,5 s é o tempo em que uma pausa ainda e' claramente fim de fala; abaixo
+ * disso a gravação corta no meio de quem pensa antes de continuar. O teto de 30 s
+ * existe para o limite de minutos continuar sendo a trava real do tamanho do áudio.
+ *
+ * Os mesmos dois números estão no `min`/`max` do campo em `ui/dictation.html` — mas
+ * um `<input type="number">` NÃO impede valor fora da faixa digitado a mão, e settings
+ * gravadas por uma versão anterior aceitavam de 0,5 s. Por isso a faixa é imposta aqui,
+ * no caminho por onde TODA leitura de settings passa, e não só no painel.
+ */
+export const SILENCE_MIN = 2.5;
+export const SILENCE_MAX = 30;
+
 export function withDefaults(s: ActionSettings | undefined): Required<ActionSettings> {
   const out = { ...DEFAULTS } as Required<ActionSettings>;
-  if (!s) return out;
+  if (!s) return clampSilence(out);
   for (const k of Object.keys(DEFAULTS) as Array<keyof ActionSettings>) {
     const v = s[k];
     if (v !== undefined && v !== null && v !== "") (out as any)[k] = v;
@@ -211,6 +229,13 @@ export function withDefaults(s: ActionSettings | undefined): Required<ActionSett
   for (const k of ["label", "style", "transcribeContext", "historyDir", "language", "shortcutAlias"] as const) {
     if (s[k] !== undefined) (out as any)[k] = s[k];
   }
+  return clampSilence(out);
+}
+
+function clampSilence(out: Required<ActionSettings>): Required<ActionSettings> {
+  const v = out.silenceSeconds;
+  if (!Number.isFinite(v)) out.silenceSeconds = DEFAULTS.silenceSeconds;
+  else out.silenceSeconds = Math.min(SILENCE_MAX, Math.max(SILENCE_MIN, v));
   return out;
 }
 

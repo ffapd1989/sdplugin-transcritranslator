@@ -489,7 +489,7 @@
     </div>
     <div class="row">
       <label data-i18n="silenceSecs">Silêncio (s)</label>
-      <div class="ctl"><input type="number" data-setting="silenceSeconds" data-type="num" min="0.5" max="10" step="0.5"></div>
+      <div class="ctl"><input type="number" data-setting="silenceSeconds" data-type="num" min="2.5" max="30" step="0.5"></div>
     </div>
     <div class="hint" data-i18n="silenceHint"></div>
 
@@ -829,7 +829,7 @@ function buildLangPickers(prefs) {
 // Binding dos campos
 // ---------------------------------------------------------------------------
 const DEFAULTS = {
-  label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 2.5,
+  label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 10,
   maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-4o-mini-transcribe",
   shortcutAlias: "",
   language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
@@ -908,6 +908,22 @@ function bind() {
       // As miniaturas são desenhadas na cor e no estilo da tecla: mexeu num dos
       // dois, as duas grades precisam ser redesenhadas junto.
       refreshKeyPreview(key === "colorIdle" || key === "keyStyle" || key === "icon");
+    });
+  }
+
+  // A pausa que encerra tem faixa fixa (ver SILENCE_MIN/MAX em settings.ts). O clamp
+  // roda no `change` — ao sair do campo ou dar Enter —, nunca no `input`: corrigir
+  // durante a digitação faria "3" virar 3 antes de a pessoa terminar de escrever "30".
+  const silenceEl = document.querySelector('[data-setting="silenceSeconds"]');
+  if (silenceEl) {
+    silenceEl.addEventListener("change", () => {
+      const v = parseFloat(silenceEl.value);
+      const fixed = !isFinite(v) ? DEFAULTS.silenceSeconds : Math.min(30, Math.max(2.5, v));
+      if (fixed !== v) {
+        silenceEl.value = String(fixed);
+        settings.silenceSeconds = fixed;
+        saveSettings();
+      }
     });
   }
 

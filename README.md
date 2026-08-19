@@ -45,7 +45,7 @@ vez** e vale para todas as teclas.
 | **Segurar ~1 s gravando** | **Cancela** e descarta, sem gastar API |
 | Segurar durante o envio | Aborta a chamada em andamento |
 
-Ficar ~2,5 s em silêncio também encerra sozinho (configurável). No modo **Segurar**, a tecla
+Ficar ~10 s em silêncio também encerra sozinho (configurável de 2,5 a 30 s). No modo **Segurar**, a tecla
 grava enquanto você mantém o dedo e para ao soltar.
 
 ## Presets
