@@ -3811,18 +3811,18 @@ var init_recorder = __esm({
         this.opts = opts;
       }
       proc;
-      /** Sobra de linha incompleta entre chunks do stderr. */
+      /** Leftover incomplete line between stderr chunks. */
       logBuf = "";
-      /** Log do ffmpeg sem as amostras, para diagnóstico de falha. */
+      /** ffmpeg's log without the samples, for diagnosing failures. */
       stderrBuf = "";
       silenceSince;
       speechSince;
       maxTimer;
-      /** Um `q` só. O segundo chegaria num cano já fechado. */
+      /** A single `q`. The second would arrive at an already-closed pipe. */
       stopped = false;
-      /** Ficou true assim que houve fala sustentada. Base da blindagem anti-eco. */
+      /** Turns true as soon as there has been sustained speech. Basis of the anti-echo shield. */
       speechDetected = false;
-      /** Maior nível visto, em dBFS. -Infinity se nunca chegou nada. */
+      /** Highest level seen, in dBFS. -Infinity if nothing ever arrived. */
       peakDb = -Infinity;
       startedAt = 0;
       get pid() {
@@ -3835,17 +3835,17 @@ var init_recorder = __esm({
         const a = this.opts;
         const args = [
           "-hide_banner",
-          // `info` é o que faz o ametadata chegar ao vivo (ver nota no topo).
+          // `info` is what makes ametadata arrive live (see the note at the top).
           "-loglevel",
           "info",
           "-f",
           "dshow",
-          // Buffer curto: menos latência entre falar e a barrinha mexer.
+          // Short buffer: less latency between speaking and the bar moving.
           "-audio_buffer_size",
           "50",
           "-i",
           `audio=${a.device}`,
-          // Saída 1 — o arquivo que será' enviado.
+          // Output 1 — the file that will be uploaded.
           "-map",
           "0:a",
           "-ac",
@@ -3858,7 +3858,7 @@ var init_recorder = __esm({
           "48k",
           "-y",
           a.outFile,
-          // Saída 2 — medidor de nível, descartado. Sem `file=`: vai para o log.
+          // Output 2 — level meter, discarded. With no `file=`: it goes to the log.
           "-map",
           "0:a",
           "-af",
@@ -3880,7 +3880,7 @@ var init_recorder = __esm({
           this.maxTimer = setTimeout(() => this.emit("maxReached"), a.maxMinutes * 6e4);
         }
       }
-      /** Encerra limpo: `q` no stdin finaliza o MP3 corretamente. */
+      /** Clean shutdown: `q` on stdin finalises the MP3 properly. */
       stop() {
         clearTimeout(this.maxTimer);
         const p = this.proc;
@@ -3907,7 +3907,7 @@ var init_recorder = __esm({
           }
         }, 3e3);
       }
-      /** Descarta: não há arquivo a preservar, entao pode matar direto. */
+      /** Discards: there is no file to preserve, so it can be killed outright. */
       cancel() {
         clearTimeout(this.maxTimer);
         try {
@@ -3916,9 +3916,9 @@ var init_recorder = __esm({
         }
       }
       /**
-       * O stderr traz duas coisas misturadas: as amostras do medidor e o log normal do
-       * ffmpeg. As amostras viram nível; o resto é guardado (limitado) para diagnóstico
-       * quando algo dá errado.
+       * stderr carries two things mixed together: the meter's samples and ffmpeg's normal
+       * log. The samples become levels; the rest is kept (capped) for diagnostics when
+       * something goes wrong.
        */
       onMeter(chunk) {
         this.logBuf += chunk;
@@ -3947,12 +3947,12 @@ var init_recorder = __esm({
       }
       samples = 0;
       floorDb = Infinity;
-      /** Piso efetivo, com teto para não subir demais em ambiente barulhento. */
+      /** Effective floor, capped so it does not climb too high in a noisy room. */
       get floor() {
         if (!isFinite(this.floorDb)) return -60;
         return Math.min(this.floorDb, MAX_FLOOR_DB);
       }
-      /** dBFS -> 0..1, ancorado no piso: a barra mexe com qualquer ganho de microfone. */
+      /** dBFS -> 0..1, anchored on the floor: the bar moves with any microphone gain. */
       normalize(db) {
         if (!isFinite(db)) return 0;
         if (this.samples < WARMUP_SAMPLES) return Math.max(0, Math.min(1, (db + 55) / 49));
@@ -17822,13 +17822,13 @@ function clampSilence(out) {
   return out;
 }
 var TRANSCRIBE_MODELS = [
-  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (padr\xE3o)" },
-  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (melhor)" },
-  { id: "whisper-1", label: "Whisper-1 (legado)" }
+  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (default)" },
+  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (better)" },
+  { id: "whisper-1", label: "Whisper-1 (legacy)" }
 ];
 var TEXT_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (padr\xE3o)" },
-  { id: "gpt-4.1-nano", label: "GPT-4.1 nano (mais barato)" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (default)" },
+  { id: "gpt-4.1-nano", label: "GPT-4.1 nano (cheapest)" },
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" }
 ];
@@ -18347,8 +18347,8 @@ async function runText(opts) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${opts.apiKey}`
       },
-      // max_completion_tokens (não max_tokens) e sem temperature: compatível com
-      // toda a familia GPT-4x/5x.
+      // max_completion_tokens (not max_tokens) and no temperature: compatible with the
+      // whole GPT-4x/5x family.
       body: JSON.stringify({
         model: opts.model,
         messages: [
@@ -18362,13 +18362,13 @@ async function runText(opts) {
     if (!res.ok) throw await parseError(res);
     const data = await res.json();
     if (data?.choices?.[0]?.finish_reason === "content_filter") {
-      throw new ApiError("conteudo bloqueado pelas pol\xEDticas do modelo", "filter", 200);
+      throw new ApiError("content blocked by the model's policies", "filter", 200);
     }
     const out = String(data?.choices?.[0]?.message?.content ?? "").trim();
     if (isRefusalText(out)) {
-      throw new ApiError("o modelo recusou processar este conteudo", "filter", 200);
+      throw new ApiError("the model refused to process this content", "filter", 200);
     }
-    if (!out) throw new ApiError("resposta vazia do modelo", "fatal", 200);
+    if (!out) throw new ApiError("empty response from the model", "fatal", 200);
     return out;
   });
 }
@@ -18474,7 +18474,7 @@ async function appendHistory(entry, dir) {
   const file2 = join3(target, `${now.getFullYear()}-${p(now.getMonth() + 1)}.md`);
   const secs = Math.round(entry.durationMs / 1e3);
   const dur = `${Math.floor(secs / 60)}:${p(secs % 60)}`;
-  const head = `## ${p(now.getHours())}:${p(now.getMinutes())} \xB7 ${entry.label || "Ditado"} \xB7 ${dur}`;
+  const head = `## ${p(now.getHours())}:${p(now.getMinutes())} \xB7 ${entry.label || "Dictation"} \xB7 ${dur}`;
   const parts = [
     "",
     head,
@@ -18483,7 +18483,7 @@ async function appendHistory(entry, dir) {
     ""
   ];
   if (entry.raw && entry.final && entry.raw !== entry.final) {
-    parts.push("**Transcrito**", "", entry.raw, "", "**Final**", "", entry.final, "");
+    parts.push("**Transcribed**", "", entry.raw, "", "**Final**", "", entry.final, "");
   } else {
     parts.push(entry.final || entry.raw, "");
   }
@@ -18574,14 +18574,14 @@ function shade(hex) {
   return { lite: mix(hex, 0.22), base: hex || FALLBACK, border: mix(hex, -0.42) };
 }
 var SWATCHES = [
-  { hex: "#404650", name: "Grafite" },
-  { hex: "#3B6FD4", name: "Azul" },
-  { hex: "#2E8C3C", name: "Verde" },
+  { hex: "#404650", name: "Graphite" },
+  { hex: "#3B6FD4", name: "Blue" },
+  { hex: "#2E8C3C", name: "Green" },
   { hex: "#2E7D74", name: "Teal" },
-  { hex: "#B8791F", name: "Ambar" },
-  { hex: "#C44040", name: "Vermelho" },
-  { hex: "#5A4FCF", name: "Roxo" },
-  { hex: "#7A4FA8", name: "Violeta" }
+  { hex: "#B8791F", name: "Amber" },
+  { hex: "#C44040", name: "Red" },
+  { hex: "#5A4FCF", name: "Purple" },
+  { hex: "#7A4FA8", name: "Violet" }
 ];
 
 // src/lib/icons.ts
@@ -18675,7 +18675,7 @@ var GLYPHS = {
     cut("ellipse", [36, 28, 6.4, 15]),
     cut("line", [21.5, 28, 50.5, 28])
   ],
-  // Duas setas opostas dizem "troca de idioma" sem depender de fonte com CJK.
+  // Two opposing arrows say "language swap" without depending on a CJK-capable font.
   translate: [
     ink("path", void 0, "M 22 22 H 47", 1.15),
     ink("path", void 0, "M 41 16.5 L 47 22 L 41 27.5", 1.15),
@@ -18868,7 +18868,7 @@ function shapesFor(spec) {
     case "dots":
     case "wave":
       return null;
-    // têm desenho próprio
+    // these have a drawing of their own
     default: {
       const icon = spec.icon ?? "mic";
       return icon === "none" ? [] : GLYPHS[icon] ?? GLYPHS.mic;
@@ -19021,7 +19021,7 @@ async function getApiKey() {
 }
 async function setApiKey(key) {
   const trimmed = key.trim();
-  if (!trimmed) throw new Error("chave vazia");
+  if (!trimmed) throw new Error("empty key");
   await powershell2(
     `$k = [Console]::In.ReadToEnd().Trim();$d = ${psQuote2(DIR)};if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null };ConvertTo-SecureString -String $k -AsPlainText -Force | Export-Clixml -Path ${psQuote2(KEY_FILE)}`,
     trimmed
@@ -19205,8 +19205,8 @@ var BUILTINS = [
     settings: {
       transcribeOn: false,
       textOn: true,
-      // Texto já escrito não passa pela limpeza de DITADO: não há hesitação nem
-      // comando de pontuação falado para tratar.
+      // Already-written text does not go through DICTATION clean-up: there is no
+      // hesitation and no spoken punctuation command to handle.
       cleanup: false,
       styleMode: "custom",
       icon: "pen",
@@ -19250,9 +19250,9 @@ async function getPreset(id, locale) {
 }
 async function savePreset(name, settings2, locale) {
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("nome vazio");
+  if (!trimmed) throw new Error("empty name");
   if (builtinPresets(locale).some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
-    throw new Error("esse nome \xE9 de um preset de f\xE1brica");
+    throw new Error("that name belongs to a built-in preset");
   }
   const users = await readUserPresets();
   const id = `user-${trimmed.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -19328,12 +19328,12 @@ function idleImage(s, locale) {
     color: s.colorIdle,
     style: s.keyStyle,
     icon: s.icon,
-    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
-    // quebra sozinho por palavra em vez de espremer tudo numa linha.
+    // The label may carry breaks the person typed; if it has none and does not fit, it
+    // breaks by word on its own instead of squeezing everything onto one line.
     lines: s.showLabel ? wrapLabel(s.label || keyText(locale).defaultLabel, s.labelSize) : [],
     fontSize: s.labelSize,
     lineGap: s.labelGap,
-    // A tecla que traduz diz para onde, sem precisar abrir o painel.
+    // A translating key says where to, without anyone having to open the panel.
     badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : void 0
   });
 }
@@ -19362,7 +19362,7 @@ var Dictation = class extends (_a = SingletonAction) {
     super();
     plugin_default.system.onDidReceiveDeepLink((ev) => void this.onDeepLink(ev));
   }
-  // ---------- ciclo de vida ----------
+  // ---------- lifecycle ----------
   async onWillAppear(ev) {
     if (!ev.action.isKey()) return;
     await refreshUiLocale();
@@ -19385,7 +19385,7 @@ var Dictation = class extends (_a = SingletonAction) {
     if (this.ticker) return;
     this.ticker = setInterval(() => void this.tick(), TICK_MS);
   }
-  /** Redesenha apenas as teclas cujo estado está animado. */
+  /** Redraws only the keys whose state is animated. */
   async tick() {
     if (borrowed && isAnimated(getState(borrowed.id).phase)) {
       await this.render(borrowed, await borrowed.getSettings());
@@ -19398,14 +19398,14 @@ var Dictation = class extends (_a = SingletonAction) {
       await this.render(a, settings2);
     }
   }
-  // ---------- visor emprestado ----------
+  // ---------- borrowed display ----------
   /**
-   * A tecla que está exibindo o ditado disparado pelo teclado.
+   * The key currently displaying the dictation fired from the keyboard.
    *
-   * Preferência para a tecla DONA do ditado, se ela estiver visível — nesse caso o
-   * empréstimo é invisível, tudo aparece onde deveria. Se não estiver, serve qualquer
-   * tecla do plugin que esteja ociosa. Se não houver nenhuma, o ditado roda sem visor:
-   * os bipes continuam, e o texto chega do mesmo jeito.
+   * Preference goes to the dictation's OWN key, if it is visible — in that case the
+   * borrowing is invisible and everything appears where it should. If it is not, any idle
+   * key of the plugin will do. If there is none, the dictation runs with no display: the
+   * beeps carry on, and the text arrives just the same.
    */
   lender() {
     if (!borrowed) return void 0;
@@ -19417,7 +19417,7 @@ var Dictation = class extends (_a = SingletonAction) {
     }
     return fallback;
   }
-  /** Superfície de um ditado sem tecla própria na tela. */
+  /** Surface for a dictation with no key of its own on screen. */
   borrowSurface(alias, settings2, preferId) {
     const snapshot = { ...settings2, mode: "toggle" };
     return {
@@ -19434,17 +19434,17 @@ var Dictation = class extends (_a = SingletonAction) {
       }
     };
   }
-  /** A superfície emprestada, quando é ESTA tecla que está exibindo o ditado. */
+  /** The borrowed surface, when THIS key is the one displaying the dictation. */
   borrowedHere(actionId) {
     if (!borrowed) return null;
     return this.lender()?.id === actionId ? borrowed : null;
   }
-  // ---------- atalho de teclado ----------
+  // ---------- keyboard shortcut ----------
   /**
-   * Recado de fora: `streamdeck://plugins/message/<uuid>/dictate?key=<apelido>`.
+   * A message from outside: `streamdeck://plugins/message/<uuid>/dictate?key=<nickname>`.
    *
-   * Alterna sempre — o mesmo atalho começa e termina —, porque um endereço é um pulso
-   * e não existe "soltou a tecla" para o modo de segurar.
+   * Always a toggle — the same shortcut starts and ends it — because an address is a
+   * pulse and there is no "key released" for hold mode.
    */
   async onDeepLink(ev) {
     if (linkRunning) return;
@@ -19465,16 +19465,16 @@ var Dictation = class extends (_a = SingletonAction) {
     const global = await plugin_default.settings.getGlobalSettings();
     const ffmpeg = ffmpegOf(global);
     const fail = (why) => {
-      plugin_default.logger.warn(`atalho: ${why}`);
+      plugin_default.logger.warn(`shortcut: ${why}`);
       beep(ffmpeg, "error");
     };
     const path5 = ev.url.path.replace(/^\/+|\/+$/g, "");
     const [verb, tail] = path5.split("/");
-    if (verb && verb !== "dictate") return fail(`comando desconhecido "${verb}"`);
+    if (verb && verb !== "dictate") return fail(`unknown command "${verb}"`);
     const alias = normalizeAlias(ev.url.queryParameters.get("key") ?? tail ?? "");
-    if (!alias) return fail("endere\xE7o sem apelido");
+    if (!alias) return fail("address with no nickname");
     const entry = lookup(alias);
-    if (!entry) return fail(`apelido "${alias}" n\xE3o corresponde a nenhuma tecla conhecida`);
+    if (!entry) return fail(`nickname "${alias}" matches no known key`);
     const surface = borrowed?.id === `sc:${alias}` ? borrowed : this.borrowSurface(alias, entry.settings, entry.actionId);
     const st = getState(surface.id);
     if (st.phase === "recording" || st.phase === "arming") {
@@ -19486,7 +19486,7 @@ var Dictation = class extends (_a = SingletonAction) {
       return;
     }
     if (await isForegroundFullscreen()) {
-      plugin_default.logger.info(`atalho "${alias}" ignorado: janela em tela cheia`);
+      plugin_default.logger.info(`shortcut "${alias}" ignored: full-screen window`);
       return;
     }
     if (isBusyElsewhere(surface.id)) {
@@ -19496,7 +19496,7 @@ var Dictation = class extends (_a = SingletonAction) {
     borrowed = surface;
     await this.startRecording(surface, await surface.getSettings());
   }
-  // ---------- desenho ----------
+  // ---------- drawing ----------
   async render(a, raw) {
     if (borrowed && a.id !== borrowed.id && this.lender()?.id === a.id) return;
     const s = withDefaults(raw);
@@ -19568,7 +19568,7 @@ var Dictation = class extends (_a = SingletonAction) {
       void a.getSettings().then((s) => this.render(a, s));
     }, ms);
   }
-  // ---------- teclas ----------
+  // ---------- key presses ----------
   async onKeyDown(ev) {
     if (!ev.action.isKey()) return;
     const st = getState(ev.action.id);
@@ -19712,7 +19712,7 @@ var Dictation = class extends (_a = SingletonAction) {
       void this.stopAndProcess(a, raw);
     });
     rec.on("error", (err) => {
-      plugin_default.logger.error("ffmpeg falhou", err);
+      plugin_default.logger.error("ffmpeg failed", err);
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = void 0;
@@ -19774,7 +19774,7 @@ var Dictation = class extends (_a = SingletonAction) {
     }
     await this.runPipeline(a, s, global, { audioPath, durationMs });
   }
-  /** Tecla sem etapa de áudio: pega a seleção (Ctrl+C) e reescreve. */
+  /** A key with no audio step: grabs the selection (Ctrl+C) and rewrites it. */
   async runTextOnly(a, s, global) {
     const T = keyText(uiLocaleCache);
     if (!hasTextWork(textOptions(s, [], contentLocale(global, s.language)))) {
@@ -19866,7 +19866,7 @@ var Dictation = class extends (_a = SingletonAction) {
             note
           },
           s.historyDir
-        ).catch((e) => plugin_default.logger.warn("hist\xF3rico falhou", e));
+        ).catch((e) => plugin_default.logger.warn("history failed", e));
       }
       if (src.audioPath && !s.keepAudio) await unlink2(src.audioPath).catch(() => {
       });
@@ -19879,19 +19879,19 @@ var Dictation = class extends (_a = SingletonAction) {
         await this.flash(a, "done", [...wordCountLines(wordCount(final), uiLocaleCache)], 2e3);
       }
     } catch (err) {
-      plugin_default.logger.error("pipeline falhou", err);
+      plugin_default.logger.error("pipeline failed", err);
       if (src.audioPath) {
         const dest = join7(FAILED_DIR, `${stamp()}.mp3`);
         await rename(src.audioPath, dest).catch(() => {
         });
-        plugin_default.logger.warn(`audio preservado em ${dest}`);
+        plugin_default.logger.warn(`audio preserved at ${dest}`);
       }
       st.levels = [];
       if (s.beep) beep(ffmpeg, "error");
       await this.flash(a, "error", [shortError(err, uiLocaleCache)], 4e3);
     }
   }
-  // ---------- ponte com o painel ----------
+  // ---------- bridge to the panel ----------
   async onSendToPlugin(ev) {
     const msg = ev.payload;
     const a = ev.action;
@@ -19916,19 +19916,19 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.3.1.0",
-            versionDate: "2026-08-19",
+            version: "1.3.2.0",
+            versionDate: "2026-08-21",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
-            // As listas saem no idioma do PAINEL — quem lê é o usuário.
+            // The lists come out in the PANEL's language — the user is the reader.
             languages: spokenLanguages(uiLocale, msg.autoLabel || "Detect / mixed"),
             targetLanguages: targetLanguages(uiLocale)
           });
           break;
         }
-        // Mostra ao painel o texto EXATO que vai para a API. Nada de prompt oculto:
-        // se o plugin manda, você pode ler.
+        // Shows the panel the EXACT text that goes to the API. No hidden prompt: if the
+        // plugin sends it, you can read it.
         case "preview": {
           const s = withDefaults(await a.getSettings());
           const terms = parseTerms(global.canonTerms);
@@ -19954,17 +19954,17 @@ var Dictation = class extends (_a = SingletonAction) {
           });
           break;
         }
-        // A tecla desenhada, para o painel mostrar ao vivo o efeito de cor, ícone,
-        // rótulo e corpo de fonte. As configurações vêm NA mensagem, e não de
-        // `a.getSettings()`, porque o painel grava com atraso de 150 ms — lendo do
-        // Stream Deck, a prévia mostraria sempre o penúltimo caractere digitado.
+        // The drawn key, so the panel can show the effect of colour, icon, label and font
+        // size live. The settings come IN the message, and not from `a.getSettings()`,
+        // because the panel saves with a 150 ms delay — reading from the Stream Deck, the
+        // preview would always show the second-to-last character typed.
         case "keyPreview": {
           const s = withDefaults(msg.settings);
           reply({
             event: "keyPreview",
             image: idleImage(s, uiLocaleCache),
-            // As grades custam ~20 KB e só mudam quando muda a cor ou a direção —
-            // não a cada tecla digitada no rótulo. Por isso o painel pede à parte.
+            // The grids cost ~20 KB and only change when the colour or the direction
+            // changes — not on every keystroke in the label. Hence the separate request.
             icons: msg.withThumbs ? ICON_NAMES.map((n) => ({ name: n, image: iconThumb(n, s.keyStyle, s.colorIdle) })) : void 0,
             styles: msg.withThumbs ? KEY_STYLES.map((st) => ({ name: st, image: iconThumb(s.icon === "none" ? "mic" : s.icon, st, s.colorIdle) })) : void 0
           });
@@ -20003,7 +20003,7 @@ var Dictation = class extends (_a = SingletonAction) {
         case "applyPreset": {
           const preset = await getPreset(msg.id, contentLocale(global));
           if (!preset) {
-            reply({ event: "error", message: "preset n\xE3o encontrado" });
+            reply({ event: "error", message: "preset not found" });
             break;
           }
           const current = await a.getSettings();
@@ -20041,7 +20041,7 @@ var Dictation = class extends (_a = SingletonAction) {
         case "testMic": {
           const device = msg.device || await this.defaultDevice(ffmpeg);
           if (!device) {
-            reply({ event: "micResult", ok: false, message: "nenhum microfone" });
+            reply({ event: "micResult", ok: false, message: "no microphone" });
             break;
           }
           const r = await probeMic(ffmpeg, device, 3);
@@ -20049,7 +20049,9 @@ var Dictation = class extends (_a = SingletonAction) {
             event: "micResult",
             ok: r.ok && isFinite(r.peakDb),
             peakDb: isFinite(r.peakDb) ? Math.round(r.peakDb) : null,
-            message: !r.ok ? "n\xE3o consegui abrir o microfone" : !isFinite(r.peakDb) || r.peakDb < -50 ? "abriu, mas n\xE3o captou som \u2014 fale durante o teste" : `ok \u2014 pico ${Math.round(r.peakDb)} dB`
+            // Not routed through i18n: these come from the plugin, which has no
+            // translation for them. English by decision — see the note in vault.ts.
+            message: !r.ok ? "could not open the microphone" : !isFinite(r.peakDb) || r.peakDb < -50 ? "opened, but picked up no sound \u2014 speak during the test" : `ok \u2014 peak ${Math.round(r.peakDb)} dB`
           });
           break;
         }
@@ -20059,10 +20061,10 @@ var Dictation = class extends (_a = SingletonAction) {
             ...promptBudget(parseTerms(global.canonTerms), msg.context ?? "")
           });
           break;
-        // O painel manda o que foi digitado e recebe de volta a forma normalizada, o
-        // endereço pronto para copiar e o aviso de apelido já usado. A normalização
-        // vive no plugin, e não no painel, para não haver duas regras de aplainar
-        // acento — a que valeria é sempre a do plugin.
+        // The panel sends what was typed and gets back the normalised form, the address
+        // ready to copy and the warning about a nickname already in use. Normalisation
+        // lives in the plugin, not in the panel, so there are not two rules for flattening
+        // accents — the one that would count is always the plugin's.
         case "shortcutCheck": {
           const alias = normalizeAlias(msg.alias);
           const owner = alias ? ownerOf(alias) : void 0;
@@ -20076,7 +20078,7 @@ var Dictation = class extends (_a = SingletonAction) {
         }
       }
     } catch (err) {
-      plugin_default.logger.error("painel: comando falhou", err);
+      plugin_default.logger.error("panel: command failed", err);
       reply({ event: "error", message: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -20119,7 +20121,7 @@ try {
   await cleanupOrphans();
   await loadShortcuts();
 } catch (err) {
-  plugin_default.logger.warn("boot: preparo do ambiente falhou", err);
+  plugin_default.logger.warn("boot: environment setup failed", err);
 }
 void getApiKey().catch(() => {
 });

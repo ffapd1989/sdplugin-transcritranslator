@@ -1,8 +1,8 @@
-// Cores da tecla.
+// Key colours.
 //
-// O usuário escolhe UMA cor por estado; o degrade e a borda saem dela por calculo.
-// Assim qualquer hex — inclusive um digitado a mao — produz uma tecla coerente,
-// sem obrigar ninguem a escolher três tons combinando.
+// The user picks ONE colour per state; the gradient and the border are computed from it.
+// That way any hex — including one typed by hand — produces a coherent key, without
+// forcing anyone to pick three matching shades.
 
 export type Shade = { lite: string; base: string; border: string };
 
@@ -37,14 +37,14 @@ export function shade(hex: string): Shade {
   return { lite: mix(hex, 0.22), base: hex || FALLBACK, border: mix(hex, -0.42) };
 }
 
-/** Paleta sugerida no painel — o campo aceita qualquer hex além destes. */
+/** Palette suggested in the panel — the field accepts any hex beyond these. */
 export const SWATCHES = [
-  { hex: "#404650", name: "Grafite" },
-  { hex: "#3B6FD4", name: "Azul" },
-  { hex: "#2E8C3C", name: "Verde" },
+  { hex: "#404650", name: "Graphite" },
+  { hex: "#3B6FD4", name: "Blue" },
+  { hex: "#2E8C3C", name: "Green" },
   { hex: "#2E7D74", name: "Teal" },
-  { hex: "#B8791F", name: "Ambar" },
-  { hex: "#C44040", name: "Vermelho" },
-  { hex: "#5A4FCF", name: "Roxo" },
-  { hex: "#7A4FA8", name: "Violeta" },
+  { hex: "#B8791F", name: "Amber" },
+  { hex: "#C44040", name: "Red" },
+  { hex: "#5A4FCF", name: "Purple" },
+  { hex: "#7A4FA8", name: "Violet" },
 ];

@@ -1,13 +1,13 @@
-// Os textos que vão para a API, em três idiomas.
+// The texts that go to the API, in three languages.
 //
-// POR QUE TRADUZIR O PROMPT, e não só a interface: a camada de limpeza depende de
-// EXEMPLOS do idioma falado. "vírgula" → "," e as muletas "né", "tipo" só existem em
-// português; em inglês são "comma", "um", "you know"; em espanhol, "coma", "este",
-// "o sea". Um prompt em português aplicado a uma fala em inglês perderia justamente a
-// parte que mais importa.
+// WHY TRANSLATE THE PROMPT, and not just the interface: the clean-up layer relies on
+// EXAMPLES from the spoken language. "vírgula" -> "," and the fillers "né", "tipo" only
+// exist in Portuguese; in English they are "comma", "um", "you know"; in Spanish,
+// "coma", "este", "o sea". A Portuguese prompt applied to English speech would lose
+// precisely the part that matters most.
 //
-// Por isso o idioma daqui segue a LÍNGUA FALADA na tecla (e cai para a língua da
-// interface quando ela está em detecção automática) — não a língua do painel.
+// That is why the language here follows the key's SPOKEN LANGUAGE (falling back to the
+// interface language when it is on auto-detect) — not the panel's language.
 
 export type Locale = "pt" | "en" | "es";
 
@@ -23,12 +23,12 @@ export type PromptText = {
   injectionGuard: string;
   secrecy: string;
   outputRule: string;
-  /** Recebe o nome do idioma de destino já no idioma do prompt. */
+  /** Receives the target language name already in the prompt's language. */
   translate: (language: string) => string;
   canon: (terms: string) => string;
-  /** Fallback quando não há instrução nenhuma. */
+  /** Fallback for when there is no instruction at all. */
   passthrough: string;
-  /** Rótulos das peças exibidas no painel. */
+  /** Labels of the pieces shown in the panel. */
   partCleanup: string;
   partTranslate: (language: string) => string;
   partCustom: string;

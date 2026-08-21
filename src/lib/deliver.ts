@@ -1,13 +1,13 @@
-// Entrega do texto: clipboard, colagem e histórico.
+// Text delivery: clipboard, pasting and history.
 //
-// A REGRA DO FOCO: o PID da janela em foco é lido no INICIO da gravação e conferido
-// no FIM. Se mudou, o plugin NÃO cola — só copia e avisa. E' a diferença entre o
-// texto aparecer onde você pediu e o texto aparecer no meio de outra coisa que você
-// foi fazer enquanto a API respondia.
+// THE FOCUS RULE: the focused window's PID is read at the START of the recording and
+// checked at the END. If it changed, the plugin does NOT paste — it only copies and
+// warns. That is the difference between the text landing where you asked for it and the
+// text landing in the middle of something else you went off to do while the API answered.
 //
-// Tudo que envolve texto passa por ARQUIVO UTF-8, nunca pela linha de comando nem
-// pelo stdout do PowerShell — é o que garante que "ação", "três" e "coração"
-// cheguem inteiros. Acentuacao errada aqui inutilizaria o plugin em português.
+// Everything involving text goes through a UTF-8 FILE, never through the command line
+// nor through PowerShell's stdout — that is what guarantees "ação", "três" and "coração"
+// arrive intact. Broken accents here would make the plugin useless in Portuguese.
 
 import { execFile } from "node:child_process";
 import { readFile, writeFile, appendFile, mkdir, unlink } from "node:fs/promises";
@@ -35,10 +35,10 @@ async function tempFile(prefix: string): Promise<string> {
 }
 
 /**
- * PID do processo dono da janela em foco.
+ * PID of the process owning the focused window.
  *
- * Usa UIAutomation (assembly já compilado, ~75 ms) em vez de P/Invoke com
- * `Add-Type -TypeDefinition`, que compilaria C# a cada chamada e custaria ~1 s.
+ * Uses UIAutomation (an already-compiled assembly, ~75 ms) instead of P/Invoke with
+ * `Add-Type -TypeDefinition`, which would compile C# on every call and cost ~1 s.
  */
 export async function getFocusPid(): Promise<number> {
   try {
@@ -54,17 +54,18 @@ export async function getFocusPid(): Promise<number> {
 }
 
 /**
- * A janela em foco ocupa a tela inteira?
+ * Does the focused window take up the whole screen?
  *
- * Serve a um caso só: o atalho de TECLADO não deve acionar ditado enquanto há jogo em
- * tela cheia. A comparação é com `Bounds` da tela, não com `WorkingArea`, e é isso que
- * separa "tela cheia" de "maximizada" — a janela maximizada para na barra de tarefas,
- * a de tela cheia não.
+ * It serves exactly one case: the KEYBOARD shortcut must not trigger dictation while a
+ * game is running full-screen. The comparison is against the screen's `Bounds`, not its
+ * `WorkingArea`, and that is what separates "full-screen" from "maximised" — a maximised
+ * window stops at the taskbar, a full-screen one does not.
  *
- * FALHA PARA O LADO PERMISSIVO de propósito: se a leitura demorar, der erro, ou o jogo
- * não conversar com UIAutomation, a resposta é `false` e o ditado acontece. Perder um
- * ditado por um falso positivo seria pior que o incômodo que isto evita — e a defesa
- * de verdade é o atalho nem existir dentro do jogo (lista de programas no PowerToys).
+ * IT FAILS ON THE PERMISSIVE SIDE on purpose: if the reading takes too long, errors out,
+ * or the game does not talk to UIAutomation, the answer is `false` and dictation happens.
+ * Losing a dictation to a false positive would be worse than the annoyance this avoids —
+ * and the real defence is the shortcut not existing inside the game at all (the program
+ * list in PowerToys).
  */
 export async function isForegroundFullscreen(): Promise<boolean> {
   try {
@@ -73,7 +74,7 @@ export async function isForegroundFullscreen(): Promise<boolean> {
         "$el = [System.Windows.Automation.AutomationElement]::FocusedElement;" +
         "$root = [System.Windows.Automation.AutomationElement]::RootElement;" +
         "$walk = [System.Windows.Automation.TreeWalker]::ControlViewWalker;" +
-        // Sobe até a janela de topo: o elemento focado costuma ser um controle lá dentro.
+        // Walk up to the top-level window: the focused element is usually a control inside it.
         "while ($el -ne $null) { $p = $walk.GetParent($el);" +
         "  if ($p -eq $null -or [System.Windows.Automation.Automation]::Compare($p, $root)) { break }" +
         "  $el = $p }" +
@@ -94,11 +95,11 @@ export async function isForegroundFullscreen(): Promise<boolean> {
 export type DeliveryResult = "pasted" | "copied";
 
 /**
- * Copia e — se o foco continuar onde estava — cola.
+ * Copies and — if the focus is still where it was — pastes.
  *
- * expectPid = 0 significa que não conseguimos ler o foco no início; nesse caso cola
- * assim mesmo, porque o caso comum é o foco não ter mudado e travar a colagem por
- * falta de informacao quebraria o fluxo principal.
+ * expectPid = 0 means we could not read the focus at the start; in that case it pastes
+ * anyway, because the common case is that the focus did not change, and blocking the
+ * paste for lack of information would break the main flow.
  */
 export async function deliver(
   text: string,
@@ -133,10 +134,11 @@ export async function deliver(
 }
 
 /**
- * Copia a selecao atual (Ctrl+C) e devolve o texto.
+ * Copies the current selection (Ctrl+C) and returns the text.
  *
- * Se o clipboard não mudar, é porque não havia selecao — devolve o que já estava
- * la', que é o comportamento útil: você copiou antes e apertou a tecla depois.
+ * If the clipboard does not change, there was no selection — it returns whatever was
+ * already there, which is the useful behaviour: you copied first and pressed the key
+ * afterwards.
  */
 export async function readSelectionOrClipboard(): Promise<string> {
   const file = await tempFile("clip");
@@ -166,9 +168,9 @@ export type HistoryEntry = {
 };
 
 /**
- * Um .md por mes. Guarda o texto CRU e o FINAL: se a etapa de texto distorcer algo,
- * o original continua recuperavel — e essa é a rede de segurança quando o Ctrl+V
- * não acontece.
+ * One .md per month. Keeps the RAW text and the FINAL one: if the text step distorts
+ * something, the original is still recoverable — and that is the safety net for when the
+ * Ctrl+V does not happen.
  */
 export async function appendHistory(entry: HistoryEntry, dir?: string): Promise<void> {
   const target = dir?.trim() || HISTORY_DIR;
@@ -180,7 +182,7 @@ export async function appendHistory(entry: HistoryEntry, dir?: string): Promise<
 
   const secs = Math.round(entry.durationMs / 1000);
   const dur = `${Math.floor(secs / 60)}:${p(secs % 60)}`;
-  const head = `## ${p(now.getHours())}:${p(now.getMinutes())} · ${entry.label || "Ditado"} · ${dur}`;
+  const head = `## ${p(now.getHours())}:${p(now.getMinutes())} · ${entry.label || "Dictation"} · ${dur}`;
 
   const parts = [
     "",
@@ -191,7 +193,7 @@ export async function appendHistory(entry: HistoryEntry, dir?: string): Promise<
   ];
 
   if (entry.raw && entry.final && entry.raw !== entry.final) {
-    parts.push("**Transcrito**", "", entry.raw, "", "**Final**", "", entry.final, "");
+    parts.push("**Transcribed**", "", entry.raw, "", "**Final**", "", entry.final, "");
   } else {
     parts.push(entry.final || entry.raw, "");
   }

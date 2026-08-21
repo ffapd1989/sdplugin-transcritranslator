@@ -1,24 +1,24 @@
-// Formato das configurações.
+// Shape of the settings.
 //
-// Duas camadas, e a divisão NÃO é arbitrária:
-//   - GLOBAIS: só o que é propriedade da MÁQUINA ou da PESSOA — a chave da API,
-//     o dicionário de palavras canônicas (as siglas que você usa no seu trabalho),
-//     o caminho do ffmpeg e as preferências de idioma. Não faz sentido variar por tecla.
-//   - POR TECLA: todo o resto. É o que permite ter uma tecla "ditado cru", outra
-//     "e-mail formal" e outra "→ inglês" lado a lado no XL, cada uma independente.
+// Two layers, and the split is NOT arbitrary:
+//   - GLOBAL: only what belongs to the MACHINE or to the PERSON — the API key, the
+//     canonical word dictionary (the acronyms you use at work), the ffmpeg path and the
+//     language preferences. There is no sense in varying these per key.
+//   - PER KEY: everything else. This is what lets you have a "raw dictation" key, a
+//     "formal email" key and a "-> English" key side by side on the XL, each independent.
 //
-// A chave da OpenAI não mora aqui: vive no cofre DPAPI (ver vault.ts), porque as
-// settings do Stream Deck viram um .json em texto plano em %APPDATA%\Elgato.
+// The OpenAI key does not live here: it lives in the DPAPI vault (see vault.ts), because
+// the Stream Deck settings become a plain-text .json under %APPDATA%\Elgato.
 
 import { asLocale, type Locale } from "./prompt-text.js";
 
 export type CaptureMode = "toggle" | "ptt";
 /**
- * Direção visual da tecla (escolhida em 26/07/2026, ver docs/estilos):
- *   neon   — contorno aceso com halo de cor
- *   aurora — mancha de cor atmosférica atrás do glifo branco
- *   ring   — arco-medidor na cor em volta do glifo
- * As três são opção do usuário DE PROPÓSITO: a decisão foi não eleger uma.
+ * The key's visual direction (chosen on 26/07/2026, see docs/estilos):
+ *   neon   — a lit outline with a colour halo
+ *   aurora — an atmospheric smear of colour behind the white glyph
+ *   ring   — a colour meter-arc around the glyph
+ * All three are a user option ON PURPOSE: the decision was not to elect one.
  */
 export type KeyStyle = "neon" | "aurora" | "ring";
 export type IconName =
@@ -32,36 +32,36 @@ export type StyleMode = "none" | "translate" | "custom";
 export type LangPref = "auto" | "pt" | "en" | "es";
 
 export type GlobalSettings = {
-  /** Dicionário de palavras canônicas, separado por vírgula. Nasce VAZIO. */
+  /** Canonical word dictionary, comma-separated. Starts out EMPTY. */
   canonTerms?: string;
-  /** Caminho do ffmpeg. Vazio = procura no PATH. */
+  /** Path to ffmpeg. Empty = look it up on the PATH. */
   ffmpegPath?: string;
-  /** Somente leitura, para o Property Inspector saber se já existe chave no cofre. */
+  /** Read-only, so the Property Inspector knows whether a key is already in the vault. */
   hasKey?: boolean;
 
-  // --- idiomas, em dois eixos independentes ---
+  // --- languages, on two independent axes ---
   //
-  // Existem separados porque são perguntas diferentes: em que idioma você quer LER o
-  // painel, e em que idioma quer que os presets e os prompts sejam ESCRITOS. Quem usa
-  // o Stream Deck em inglês e trabalha em português precisa das duas coisas
-  // divergindo — e o app só informa uma.
+  // They exist separately because they are different questions: which language you want
+  // to READ the panel in, and which language you want the presets and prompts to be
+  // WRITTEN in. Someone running the Stream Deck in English while working in Portuguese
+  // needs those two to diverge — and the app only reports one.
 
-  /** Idioma do painel. "auto" segue o app Stream Deck. */
+  /** The panel's language. "auto" follows the Stream Deck app. */
   uiLang?: LangPref;
   /**
-   * Idioma dos presets e dos prompts enviados à API.
-   * "auto" segue o idioma FALADO da tecla; se ele estiver em detecção automática,
-   * cai para o idioma do painel.
+   * Language of the presets and of the prompts sent to the API.
+   * "auto" follows the key's SPOKEN language; if that is on auto-detect, it falls back
+   * to the panel's language.
    */
   contentLang?: LangPref;
 };
 
 /**
- * Idioma em que os presets e os prompts são escritos para esta tecla.
+ * The language in which presets and prompts are written for this key.
  *
- * A cascata importa: o idioma FALADO vem antes do idioma do painel porque a camada de
- * limpeza depende de exemplos da língua falada ("vírgula", "né") — um prompt em
- * português aplicado a uma fala em inglês perderia exatamente a parte que trabalha.
+ * The cascade matters: the SPOKEN language comes before the panel's language because the
+ * clean-up layer relies on examples from the spoken tongue ("vírgula", "né") — a
+ * Portuguese prompt applied to English speech would lose exactly the part that works.
  */
 export function resolveContentLocale(opts: {
   contentLang?: LangPref;
@@ -78,86 +78,86 @@ export function resolveContentLocale(opts: {
   );
 }
 
-/** Idioma do painel. */
+/** The panel's language. */
 export function resolveUiLocale(uiLang: LangPref | undefined, appLanguage: string | undefined): Locale {
   if (uiLang && uiLang !== "auto") return uiLang;
   return asLocale(appLanguage) ?? "en";
 }
 
 export type ActionSettings = {
-  // --- preset e essencial ---
+  // --- preset and essentials ---
   presetId?: string;
-  /** Texto na tecla ociosa. */
+  /** Text on the idle key. */
   label?: string;
-  /** Nome DirectShow do microfone. Vazio = primeiro dispositivo encontrado. */
+  /** DirectShow name of the microphone. Empty = first device found. */
   micDevice?: string;
   /**
-   * Apelido que endereça esta tecla num atalho de teclado (ver shortcuts.ts).
+   * Nickname addressing this key from a keyboard shortcut (see shortcuts.ts).
    *
-   * Vazio = a tecla NÃO é alcançável de fora. Isso é de propósito: qualquer programa
-   * da máquina pode disparar um endereço `streamdeck://`, e uma tecla sem apelido é
-   * uma tecla que ninguém abre pelas costas. O campo é o próprio interruptor.
+   * Empty = the key is NOT reachable from outside. That is on purpose: any program on the
+   * machine can fire a `streamdeck://` address, and a key with no nickname is a key
+   * nobody opens behind your back. The field is the switch itself.
    */
   shortcutAlias?: string;
 
-  // --- captura ---
+  // --- capture ---
   mode?: CaptureMode;
   /**
-   * Encerrar sozinho após N segundos de silêncio. Ignorado no modo ptt.
-   * Limitado a [SILENCE_MIN, SILENCE_MAX] em `withDefaults` — ver a nota lá.
+   * End by itself after N seconds of silence. Ignored in ptt mode.
+   * Clamped to [SILENCE_MIN, SILENCE_MAX] in `withDefaults` — see the note there.
    */
   silenceStop?: boolean;
   silenceSeconds?: number;
-  /** Corte automático, para nunca estourar os 25 MB nem gravar por engano. */
+  /** Automatic cut-off, so it never blows past 25 MB nor records by mistake. */
   maxMinutes?: number;
   beep?: boolean;
 
-  // --- etapa 1: transcrição ---
+  // --- step 1: transcription ---
   transcribeOn?: boolean;
   transcribeModel?: string;
-  /** ISO-639-1 do idioma FALADO. Vazio = detecção automática. */
+  /** ISO-639-1 of the SPOKEN language. Empty = auto-detect. */
   language?: string;
-  /** Contexto/instrução para o modelo de áudio (não é a lista de termos). */
+  /** Context/instruction for the audio model (this is not the term list). */
   transcribeContext?: string;
-  /** Mandar também o dicionario canônico no prompt de transcrição. */
+  /** Also send the canonical dictionary in the transcription prompt. */
   useCanonPrompt?: boolean;
 
-  // --- etapa 2: texto ---
+  // --- step 2: text ---
   textOn?: boolean;
   textModel?: string;
-  /** Camada A: regras genéricas de limpeza de ditado. */
+  /** Layer A: generic dictation clean-up rules. */
   cleanup?: boolean;
   /**
-   * Camada B, o que fazer ALÉM de limpar:
-   *   none      — nada; só a limpeza
-   *   translate — traduzir para `targetLanguage` (modo guiado, sem escrever prompt)
-   *   custom    — a instrução livre em `style`
+   * Layer B, what to do BEYOND cleaning up:
+   *   none      — nothing; clean-up only
+   *   translate — translate into `targetLanguage` (guided mode, no prompt writing)
+   *   custom    — the free instruction in `style`
    */
   styleMode?: StyleMode;
-  /** Idioma de destino quando styleMode = "translate". */
+  /** Target language when styleMode = "translate". */
   targetLanguage?: string;
-  /** Instrucao livre quando styleMode = "custom". */
+  /** Free instruction when styleMode = "custom". */
   style?: string;
 
-  // --- saída ---
+  // --- output ---
   autoPaste?: boolean;
   history?: boolean;
   historyDir?: string;
   keepAudio?: boolean;
 
-  // --- aparencia ---
+  // --- appearance ---
   colorIdle?: string;
   colorRec?: string;
   colorDone?: string;
-  /** Direção visual da tecla ociosa e dos estados. */
+  /** Visual direction of the idle key and of the states. */
   keyStyle?: KeyStyle;
   icon?: IconName;
   showLabel?: boolean;
   showTimer?: boolean;
   showWave?: boolean;
-  /** Corpo da fonte do rótulo, em px. */
+  /** Label font size, in px. */
   labelSize?: number;
-  /** Espaço extra entre as linhas do rótulo, em px. */
+  /** Extra space between label lines, in px. */
   labelGap?: number;
 };
 
@@ -204,16 +204,16 @@ export const DEFAULTS: Required<ActionSettings> = {
 };
 
 /**
- * Faixa aceita para a pausa que encerra a gravação.
+ * Accepted range for the pause that ends a recording.
  *
- * O piso de 2,5 s é o tempo em que uma pausa ainda e' claramente fim de fala; abaixo
- * disso a gravação corta no meio de quem pensa antes de continuar. O teto de 30 s
- * existe para o limite de minutos continuar sendo a trava real do tamanho do áudio.
+ * The 2.5 s floor is the point at which a pause is still clearly the end of speech; below
+ * that the recording cuts off people who think before carrying on. The 30 s ceiling
+ * exists so the minute limit stays the real lock on audio length.
  *
- * Os mesmos dois números estão no `min`/`max` do campo em `ui/dictation.html` — mas
- * um `<input type="number">` NÃO impede valor fora da faixa digitado a mão, e settings
- * gravadas por uma versão anterior aceitavam de 0,5 s. Por isso a faixa é imposta aqui,
- * no caminho por onde TODA leitura de settings passa, e não só no painel.
+ * The same two numbers are in the field's `min`/`max` in `ui/dictation.html` — but an
+ * `<input type="number">` does NOT prevent an out-of-range value typed by hand, and
+ * settings saved by an earlier version accepted 0.5 s. That is why the range is enforced
+ * here, on the path that EVERY settings read goes through, and not only in the panel.
  */
 export const SILENCE_MIN = 2.5;
 export const SILENCE_MAX = 30;
@@ -225,7 +225,7 @@ export function withDefaults(s: ActionSettings | undefined): Required<ActionSett
     const v = s[k];
     if (v !== undefined && v !== null && v !== "") (out as any)[k] = v;
   }
-  // Campos onde string vazia é um valor legitimo (não deve cair no default).
+  // Fields where an empty string is a legitimate value (must not fall back to the default).
   for (const k of ["label", "style", "transcribeContext", "historyDir", "language", "shortcutAlias"] as const) {
     if (s[k] !== undefined) (out as any)[k] = s[k];
   }
@@ -239,16 +239,16 @@ function clampSilence(out: Required<ActionSettings>): Required<ActionSettings> {
   return out;
 }
 
-/** Modelos sugeridos no painel. O campo aceita qualquer id digitado a mao. */
+/** Models suggested in the panel. The field accepts any id typed by hand. */
 export const TRANSCRIBE_MODELS = [
-  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (padrão)" },
-  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (melhor)" },
-  { id: "whisper-1", label: "Whisper-1 (legado)" },
+  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (default)" },
+  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (better)" },
+  { id: "whisper-1", label: "Whisper-1 (legacy)" },
 ];
 
 export const TEXT_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (padrão)" },
-  { id: "gpt-4.1-nano", label: "GPT-4.1 nano (mais barato)" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (default)" },
+  { id: "gpt-4.1-nano", label: "GPT-4.1 nano (cheapest)" },
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" },
 ];

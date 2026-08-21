@@ -1,11 +1,11 @@
-// Bipes de feedback, gerados na hora pelo ffplay (que já vem com o ffmpeg).
+// Feedback beeps, generated on the fly by ffplay (which ships with ffmpeg).
 //
-// Sem arquivos de som no repo: o tom sai de um gerador `lavfi sine`. O `-nodisp`
-// impede a janela do ffplay de aparecer.
+// No sound files in the repo: the tone comes out of a `lavfi sine` generator. `-nodisp`
+// keeps the ffplay window from showing up.
 //
-// O bipe de início NÃO toca quando a tecla é apertada — toca quando o ffmpeg
-// confirma que está capturando. Assim ele deixa de ser enfeite e vira o sinal de
-// "pode falar", que é justamente o que evita perder as primeiras palavras.
+// The start beep does NOT play when the key is pressed — it plays when ffmpeg confirms
+// it is capturing. That way it stops being decoration and becomes the "you may speak now"
+// signal, which is precisely what keeps the first words from being lost.
 
 import { spawn } from "node:child_process";
 import { dirname, join } from "node:path";
@@ -19,13 +19,13 @@ const TONES: Record<BeepKind, { freq: number; dur: number }> = {
   error: { freq: 200, dur: 0.18 },
 };
 
-/** ffplay mora ao lado do ffmpeg; se o caminho for só "ffmpeg", confia no PATH. */
+/** ffplay lives next to ffmpeg; if the path is just "ffmpeg", trust the PATH. */
 function ffplayFrom(ffmpegPath: string): string {
   if (!ffmpegPath || ffmpegPath === "ffmpeg" || ffmpegPath === "ffmpeg.exe") return "ffplay";
   return join(dirname(ffmpegPath), "ffplay.exe");
 }
 
-/** Dispara e esquece: som nunca deve atrasar nem derrubar o ditado. */
+/** Fire and forget: sound must never delay or bring down the dictation. */
 export function beep(ffmpegPath: string, kind: BeepKind): void {
   const { freq, dur } = TONES[kind];
   try {
@@ -41,6 +41,6 @@ export function beep(ffmpegPath: string, kind: BeepKind): void {
     );
     p.on("error", () => {});
   } catch {
-    /* sem som é melhor que quebrar */
+    /* no sound is better than breaking */
   }
 }

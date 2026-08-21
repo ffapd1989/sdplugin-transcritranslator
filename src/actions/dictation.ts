@@ -1,8 +1,9 @@
-// A tecla de ditado: máquina de estados, desenho ao vivo e o pipeline completo.
+// The dictation key: state machine, live drawing and the full pipeline.
 //
-// GRAMÁTICA DE INTERAÇÃO (a mesma do plugin da VPN): toque curto faz o seguro,
-// SEGURAR faz o destrutivo. Aqui isso vira: toque para/envia, segurar cancela — e
-// o aviso "SOLTE P/ CANCELAR" aparece ANTES de a ação acontecer, não depois.
+// INTERACTION GRAMMAR (the same as the VPN plugin's): a short tap does the safe thing,
+// HOLDING does the destructive one. Here that becomes: a tap stops/sends, a hold
+// cancels — and the "RELEASE TO CANCEL" warning appears BEFORE the action happens, not
+// after.
 
 import streamDeck, {
   action,
@@ -65,18 +66,18 @@ import { listPresets, getPreset, savePreset, deletePreset, PRESET_FIELDS } from 
 import type { Locale } from "../lib/prompt-text.js";
 import { spokenLanguages, targetLanguages, languageBadge } from "../lib/languages.js";
 
-/** Segurar por isto durante a gravação = cancelar. */
+/** Holding for this long during a recording = cancel. */
 const HOLD_MS = 1000;
-/** No modo ptt, soltar antes disto é toque acidental — descarta. */
+/** In ptt mode, releasing before this is an accidental tap — discard it. */
 const PTT_MIN_MS = 400;
-/** Áudio menor que isto não vai para a API (blindagem anti-eco). */
+/** Audio shorter than this does not go to the API (anti-echo shield). */
 const MIN_AUDIO_MS = 800;
-/** 8 fps: suficiente para a waveform parecer viva sem martelar o Stream Deck. */
+/** 8 fps: enough for the waveform to look alive without hammering the Stream Deck. */
 const TICK_MS = 125;
-/** Confirmação final: número grande em cima, palavra pequena embaixo. */
+/** Final confirmation: big number on top, small word underneath. */
 const DONE_SIZES = [22, 10];
 
-// Injetados pelo build a partir de version.json (fonte única da versão).
+// Injected by the build from version.json (the single source of the version).
 declare const __TT_VERSION__: string;
 declare const __TT_DATE__: string;
 
@@ -85,11 +86,11 @@ function ffmpegOf(g: GlobalSettings | undefined): string {
 }
 
 /**
- * Presets para o painel: nome, chave da descrição curta e as PRÓPRIAS configurações.
+ * Presets for the panel: name, short-description key and the settings THEMSELVES.
  *
- * As configurações vão junto para o painel poder montar o detalhe do preset a partir
- * do que ele realmente faz — em vez de uma descrição escrita à mão que envelheceria
- * assim que alguém mexesse no preset.
+ * The settings travel along so the panel can build the preset's detail from what it
+ * actually does — instead of a hand-written description that would go stale the moment
+ * someone touched the preset.
  */
 async function presetSummaries(locale: Locale) {
   return (await listPresets(locale)).map((p) => ({
@@ -101,17 +102,17 @@ async function presetSummaries(locale: Locale) {
   }));
 }
 
-/** Idioma do app Stream Deck, quando ele informa. */
+/** The Stream Deck app's language, when it reports one. */
 function appLanguage(): string | undefined {
   return (streamDeck.info as { application?: { language?: string } })?.application?.language;
 }
 
 /**
- * Idioma do PAINEL, em cache.
+ * The PANEL's language, cached.
  *
- * A tecla é redesenhada a 8 fps enquanto grava; um round-trip de `getGlobalSettings`
- * por quadro seria absurdo. Como o idioma só muda quando a pessoa troca o seletor, o
- * cache é atualizado no `willAppear` e depois de cada `setGlobal`.
+ * The key is redrawn at 8 fps while recording; one `getGlobalSettings` round-trip per
+ * frame would be absurd. Since the language only changes when the person moves the
+ * selector, the cache is refreshed on `willAppear` and after every `setGlobal`.
  */
 let uiLocaleCache: Locale = "pt";
 
@@ -121,7 +122,7 @@ async function refreshUiLocale(g?: GlobalSettings): Promise<Locale> {
   return uiLocaleCache;
 }
 
-/** Idioma em que os presets e os prompts desta tecla são escritos. */
+/** The language this key's presets and prompts are written in. */
 function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
   return resolveContentLocale({
     contentLang: g?.contentLang,
@@ -132,80 +133,81 @@ function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
 }
 
 /**
- * A tecla OCIOSA, desenhada.
+ * The IDLE key, drawn.
  *
- * Vive fora da classe porque o painel pede exatamente esta imagem para a prévia ao
- * vivo. Uma função só, um desenho só: se a prévia e a tecla física divergissem, a
- * prévia deixaria de servir para o que existe.
+ * It lives outside the class because the panel asks for exactly this image for the live
+ * preview. One function, one drawing: if the preview and the physical key diverged, the
+ * preview would stop serving the purpose it exists for.
  */
 function idleImage(s: Required<ActionSettings>, locale: Locale): string {
   return keyImage({
     color: s.colorIdle,
     style: s.keyStyle,
     icon: s.icon,
-    // O rótulo pode ter quebras digitadas pela pessoa; se não tiver e não couber,
-    // quebra sozinho por palavra em vez de espremer tudo numa linha.
+    // The label may carry breaks the person typed; if it has none and does not fit, it
+    // breaks by word on its own instead of squeezing everything onto one line.
     lines: s.showLabel ? wrapLabel(s.label || keyText(locale).defaultLabel, s.labelSize) : [],
     fontSize: s.labelSize,
     lineGap: s.labelGap,
-    // A tecla que traduz diz para onde, sem precisar abrir o painel.
+    // A translating key says where to, without anyone having to open the panel.
     badge: s.textOn && s.styleMode === "translate" ? languageBadge(s.targetLanguage) : undefined,
   });
 }
 
 /**
- * Onde um ditado se desenha e de onde ele lê as configurações.
+ * Where a dictation draws itself and where it reads its settings from.
  *
- * Existe porque o ditado disparado por ATALHO DE TECLADO pode não ter tecla nenhuma na
- * tela: `SingletonAction.actions` só entrega as ações VISÍVEIS, e o ponto do atalho é
- * justamente acionar a tecla da tela 5 estando na tela 1. Uma `KeyAction` de verdade
- * satisfaz este tipo; a superfície emprestada (abaixo) também, lendo de uma cópia das
- * configurações e desenhando em qualquer tecla do plugin que esteja à vista.
+ * It exists because a dictation fired by a KEYBOARD SHORTCUT may have no key on screen at
+ * all: `SingletonAction.actions` only hands over the VISIBLE actions, and the whole point
+ * of the shortcut is to trigger the key on page 5 while standing on page 1. A real
+ * `KeyAction` satisfies this type; so does the borrowed surface (below), reading from a
+ * copy of the settings and drawing on any visible key of the plugin.
  */
 type Surface = {
   readonly id: string;
   getSettings(): Promise<ActionSettings>;
   setImage(image: string): Promise<void>;
-  /** Tecla preferida para o desenho, quando ela estiver visível. */
+  /** Preferred key for drawing, when it happens to be visible. */
   readonly preferId?: string;
-  /** Chamado quando o ditado volta ao ocioso — devolve a tecla emprestada. */
+  /** Called when the dictation returns to idle — gives the borrowed key back. */
   onIdle?(): Promise<void>;
 };
 
 /**
- * Ditado em curso que não tem tecla própria na tela, e por isso pega emprestada a de
- * outra. Só pode haver um: a trava global do `sessions.ts` já garante uma gravação por
- * vez na máquina, então nunca há duas coisas disputando o visor.
+ * A dictation in flight with no key of its own on screen, which is why it borrows someone
+ * else's. There can only be one: the global lock in `sessions.ts` already guarantees one
+ * recording at a time on the machine, so there are never two things fighting over the
+ * display.
  */
 let borrowed: Surface | null = null;
 
 /**
- * Repique do atalho de teclado.
+ * Keyboard shortcut bounce.
  *
- * MEDIDO: uma única tecla SEGURADA entrega ao plugin uma rajada de recados — o
- * PowerToys dispara a ação a cada repetição automática do teclado, ~30 ms uma da
- * outra. Sem isto, segurar Alt+L por meio segundo abria oito gravações do mesmo
- * microfone, e sete ficavam órfãs. A janela é atualizada a cada recado, então segurar
- * a tecla continua valendo por UMA ação, não importa quanto tempo você segure.
+ * MEASURED: a single HELD key delivers a burst of messages to the plugin — PowerToys
+ * fires the action on every keyboard auto-repeat, ~30 ms apart. Without this, holding
+ * Alt+L for half a second opened eight recordings from the same microphone, seven of
+ * which were orphaned. The window is refreshed on every message, so holding the key still
+ * counts as ONE action, no matter how long you hold it.
  */
 const LINK_DEBOUNCE_MS = 600;
 const lastLink = new Map<string, number>();
 
 /**
- * Trava de reentrância do atalho.
+ * The shortcut's reentrancy bolt.
  *
- * O debounce sozinho não bastaria: o corpo do tratador tem `await` antes de a fase
- * virar "arming" (cofre, settings, tela cheia), e nesse intervalo um segundo recado
- * ainda encontraria a tecla "ociosa" e começaria outra gravação.
+ * The debounce alone would not be enough: the handler's body has `await`s before the
+ * phase turns "arming" (vault, settings, full-screen), and in that interval a second
+ * message would still find the key "idle" and start another recording.
  */
 let linkRunning = false;
 
-/** Fases que mudam de quadro a quadro e por isso precisam do ticker. */
+/** Phases that change from frame to frame and therefore need the ticker. */
 function isAnimated(phase: Phase): boolean {
   return phase !== "idle" && phase !== "done" && phase !== "warn" && phase !== "error";
 }
 
-/** Traduz as settings da tecla para o formato que a montagem de prompt espera. */
+/** Maps the key's settings into the shape the prompt assembly expects. */
 function textOptions(
   s: Required<ActionSettings>,
   canonTerms: string[],
@@ -227,12 +229,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   constructor() {
     super();
-    // O recado do atalho de teclado chega por aqui. Registrado no construtor porque a
-    // instância é única e nasce no boot, antes de `connect()`.
+    // The keyboard shortcut's message arrives here. Registered in the constructor
+    // because the instance is unique and is born at boot, before `connect()`.
     streamDeck.system.onDidReceiveDeepLink((ev) => void this.onDeepLink(ev));
   }
 
-  // ---------- ciclo de vida ----------
+  // ---------- lifecycle ----------
 
   override async onWillAppear(ev: WillAppearEvent<ActionSettings>): Promise<void> {
     if (!ev.action.isKey()) return;
@@ -243,8 +245,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
   }
 
   override onWillDisappear(_ev: WillDisappearEvent<ActionSettings>): void {
-    // De propósito NÃO encerra a gravação: ela é uma operação do usuário, não uma
-    // propriedade da tela. Continua em background e entrega normalmente.
+    // On purpose it does NOT end the recording: that is an operation of the user's, not
+    // a property of the screen. It carries on in the background and delivers normally.
     if (this.actions.next().done) {
       clearInterval(this.ticker);
       this.ticker = undefined;
@@ -253,8 +255,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<ActionSettings>): Promise<void> {
     if (!ev.action.isKey()) return;
-    // É aqui que a cópia guardada no caderninho fica fresca: toda gravação do painel
-    // passa por este evento.
+    // This is where the copy kept in the notebook stays fresh: every save from the panel
+    // goes through this event.
     rememberKey(ev.action.id, ev.payload.settings);
     await this.render(ev.action, ev.payload.settings);
   }
@@ -264,10 +266,10 @@ export class Dictation extends SingletonAction<ActionSettings> {
     this.ticker = setInterval(() => void this.tick(), TICK_MS);
   }
 
-  /** Redesenha apenas as teclas cujo estado está animado. */
+  /** Redraws only the keys whose state is animated. */
   private async tick(): Promise<void> {
-    // O ditado emprestado não está em `this.actions` — sem isto, a waveform dele
-    // ficaria parada no primeiro quadro.
+    // The borrowed dictation is not in `this.actions` — without this, its waveform would
+    // sit frozen on the first frame.
     if (borrowed && isAnimated(getState(borrowed.id).phase)) {
       await this.render(borrowed, await borrowed.getSettings());
     }
@@ -280,15 +282,15 @@ export class Dictation extends SingletonAction<ActionSettings> {
     }
   }
 
-  // ---------- visor emprestado ----------
+  // ---------- borrowed display ----------
 
   /**
-   * A tecla que está exibindo o ditado disparado pelo teclado.
+   * The key currently displaying the dictation fired from the keyboard.
    *
-   * Preferência para a tecla DONA do ditado, se ela estiver visível — nesse caso o
-   * empréstimo é invisível, tudo aparece onde deveria. Se não estiver, serve qualquer
-   * tecla do plugin que esteja ociosa. Se não houver nenhuma, o ditado roda sem visor:
-   * os bipes continuam, e o texto chega do mesmo jeito.
+   * Preference goes to the dictation's OWN key, if it is visible — in that case the
+   * borrowing is invisible and everything appears where it should. If it is not, any idle
+   * key of the plugin will do. If there is none, the dictation runs with no display: the
+   * beeps carry on, and the text arrives just the same.
    */
   private lender(): KeyAction<ActionSettings> | undefined {
     if (!borrowed) return undefined;
@@ -301,11 +303,11 @@ export class Dictation extends SingletonAction<ActionSettings> {
     return fallback;
   }
 
-  /** Superfície de um ditado sem tecla própria na tela. */
+  /** Surface for a dictation with no key of its own on screen. */
   private borrowSurface(alias: string, settings: ActionSettings, preferId: string): Surface {
-    // O modo "segurar para falar" não existe no teclado: o recado do Windows é um
-    // pulso, não há "soltou". Decisão de produto: converte para alternado em vez de
-    // recusar o ditado.
+    // "Hold to talk" does not exist on the keyboard: the message from Windows is a
+    // pulse, there is no "released". Product decision: convert to toggle instead of
+    // refusing the dictation.
     const snapshot: ActionSettings = { ...settings, mode: "toggle" };
     return {
       id: `sc:${alias}`,
@@ -322,23 +324,23 @@ export class Dictation extends SingletonAction<ActionSettings> {
     };
   }
 
-  /** A superfície emprestada, quando é ESTA tecla que está exibindo o ditado. */
+  /** The borrowed surface, when THIS key is the one displaying the dictation. */
   private borrowedHere(actionId: string): Surface | null {
     if (!borrowed) return null;
     return this.lender()?.id === actionId ? borrowed : null;
   }
 
-  // ---------- atalho de teclado ----------
+  // ---------- keyboard shortcut ----------
 
   /**
-   * Recado de fora: `streamdeck://plugins/message/<uuid>/dictate?key=<apelido>`.
+   * A message from outside: `streamdeck://plugins/message/<uuid>/dictate?key=<nickname>`.
    *
-   * Alterna sempre — o mesmo atalho começa e termina —, porque um endereço é um pulso
-   * e não existe "soltou a tecla" para o modo de segurar.
+   * Always a toggle — the same shortcut starts and ends it — because an address is a
+   * pulse and there is no "key released" for hold mode.
    */
   private async onDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
-    // As duas travas são SÍNCRONAS de propósito: qualquer `await` antes delas abriria
-    // a janela em que a rajada de repetição do teclado se transforma em N gravações.
+    // Both locks are SYNCHRONOUS on purpose: any `await` before them would open the
+    // window in which the keyboard's repeat burst turns into N recordings.
     if (linkRunning) return;
     const path0 = ev.url.path.replace(/^\/+|\/+$/g, "");
     const alias0 = normalizeAlias(ev.url.queryParameters.get("key") ?? path0.split("/")[1] ?? "");
@@ -359,19 +361,19 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
     const ffmpeg = ffmpegOf(global);
     const fail = (why: string): void => {
-      streamDeck.logger.warn(`atalho: ${why}`);
+      streamDeck.logger.warn(`shortcut: ${why}`);
       beep(ffmpeg, "error");
     };
 
     const path = ev.url.path.replace(/^\/+|\/+$/g, "");
     const [verb, tail] = path.split("/");
-    if (verb && verb !== "dictate") return fail(`comando desconhecido "${verb}"`);
+    if (verb && verb !== "dictate") return fail(`unknown command "${verb}"`);
 
     const alias = normalizeAlias(ev.url.queryParameters.get("key") ?? tail ?? "");
-    if (!alias) return fail("endereço sem apelido");
+    if (!alias) return fail("address with no nickname");
 
     const entry = lookup(alias);
-    if (!entry) return fail(`apelido "${alias}" não corresponde a nenhuma tecla conhecida`);
+    if (!entry) return fail(`nickname "${alias}" matches no known key`);
 
     const surface =
       borrowed?.id === `sc:${alias}`
@@ -383,17 +385,17 @@ export class Dictation extends SingletonAction<ActionSettings> {
       await this.stopAndProcess(surface, await surface.getSettings());
       return;
     }
-    // Já está transcrevendo ou escrevendo: o atalho não cancela (cancelar é segurar
-    // uma tecla, gesto que o teclado não tem). Só avisa que chegou tarde.
+    // Already transcribing or writing: the shortcut does not cancel (cancelling means
+    // holding a key, a gesture the keyboard does not have). It only says you came late.
     if (isAnimated(st.phase)) {
       beep(ffmpeg, "cancel");
       return;
     }
 
-    // Jogo em tela cheia: não grava. Calado de propósito — um bipe por cima do jogo
-    // seria exatamente o incômodo que esta trava existe para evitar.
+    // Full-screen game: do not record. Silent on purpose — a beep over the game would be
+    // exactly the annoyance this lock exists to avoid.
     if (await isForegroundFullscreen()) {
-      streamDeck.logger.info(`atalho "${alias}" ignorado: janela em tela cheia`);
+      streamDeck.logger.info(`shortcut "${alias}" ignored: full-screen window`);
       return;
     }
 
@@ -406,19 +408,19 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.startRecording(surface, await surface.getSettings());
   }
 
-  // ---------- desenho ----------
+  // ---------- drawing ----------
 
   private async render(a: Surface, raw: ActionSettings): Promise<void> {
-    // Tecla emprestando a tela não pode redesenhar o próprio estado por cima do
-    // ditado alheio que está exibindo.
+    // A key lending its screen must not redraw its own state on top of somebody else's
+    // dictation that it is displaying.
     if (borrowed && a.id !== borrowed.id && this.lender()?.id === a.id) return;
 
     const s = withDefaults(raw);
     const st = getState(a.id);
     const T = keyText(uiLocaleCache);
 
-    // A direção visual escolhida vale para TODOS os estados: uma tecla neon que
-    // virasse aurora ao gravar não seria a mesma tecla.
+    // The chosen visual direction applies to ALL states: a neon key that turned aurora
+    // while recording would not be the same key.
     const style = s.keyStyle;
 
     let img: string;
@@ -452,8 +454,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
         break;
 
       case "done":
-        // A contagem vem em duas linhas — número grande, palavra pequena — porque o
-        // que se lê de relance é o NÚMERO. "142 pal." numa linha só empatava os dois.
+        // The count comes on two lines — big number, small word — because what you read
+        // at a glance is the NUMBER. "142 wds" on one line tied the two for attention.
         img = keyImage({
           color: s.colorDone,
           style,
@@ -494,8 +496,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
       cur.phase = "idle";
       cur.message = undefined;
       cur.levels = [];
-      // Todo desfecho passa por aqui — é o ponto em que a tecla emprestada volta a
-      // ser ela mesma, em vez de desenhar o ocioso de um ditado que não é dela.
+      // Every outcome passes through here — it is the point at which the borrowed key
+      // becomes itself again, instead of drawing the idle state of someone else's
+      // dictation.
       if (a.onIdle) {
         void a.onIdle();
         return;
@@ -504,7 +507,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     }, ms);
   }
 
-  // ---------- teclas ----------
+  // ---------- key presses ----------
 
   override async onKeyDown(ev: KeyDownEvent<ActionSettings>): Promise<void> {
     if (!ev.action.isKey()) return;
@@ -513,9 +516,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     const s = withDefaults(ev.payload.settings);
 
-    // Emprestando a tela: esta tecla é o botão de parada do ditado que ela exibe, e
-    // não a tecla dela mesma. Vem ANTES do ptt, senão o keyDown iniciaria uma segunda
-    // gravação que a trava global só recusaria depois.
+    // Lending its screen: this key is the stop button for the dictation it displays, not
+    // its own key. This comes BEFORE ptt, otherwise keyDown would start a second
+    // recording that the global lock would only refuse afterwards.
     const lent = this.borrowedHere(ev.action.id);
     if (lent) {
       const bst = getState(lent.id);
@@ -534,7 +537,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       return;
     }
 
-    // Aviso ao vivo de que segurar vai cancelar.
+    // Live warning that holding will cancel.
     if (st.phase === "recording" || st.phase === "transcribing" || st.phase === "texting") {
       clearTimeout(st.holdTimer);
       st.holdTimer = setTimeout(() => {
@@ -559,8 +562,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const s = withDefaults(ev.payload.settings);
     const T = keyText(uiLocaleCache);
 
-    // Emprestando a tela: age sobre o ditado exibido, com a mesma gramática de sempre
-    // — toque para e entrega, segurar cancela.
+    // Lending its screen: it acts on the displayed dictation, with the usual grammar —
+    // a tap stops and delivers, a hold cancels.
     const lent = this.borrowedHere(a.id);
     if (lent) {
       const bs = withDefaults(await lent.getSettings());
@@ -580,7 +583,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       return;
     }
 
-    // Processando: toque avisa, segurar aborta.
+    // Processing: a tap warns, a hold aborts.
     if (st.phase === "transcribing" || st.phase === "texting") {
       if (held >= HOLD_MS) {
         st.abort?.abort();
@@ -605,7 +608,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       return;
     }
 
-    // Ocioso. No ptt o keyDown já iniciou; aqui só o toggle age.
+    // Idle. In ptt the keyDown already started it; here only toggle acts.
     if (s.mode !== "ptt") await this.startRecording(a, ev.payload.settings);
   }
 
@@ -617,7 +620,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
     const T = keyText(await refreshUiLocale(global));
 
-    // Sem etapa de áudio: a tecla só reescreve o que estiver selecionado.
+    // No audio step: the key only rewrites whatever is selected.
     if (!s.transcribeOn) {
       await this.runTextOnly(a, s, global);
       return;
@@ -645,7 +648,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.startedAt = Date.now();
     await this.render(a, raw);
 
-    // Em paralelo, sem bloquear a gravação: onde o texto deve voltar.
+    // In parallel, without blocking the recording: where the text should come back to.
     void getFocusPid().then((pid) => { getState(a.id).focusPid = pid; });
 
     const rec = new Recorder({
@@ -677,7 +680,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     rec.on("maxReached", () => { void this.stopAndProcess(a, raw); });
 
     rec.on("error", (err) => {
-      streamDeck.logger.error("ffmpeg falhou", err);
+      streamDeck.logger.error("ffmpeg failed", err);
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = undefined;
@@ -726,7 +729,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.render(a, raw);
     if (s.beep) beep(ffmpeg, "stop");
 
-    // Espera o ffmpeg fechar o arquivo antes de ler: `q` termina o MP3 direito.
+    // Wait for ffmpeg to close the file before reading: `q` finishes the MP3 properly.
     await new Promise<void>((resolve) => {
       if (!rec) return resolve();
       rec.on("done", () => resolve());
@@ -741,8 +744,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const audioPath = st.audioPath;
     st.audioPath = undefined;
 
-    // Blindagem anti-eco: áudio curto ou sem fala não vai para a API. Sem isto, um
-    // toque sem querer poderia voltar com o próprio dicionario como "transcrição".
+    // Anti-echo shield: short audio or audio with no speech does not go to the API.
+    // Without this, an accidental tap could come back with the dictionary itself as the
+    // "transcription".
     const hadSpeech = rec?.speechDetected ?? false;
     if (!audioPath || durationMs < MIN_AUDIO_MS || !hadSpeech) {
       if (audioPath) await unlink(audioPath).catch(() => {});
@@ -754,7 +758,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.runPipeline(a, s, global, { audioPath, durationMs });
   }
 
-  /** Tecla sem etapa de áudio: pega a seleção (Ctrl+C) e reescreve. */
+  /** A key with no audio step: grabs the selection (Ctrl+C) and rewrites it. */
   private async runTextOnly(
     a: Surface,
     s: Required<ActionSettings>,
@@ -800,7 +804,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     let raw = src.input ?? "";
 
     try {
-      // --- etapa 1: transcrição ---
+      // --- step 1: transcription ---
       if (src.audioPath) {
         st.phase = "transcribing";
         await this.render(a, await a.getSettings());
@@ -829,7 +833,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
         raw = applyCanon(result.text, terms);
       }
 
-      // --- etapa 2: texto ---
+      // --- step 2: text ---
       let final = raw;
       const textOpts = textOptions(s, terms, contentLocale(global, s.language));
       if (s.textOn && hasTextWork(textOpts)) {
@@ -845,7 +849,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
           final = applyCanon(out, terms);
           models.push(s.textModel);
         } catch (err) {
-          // Recusa do modelo NÃO pode custar a fala: entrega o texto cru.
+          // A model refusal must NOT cost you the speech: deliver the raw text.
           if (err instanceof ApiError && err.kind === "filter" && raw) {
             note = "bloqueado — texto cru";
             final = raw;
@@ -855,7 +859,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
         }
       }
 
-      // --- entrega ---
+      // --- delivery ---
       const how = await deliver(final, { autoPaste: s.autoPaste, expectPid: st.focusPid });
 
       if (s.history) {
@@ -869,7 +873,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
             note,
           },
           s.historyDir,
-        ).catch((e) => streamDeck.logger.warn("histórico falhou", e));
+        ).catch((e) => streamDeck.logger.warn("history failed", e));
       }
 
       if (src.audioPath && !s.keepAudio) await unlink(src.audioPath).catch(() => {});
@@ -878,20 +882,20 @@ export class Dictation extends SingletonAction<ActionSettings> {
       if (note) {
         await this.flash(a, "warn", [...T.rawBlocked], 4000);
       } else if (how === "copied" && s.autoPaste) {
-        // O foco mudou: não colamos. O texto está no clipboard esperando.
+        // The focus changed: we do not paste. The text is on the clipboard, waiting.
         await this.flash(a, "warn", [...T.copied], 3500);
       } else {
         await this.flash(a, "done", [...wordCountLines(wordCount(final), uiLocaleCache)], 2000);
       }
     } catch (err) {
-      streamDeck.logger.error("pipeline falhou", err);
+      streamDeck.logger.error("pipeline failed", err);
 
-      // Áudio que falhou é preservado mesmo com "guardar áudio" desligado —
-      // perder minutos de fala por causa de um 429 seria inaceitavel.
+      // Audio from a failed upload is preserved even with "keep audio" switched off —
+      // losing minutes of speech to a 429 would be unacceptable.
       if (src.audioPath) {
         const dest = join(FAILED_DIR, `${stamp()}.mp3`);
         await rename(src.audioPath, dest).catch(() => {});
-        streamDeck.logger.warn(`audio preservado em ${dest}`);
+        streamDeck.logger.warn(`audio preserved at ${dest}`);
       }
 
       st.levels = [];
@@ -900,15 +904,15 @@ export class Dictation extends SingletonAction<ActionSettings> {
     }
   }
 
-  // ---------- ponte com o painel ----------
+  // ---------- bridge to the panel ----------
 
   override async onSendToPlugin(ev: SendToPluginEvent<PiMessage, ActionSettings>): Promise<void> {
     const msg = ev.payload;
     const a = ev.action;
     const global = (await streamDeck.settings.getGlobalSettings<GlobalSettings>()) ?? {};
     const ffmpeg = ffmpegOf(global);
-    // No SDK v2 quem fala com o painel é streamDeck.ui, não o objeto da ação.
-    // A mensagem só sai se houver um PI visível — o próprio SDK garante isso.
+    // In SDK v2 the one that talks to the panel is streamDeck.ui, not the action object.
+    // The message only goes out if there is a visible PI — the SDK itself guarantees that.
     const reply = (data: object) => {
       void streamDeck.ui.sendToPropertyInspector(data as never);
     };
@@ -934,15 +938,15 @@ export class Dictation extends SingletonAction<ActionSettings> {
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
-            // As listas saem no idioma do PAINEL — quem lê é o usuário.
+            // The lists come out in the PANEL's language — the user is the reader.
             languages: spokenLanguages(uiLocale, msg.autoLabel || "Detect / mixed"),
             targetLanguages: targetLanguages(uiLocale),
           });
           break;
         }
 
-        // Mostra ao painel o texto EXATO que vai para a API. Nada de prompt oculto:
-        // se o plugin manda, você pode ler.
+        // Shows the panel the EXACT text that goes to the API. No hidden prompt: if the
+        // plugin sends it, you can read it.
         case "preview": {
           const s = withDefaults(await a.getSettings());
           const terms = parseTerms(global.canonTerms);
@@ -969,17 +973,17 @@ export class Dictation extends SingletonAction<ActionSettings> {
           break;
         }
 
-        // A tecla desenhada, para o painel mostrar ao vivo o efeito de cor, ícone,
-        // rótulo e corpo de fonte. As configurações vêm NA mensagem, e não de
-        // `a.getSettings()`, porque o painel grava com atraso de 150 ms — lendo do
-        // Stream Deck, a prévia mostraria sempre o penúltimo caractere digitado.
+        // The drawn key, so the panel can show the effect of colour, icon, label and font
+        // size live. The settings come IN the message, and not from `a.getSettings()`,
+        // because the panel saves with a 150 ms delay — reading from the Stream Deck, the
+        // preview would always show the second-to-last character typed.
         case "keyPreview": {
           const s = withDefaults(msg.settings);
           reply({
             event: "keyPreview",
             image: idleImage(s, uiLocaleCache),
-            // As grades custam ~20 KB e só mudam quando muda a cor ou a direção —
-            // não a cada tecla digitada no rótulo. Por isso o painel pede à parte.
+            // The grids cost ~20 KB and only change when the colour or the direction
+            // changes — not on every keystroke in the label. Hence the separate request.
             icons: msg.withThumbs
               ? ICON_NAMES.map((n) => ({ name: n, image: iconThumb(n, s.keyStyle, s.colorIdle) }))
               : undefined,
@@ -1011,14 +1015,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
             contentLang: msg.contentLang ?? global.contentLang,
           };
           await streamDeck.settings.setGlobalSettings(next);
-          // A tecla também escreve no idioma do painel: trocar o seletor tem de
-          // repintar as teclas visíveis, não só o painel.
+          // The key writes in the panel's language too: moving the selector has to repaint
+          // the visible keys, not just the panel.
           await refreshUiLocale(next);
           for (const other of this.actions) {
             if (other.isKey()) await this.render(other, await other.getSettings());
           }
-          // Trocar o idioma de conteúdo renomeia e reescreve os presets de fábrica,
-          // então o painel precisa da lista nova junto com a confirmação.
+          // Changing the content language renames and rewrites the built-in presets, so
+          // the panel needs the new list along with the confirmation.
           reply({
             event: "globalSaved",
             presets: await presetSummaries(contentLocale(next)),
@@ -1029,7 +1033,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
         case "applyPreset": {
           const preset = await getPreset(msg.id, contentLocale(global));
-          if (!preset) { reply({ event: "error", message: "preset não encontrado" }); break; }
+          if (!preset) { reply({ event: "error", message: "preset not found" }); break; }
           const current = await a.getSettings();
           const next: ActionSettings = { ...current, presetId: preset.id };
           for (const k of PRESET_FIELDS) {
@@ -1037,11 +1041,11 @@ export class Dictation extends SingletonAction<ActionSettings> {
             if (v !== undefined) (next as any)[k] = v;
           }
           await a.setSettings(next);
-          // Redesenha AQUI, na mão: quando é o plugin que grava as configurações, o
-          // Stream Deck avisa o painel mas não devolve `didReceiveSettings` para o
-          // próprio plugin. Como a tecla ociosa fica fora do ciclo de animação, ela
-          // continuava com o desenho antigo — e o preset só "pegava" no clique
-          // seguinte, quando outro evento acabava forçando o redesenho.
+          // Redraw HERE, by hand: when it is the plugin that saves the settings, the
+          // Stream Deck notifies the panel but does not send `didReceiveSettings` back to
+          // the plugin itself. Since an idle key sits outside the animation cycle, it kept
+          // the old drawing — and the preset only "took" on the next click, when some
+          // other event ended up forcing the redraw.
           if (a.isKey()) await this.render(a, next);
           reply({ event: "presetApplied", settings: next });
           break;
@@ -1072,17 +1076,19 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
         case "testMic": {
           const device = msg.device || (await this.defaultDevice(ffmpeg));
-          if (!device) { reply({ event: "micResult", ok: false, message: "nenhum microfone" }); break; }
+          if (!device) { reply({ event: "micResult", ok: false, message: "no microphone" }); break; }
           const r = await probeMic(ffmpeg, device, 3);
           reply({
             event: "micResult",
             ok: r.ok && isFinite(r.peakDb),
             peakDb: isFinite(r.peakDb) ? Math.round(r.peakDb) : null,
+            // Not routed through i18n: these come from the plugin, which has no
+            // translation for them. English by decision — see the note in vault.ts.
             message: !r.ok
-              ? "não consegui abrir o microfone"
+              ? "could not open the microphone"
               : !isFinite(r.peakDb) || r.peakDb < -50
-                ? "abriu, mas não captou som — fale durante o teste"
-                : `ok — pico ${Math.round(r.peakDb)} dB`,
+                ? "opened, but picked up no sound — speak during the test"
+                : `ok — peak ${Math.round(r.peakDb)} dB`,
           });
           break;
         }
@@ -1094,10 +1100,10 @@ export class Dictation extends SingletonAction<ActionSettings> {
           });
           break;
 
-        // O painel manda o que foi digitado e recebe de volta a forma normalizada, o
-        // endereço pronto para copiar e o aviso de apelido já usado. A normalização
-        // vive no plugin, e não no painel, para não haver duas regras de aplainar
-        // acento — a que valeria é sempre a do plugin.
+        // The panel sends what was typed and gets back the normalised form, the address
+        // ready to copy and the warning about a nickname already in use. Normalisation
+        // lives in the plugin, not in the panel, so there are not two rules for flattening
+        // accents — the one that would count is always the plugin's.
         case "shortcutCheck": {
           const alias = normalizeAlias(msg.alias);
           const owner = alias ? ownerOf(alias) : undefined;
@@ -1111,7 +1117,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
         }
       }
     } catch (err) {
-      streamDeck.logger.error("painel: comando falhou", err);
+      streamDeck.logger.error("panel: command failed", err);
       reply({ event: "error", message: err instanceof Error ? err.message : String(err) });
     }
   }
@@ -1131,7 +1137,7 @@ type PiMessage =
   | { cmd: "budget"; context: string }
   | { cmd: "shortcutCheck"; alias?: string };
 
-/** Usado pelo Property Inspector para o botão "Testar" do microfone. */
+/** Used by the Property Inspector for the microphone's "Test" button. */
 export async function probeMic(ffmpeg: string, device: string, seconds: number): Promise<{ peakDb: number; ok: boolean }> {
   const out = join(AUDIO_DIR, `probe-${Date.now()}.mp3`);
   const rec = new Recorder({

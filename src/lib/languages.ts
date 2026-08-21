@@ -1,19 +1,19 @@
-// Nomes de idioma, traduzidos para o idioma de quem está lendo.
+// Language names, translated into the language of whoever is reading.
 //
-// Usa Intl.DisplayNames em vez de três tabelas escritas à mão. Verificado: o Node
-// embarcado do Stream Deck (20.x) tem ICU **completo**, então "en" vira "inglês",
-// "English" ou "inglés" conforme o caso, sem manutenção — e sem esquecer de traduzir
-// um idioma novo quando ele for acrescentado à lista.
+// Uses Intl.DisplayNames instead of three hand-written tables. Verified: the Node
+// embedded in the Stream Deck (20.x) has **full** ICU, so "en" becomes "inglês",
+// "English" or "inglés" as the case may be, with no maintenance — and with no chance of
+// forgetting to translate a new language when it is added to the list.
 //
-// Há dois usos com formatações diferentes:
-//   - UI:     "Inglês"  (capitalizado, dentro de um <select>)
-//   - PROMPT: "inglês"  (minúsculo, dentro da frase "Traduza o texto para inglês")
-// Português e espanhol escrevem idioma em minúscula; inglês, em maiúscula. O Intl já
-// devolve a forma certa de cada um, então só a UI recebe capitalização forçada.
+// There are two uses with different formatting:
+//   - UI:     "Inglês"  (capitalised, inside a <select>)
+//   - PROMPT: "inglês"  (lowercase, inside the sentence "Traduza o texto para inglês")
+// Portuguese and Spanish write language names in lowercase; English capitalises them.
+// Intl already returns the right form for each, so only the UI forces capitalisation.
 
 import type { Locale } from "./prompt-text.js";
 
-/** Idiomas que a pessoa pode FALAR (parâmetro `language` da transcrição). */
+/** Languages the person can SPEAK (the transcription's `language` parameter). */
 export const SPOKEN_CODES = [
   "pt", "en", "es", "fr", "de", "it", "nl", "ca", "gl", "ja", "zh", "ko", "ru",
   "uk", "pl", "tr", "ar", "he", "hi", "id", "sv", "no", "da", "fi", "el", "cs",
@@ -21,15 +21,15 @@ export const SPOKEN_CODES = [
 ];
 
 /**
- * Idiomas de DESTINO da tradução. Sem "detectar": não se traduz para o desconhecido.
+ * TARGET languages for translation. No "detect": you do not translate into the unknown.
  *
- * Acrescentar um código aqui BASTA: o nome sai traduzido do Intl.DisplayNames e a
- * ordenação alfabética se ajusta sozinha, sem tabela para manter.
+ * Adding a code here is ENOUGH: the name comes out translated from Intl.DisplayNames and
+ * the alphabetical ordering adjusts itself, with no table to maintain.
  *
- * Onde a lista para: nos mesmos idiomas já aceitos como falados. A OpenAI declara 98
- * idiomas treinados, mas avisa que fora da lista principal a qualidade cai — e
- * oferecer um destino que traduz mal é pior do que não oferecer. Catalão e galego
- * ficam de fora por isso: entram como fala, não como destino.
+ * Where the list stops: at the same languages already accepted as spoken. OpenAI claims
+ * 98 trained languages, but warns that quality drops outside the main list — and
+ * offering a target that translates badly is worse than not offering it. Catalan and
+ * Galician are left out for that reason: they go in as speech, not as a target.
  */
 export const TARGET_CODES = [
   "en", "es", "pt", "fr", "de", "it", "nl", "ja", "zh", "ko", "ru", "ar",
@@ -44,13 +44,13 @@ function displayNames(locale: Locale): Intl.DisplayNames | null {
     try {
       cache.set(locale, new Intl.DisplayNames([locale], { type: "language" }));
     } catch {
-      cache.set(locale, null); // ICU sem dados: cai para o próprio código
+      cache.set(locale, null); // ICU with no data: falls back to the code itself
     }
   }
   return cache.get(locale) ?? null;
 }
 
-/** Nome do idioma como ele se escreve dentro de uma frase. Ex.: pt/"en" → "inglês". */
+/** The language name as written inside a sentence. E.g. pt/"en" -> "inglês". */
 export function languageName(locale: Locale, code: string): string {
   try {
     return displayNames(locale)?.of(code) ?? code;
@@ -59,7 +59,7 @@ export function languageName(locale: Locale, code: string): string {
   }
 }
 
-/** Nome do idioma para aparecer numa lista. Ex.: pt/"en" → "Inglês". */
+/** The language name as it shows up in a list. E.g. pt/"en" -> "Inglês". */
 export function languageLabel(locale: Locale, code: string): string {
   const name = languageName(locale, code);
   return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
@@ -74,9 +74,9 @@ function sorted(locale: Locale, codes: string[]): Option[] {
 }
 
 /**
- * Lista de idiomas falados, no idioma de quem lê.
- * O item vazio (detecção automática) vem sempre primeiro; o resto sai em ordem
- * alfabética do idioma da interface — nenhuma língua privilegiada.
+ * List of spoken languages, in the reader's language.
+ * The empty item (auto-detection) always comes first; the rest come out in alphabetical
+ * order for the interface language — no privileged tongue.
  */
 export function spokenLanguages(locale: Locale, autoLabel: string): Option[] {
   return [{ code: "", label: autoLabel }, ...sorted(locale, SPOKEN_CODES)];
@@ -86,7 +86,7 @@ export function targetLanguages(locale: Locale): Option[] {
   return sorted(locale, TARGET_CODES);
 }
 
-/** Sigla curta para o badge da tecla: "EN", "ES". */
+/** Short code for the key badge: "EN", "ES". */
 export function languageBadge(code: string): string {
   return (code || "").slice(0, 2).toUpperCase();
 }

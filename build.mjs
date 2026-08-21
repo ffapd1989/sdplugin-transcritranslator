@@ -1,10 +1,11 @@
-// Bundle do plugin. O banner injeta um `require` (createRequire) porque a lib `ws`
-// (WebSocket do SDK) usa require() de builtins e o esbuild em ESM não suporta
-// require dinâmico sem esse shim. Mesmo padrão já validado no plugin da VPN.
+// The plugin bundle. The banner injects a `require` (createRequire) because the `ws`
+// library (the SDK's WebSocket) uses require() on builtins and esbuild in ESM does not
+// support dynamic require without that shim. The same pattern already validated in the
+// VPN plugin.
 //
-// O build também é o guardião da VERSÃO: version.json é a fonte única, e daqui ela
-// vai para o bundle E para o manifest. Assim não existe a possibilidade de o painel
-// dizer uma versão e o Stream Deck mostrar outra.
+// The build is also the guardian of the VERSION: version.json is the single source, and
+// from here it goes into the bundle AND into the manifest. That way there is no chance of
+// the panel claiming one version while the Stream Deck shows another.
 
 import * as esbuild from "esbuild";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -16,16 +17,16 @@ const MANIFEST_FILE = "com.felipe.transcritranslator.sdPlugin/manifest.json";
 
 const { version, date } = JSON.parse(readFileSync(VERSION_FILE, "utf8"));
 
-// O manifest da Elgato exige quatro dígitos (a.b.c.d).
+// Elgato's manifest requires four digits (a.b.c.d).
 if (!/^\d+\.\d+\.\d+\.\d+$/.test(version)) {
-  throw new Error(`version.json: "${version}" não está no formato a.b.c.d`);
+  throw new Error(`version.json: "${version}" is not in a.b.c.d format`);
 }
 
 const manifest = JSON.parse(readFileSync(MANIFEST_FILE, "utf8"));
 if (manifest.Version !== version) {
   manifest.Version = version;
   writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2) + "\n", "utf8");
-  console.log(`manifest sincronizado para ${version}`);
+  console.log(`manifest synced to ${version}`);
 }
 
 const options = {

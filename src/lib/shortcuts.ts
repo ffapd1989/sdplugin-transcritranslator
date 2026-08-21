@@ -1,60 +1,59 @@
-// O caderninho dos atalhos de teclado.
+// The keyboard shortcuts' little notebook.
 //
-// POR QUE ELE EXISTE: o SDK só entrega as ações VISÍVEIS (`SingletonAction.actions`
-// é literalmente "the visible actions"). Uma tecla que mora na tela 5 não existe para
-// o plugin enquanto você está na tela 1 — não dá para ler as configurações dela nem
-// desenhar nela. Como o ponto do atalho de teclado é justamente acionar o que não
-// está à vista, o plugin guarda por conta própria uma cópia das configurações de
-// cada tecla que já apareceu alguma vez, indexada pelo apelido que a pessoa deu.
+// WHY IT EXISTS: the SDK only hands over the VISIBLE actions (`SingletonAction.actions`
+// is literally "the visible actions"). A key that lives on page 5 does not exist as far
+// as the plugin is concerned while you are on page 1 — you cannot read its settings nor
+// draw on it. Since the whole point of the keyboard shortcut is to trigger what is not
+// in sight, the plugin keeps a copy of its own of the settings of every key that has
+// shown up at least once, indexed by the nickname the person gave it.
 //
-// POR QUE EM ARQUIVO, e não nas settings globais do Stream Deck: as globais são a
-// chave da OpenAI, o dicionário e as preferências de idioma — coisas da PESSOA. Isto
-// aqui é um índice derivado, que o plugin reconstrói sozinho conforme as teclas
-// aparecem. Misturar os dois faria o painel carregar um mapa inteiro de teclas a cada
-// abertura, sem nenhum ganho.
+// WHY IN A FILE, and not in the Stream Deck global settings: the globals are the OpenAI
+// key, the dictionary and the language preferences — the PERSON's things. This is a
+// derived index, which the plugin rebuilds by itself as keys show up. Mixing the two
+// would make the panel load a whole map of keys on every open, for no gain at all.
 //
-// NÃO É CACHE DESCARTÁVEL: se o arquivo sumir, um atalho para uma tecla que ainda não
-// apareceu nesta sessão deixa de funcionar até você visitar a tela dela. Por isso ele
-// é gravado em disco e lido no boot.
+// IT IS NOT A DISPOSABLE CACHE: if the file disappears, a shortcut pointing at a key
+// that has not shown up in this session stops working until you visit its page. That is
+// why it is written to disk and read at boot.
 
 import { readFile, writeFile } from "node:fs/promises";
 import { SHORTCUTS_FILE } from "./paths.js";
 import type { ActionSettings } from "./settings.js";
 
 export type ShortcutEntry = {
-  /** Contexto da ação na sessão em que ela foi vista por último. Pode estar morto. */
+  /** The action's context in the session it was last seen in. May be dead. */
   actionId: string;
-  /** Cópia das configurações da tecla, para rodar o ditado sem ela na tela. */
+  /** Copy of the key's settings, so dictation can run without it on screen. */
   settings: ActionSettings;
-  /** Quando foi visto pela última vez (ms). Só para diagnóstico. */
+  /** When it was last seen (ms). For diagnostics only. */
   seenAt: number;
 };
 
 /**
- * Apelido -> tecla. Um apelido só, uma tecla só.
+ * Nickname -> key. One nickname, one key.
  *
- * A regra de conflito é "vale a primeira que apareceu": copiar e colar uma tecla
- * dentro do app do Stream Deck copia as configurações junto, apelido incluso, e
- * adivinhar qual das duas cópias é a "verdadeira" erraria nos casos legítimos.
- * Quem resolve é a pessoa, avisada pelo painel.
+ * The conflict rule is "first one to show up wins": copying and pasting a key inside the
+ * Stream Deck app copies the settings along with it, nickname included, and guessing
+ * which of the two copies is the "real" one would get the legitimate cases wrong. The
+ * person settles it, warned by the panel.
  */
 const entries = new Map<string, ShortcutEntry>();
 let loaded = false;
 let writeTimer: NodeJS.Timeout | undefined;
 
 /**
- * Apelido -> forma canônica para caber numa URL.
+ * Nickname -> canonical form, so it fits in a URL.
  *
- * Acento vira sopa de `%C3%AA` no endereço, então some aqui. Isto NÃO fere a regra de
- * acentuação do projeto: o que a pessoa lê continua acentuado; o que é aplainado é um
- * identificador técnico, da mesma família de um nome de variável. O painel mostra o
- * resultado na hora, então nunca é surpresa.
+ * An accent turns into `%C3%AA` soup in the address, so it goes away here. This does NOT
+ * break the project's accent rule: what the person reads stays accented; what gets
+ * flattened is a technical identifier, of the same family as a variable name. The panel
+ * shows the result immediately, so it is never a surprise.
  */
 export function normalizeAlias(raw: string | undefined): string {
   return (raw ?? "")
     .normalize("NFD")
-    // Faixa dos diacríticos combinantes, escrita em escape para não depender do
-    // encoding com que este arquivo for lido algum dia.
+    // The combining diacritics range, written as escapes so it does not depend on
+    // whatever encoding this file is read with some day.
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -62,7 +61,7 @@ export function normalizeAlias(raw: string | undefined): string {
     .slice(0, 40);
 }
 
-/** Monta o endereço que vai no atalho de teclado. */
+/** Builds the address that goes into the keyboard shortcut. */
 export function shortcutUrl(alias: string, pluginUuid = "com.felipe.transcritranslator"): string {
   return `streamdeck://plugins/message/${pluginUuid}/dictate?key=${encodeURIComponent(alias)}&streamdeck=hidden`;
 }
@@ -78,18 +77,18 @@ export async function loadShortcuts(): Promise<void> {
       }
     }
   } catch {
-    /* primeira execução, ou arquivo corrompido: começa vazio */
+    /* first run, or a corrupted file: start empty */
   }
 }
 
 function persist(): void {
   clearTimeout(writeTimer);
-  // O painel grava a cada 150 ms enquanto se digita; agrupar evita uma escrita por
-  // caractere digitado no campo de apelido.
+  // The panel saves every 150 ms while you type; batching avoids one write per
+  // character typed into the nickname field.
   writeTimer = setTimeout(() => {
     void writeFile(SHORTCUTS_FILE, JSON.stringify(Object.fromEntries(entries), null, 2), "utf8").catch(
       () => {
-        /* o índice se reconstrói sozinho; falha de escrita não pode derrubar o ditado */
+        /* the index rebuilds itself; a write failure must not bring down dictation */
       },
     );
   }, 400);
@@ -101,13 +100,13 @@ export type RememberResult =
   | { status: "taken"; byLabel: string };
 
 /**
- * Anota (ou atualiza) a tecla no caderninho. Chamado sempre que uma tecla aparece ou
- * tem as configurações alteradas — é assim que a cópia fica fresca.
+ * Notes the key down (or updates it) in the notebook. Called whenever a key shows up or
+ * has its settings changed — that is how the copy stays fresh.
  */
 export function rememberKey(actionId: string, settings: ActionSettings): RememberResult {
   const alias = normalizeAlias(settings.shortcutAlias);
 
-  // Apelido apagado: a tecla sai do caderninho e deixa de ser alcançável.
+  // Nickname erased: the key leaves the notebook and stops being reachable.
   for (const [key, entry] of entries) {
     if (entry.actionId === actionId && key !== alias) {
       entries.delete(key);
@@ -130,14 +129,14 @@ export function lookup(alias: string): ShortcutEntry | undefined {
   return entries.get(normalizeAlias(alias));
 }
 
-/** Dono atual do apelido, para o painel avisar sobre conflito antes de salvar. */
+/** Current owner of the nickname, so the panel can warn about a clash before saving. */
 export function ownerOf(alias: string): { actionId: string; label: string } | undefined {
   const entry = entries.get(normalizeAlias(alias));
   if (!entry) return undefined;
   return { actionId: entry.actionId, label: entry.settings.label?.trim() || normalizeAlias(alias) };
 }
 
-/** Só para teste. */
+/** For tests only. */
 export function resetShortcuts(): void {
   entries.clear();
   loaded = false;

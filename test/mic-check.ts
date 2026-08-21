@@ -1,11 +1,11 @@
-// Checagem do núcleo de gravação contra o hardware de verdade.
+// A check of the recording core against real hardware.
 //
-// Valida o que teste puro não alcança: se o comando do ffmpeg com DUAS saídas
-// funciona, se o medidor de nível chega pelo stdout, se o `q` fecha o MP3 direito
-// e se o arquivo sai válido.
+// Validates what a pure test cannot reach: whether the ffmpeg command with TWO outputs
+// works, whether the level meter arrives over stdout, whether the `q` closes the MP3
+// properly and whether the file comes out valid.
 //
 //   npm run mic
-//   npm run mic -- "NOME DO MICROFONE"
+//   npm run mic -- "MICROPHONE NAME"
 
 import { stat, unlink } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -29,17 +29,17 @@ function probeDuration(file: string): Promise<number> {
 }
 
 const devices = await listAudioDevices(FFMPEG);
-console.log("\nmicrofones encontrados:");
+console.log("\nmicrophones found:");
 devices.forEach((d, i) => console.log(`  ${i + 1}. ${d.name}`));
 if (devices.length === 0) {
-  console.log("  nenhum — o ffmpeg não enxergou dispositivos dshow");
+  console.log("  none — ffmpeg did not see any dshow devices");
   process.exit(1);
 }
 
 const device = process.argv[2] || devices[0].name;
 const out = join(tmpdir(), `tt-miccheck-${Date.now()}.mp3`);
 
-console.log(`\ngravando ${SECONDS}s de "${device}" — fale alguma coisa\n`);
+console.log(`\nrecording ${SECONDS}s from "${device}" — say something\n`);
 
 const pidPromise = getFocusPid();
 const rec = new Recorder({
@@ -57,7 +57,7 @@ const t0 = Date.now();
 
 rec.on("ready", () => {
   readyAt = Date.now() - t0;
-  console.log(`  ffmpeg confirmou captura em ${readyAt} ms`);
+  console.log(`  ffmpeg confirmed capture in ${readyAt} ms`);
 });
 rec.on("level", (v) => {
   samples++;
@@ -66,7 +66,7 @@ rec.on("level", (v) => {
     process.stdout.write(`\r  [${bars}] ${(v * 100).toFixed(0).padStart(3)}%`);
   }
 });
-rec.on("error", (e) => console.log("\n  ERRO:", e.message));
+rec.on("error", (e) => console.log("\n  ERROR:", e.message));
 
 const done = new Promise<{ ok: boolean; stderr: string }>((r) => rec.on("done", r));
 rec.start();
@@ -79,19 +79,19 @@ const size = await stat(out).then((s) => s.size).catch(() => 0);
 const duration = size ? await probeDuration(out) : -1;
 const pid = await pidPromise;
 
-console.log("\nresultado:");
-console.log(`  saiu limpo         ${result.ok ? "sim" : "NÃO"}`);
-console.log(`  amostras de nível  ${samples}  (~${(samples / SECONDS).toFixed(0)}/s)`);
-console.log(`  pico               ${isFinite(rec.peakDb) ? rec.peakDb.toFixed(1) + " dBFS" : "nenhum sinal"}`);
-console.log(`  fala detectada     ${rec.speechDetected ? "sim" : "não"}`);
-console.log(`  arquivo            ${size} bytes`);
-console.log(`  duração do mp3     ${duration > 0 ? duration.toFixed(2) + "s" : "inválido"}`);
-console.log(`  kbps efetivo       ${duration > 0 ? ((size * 8) / duration / 1000).toFixed(0) : "—"}`);
-console.log(`  pid em foco        ${pid || "não consegui ler"}`);
+console.log("\nresult:");
+console.log(`  exited cleanly     ${result.ok ? "yes" : "NO"}`);
+console.log(`  level samples      ${samples}  (~${(samples / SECONDS).toFixed(0)}/s)`);
+console.log(`  peak               ${isFinite(rec.peakDb) ? rec.peakDb.toFixed(1) + " dBFS" : "no signal"}`);
+console.log(`  speech detected    ${rec.speechDetected ? "yes" : "no"}`);
+console.log(`  file               ${size} bytes`);
+console.log(`  mp3 duration       ${duration > 0 ? duration.toFixed(2) + "s" : "invalid"}`);
+console.log(`  effective kbps     ${duration > 0 ? ((size * 8) / duration / 1000).toFixed(0) : "—"}`);
+console.log(`  focused pid        ${pid || "could not read it"}`);
 if (result.stderr) console.log(`  stderr             ${result.stderr.slice(0, 300)}`);
 
 await unlink(out).catch(() => {});
 
 const good = result.ok && samples > 10 && size > 0 && duration > SECONDS * 0.6;
-console.log(`\n${good ? "NÚCLEO OK" : "NÚCLEO COM PROBLEMA"}\n`);
+console.log(`\n${good ? "CORE OK" : "CORE HAS A PROBLEM"}\n`);
 process.exit(good ? 0 : 1);

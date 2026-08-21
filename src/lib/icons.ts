@@ -1,38 +1,39 @@
-// A tecla, desenhada como SVG em runtime e pintada com setImage.
+// The key, drawn as SVG at runtime and painted with setImage.
 //
-// DIREÇÃO VISUAL (decidida em 26/07/2026 comparando oito propostas lado a lado —
-// ver docs/estilos/): fundo quase-preto e a cor SÓ no que informa. Sobraram três
-// direções, e a decisão foi **não eleger uma**: as três viraram opção por tecla.
+// VISUAL DIRECTION (decided on 26/07/2026 by comparing eight proposals side by side —
+// see docs/estilos/): a near-black background and colour ONLY on what carries
+// information. Three directions survived, and the decision was **not to elect one**:
+// all three became a per-key option.
 //
-//   neon    contorno aceso com halo de cor        — sintetizador/estúdio
-//   aurora  mancha de cor atrás do glifo branco   — macOS moderno
-//   ring    arco-medidor na cor em volta do glifo — instrumento/cockpit
+//   neon    a lit outline with a colour halo        — synthesiser/studio
+//   aurora  a smear of colour behind the white glyph — modern macOS
+//   ring    a colour meter-arc around the glyph      — instrument/cockpit
 //
-// UM DESENHO, DOIS MODOS. Os 18 ícones são descritos UMA vez, como lista de formas
-// com papéis (corpo, traço, vazado). O neon renderiza essa lista como contorno; a
-// aurora e o anel, como silhueta cheia. Desenhar 18 ícones duas vezes seria garantir
-// que um dia os dois conjuntos divergissem.
+// ONE DRAWING, TWO MODES. The 18 icons are described ONCE, as a list of shapes with
+// roles (body, stroke, cut-out). neon renders that list as an outline; aurora and ring
+// render it as a filled silhouette. Drawing 18 icons twice would be a guarantee that the
+// two sets diverge one day.
 //
-// NADA DE <filter>. Todo brilho aqui é gradiente — mesmo mecanismo que a tecla já
-// usava. Blur/glow de verdade dependeriam do renderizador do Stream Deck, que não
-// temos como testar sem o aparelho na mão.
+// NO <filter>. Every glow here is a gradient — the same mechanism the key already used.
+// Real blur/glow would depend on the Stream Deck renderer, which we have no way to test
+// without the device in hand.
 //
-// A waveform da gravação é ROLANTE de propósito: cada barra é um instante dos
-// ultimos ~2 s, deslizando da direita para a esquerda. Nove barras pulsando juntas
-// enfeitariam; o desenho da voz andando INFORMA — dá para ver na hora se o
-// microfone está mudo, se o ganho está baixo ou se a fala está entrando.
+// The recording waveform ROLLS on purpose: each bar is one instant of the last ~2 s,
+// sliding from right to left. Nine bars pulsing together would be decoration; the drawing
+// of a voice moving INFORMS — you can tell at a glance whether the microphone is muted,
+// whether the gain is low or whether speech is coming through.
 
 import { shade } from "./theme.js";
 import type { IconName, KeyStyle } from "./settings.js";
 
 const SIZE = 72;
-/** Fundo da tecla. Quase preto, não preto: o preto puro some no corpo do aparelho. */
+/** Key background. Near-black, not black: pure black disappears into the device body. */
 const BG = "#0C0C10";
-/** Borda neutra — quem carrega a cor é o conteúdo, não a moldura. */
+/** Neutral border — the content carries the colour, not the frame. */
 const EDGE = "#26262E";
-/** Branco levemente frio. Branco puro em fundo escuro "vibra". */
+/** A slightly cool white. Pure white on a dark background "vibrates". */
 const INK = "#EFF2F7";
-/** Altura que a arte central ocupa — usada para calcular o encolhimento. */
+/** Height the central artwork occupies — used to compute the shrinking. */
 const NATURAL = 42;
 
 function esc(s: string): string {
@@ -42,25 +43,25 @@ function esc(s: string): string {
 const f = (n: number): string => n.toFixed(2);
 
 // ---------------------------------------------------------------------------
-// O vocabulário de formas
+// The vocabulary of shapes
 // ---------------------------------------------------------------------------
 //
-// Todo ícone vive na MESMA grade: caixa de 32x32 centrada em (36,28). Ícone que sai
-// da grade estraga o conjunto inteiro — foi o que aconteceu com o primeiro lápis,
-// que vazava para fora do desenho.
+// Every icon lives on the SAME grid: a 32x32 box centred at (36,28). An icon that leaves
+// the grid ruins the whole set — which is what happened with the first pencil, which
+// spilled out of the drawing.
 
 type Role =
-  /** Forma fechada: preenchida no modo cheio, contornada no neon. */
+  /** A closed shape: filled in solid mode, outlined in neon. */
   | "body"
-  /** Sempre traço: arcos, setas, o "check" — coisas que não são massa. */
+  /** Always a stroke: arcs, arrows, the "check" — things that are not mass. */
   | "ink"
-  /** Detalhe: vazado na cor de trás no modo cheio, traço no neon. */
+  /** Detail: cut out in the background colour in solid mode, a stroke in neon. */
   | "cut"
-  /** Detalhe pequeno e sólido: vazado no modo cheio, tinta no neon. */
+  /** A small solid detail: cut out in solid mode, ink in neon. */
   | "cutfill"
-  /** Sempre preenchido, nos dois modos (estrelinhas, pontos). */
+  /** Always filled, in both modes (sparkles, dots). */
   | "fill"
-  /** A barra do "mudo": vaza por baixo e desenha por cima, senão gruda no glifo. */
+  /** The "muted" bar: cuts out underneath and draws on top, otherwise it sticks to the glyph. */
   | "slash";
 
 type El = "rect" | "circle" | "ellipse" | "line" | "path";
@@ -71,7 +72,7 @@ type Shape = {
   /** rect [x,y,w,h,rx] · circle [cx,cy,r] · ellipse [cx,cy,rx,ry] · line [x1,y1,x2,y2] */
   a?: number[];
   d?: string;
-  /** Multiplicador da espessura, quando esta forma pede mais peso que as outras. */
+  /** Thickness multiplier, for when this shape asks for more weight than the others. */
   w?: number;
 };
 
@@ -100,7 +101,7 @@ function emit(sh: Shape, attrs: string): string {
 const strokeAttrs = (c: string, w: number, extra = "") =>
   `fill="none" stroke="${c}" stroke-width="${f(w)}" stroke-linecap="round" stroke-linejoin="round" ${extra}`;
 
-/** Silhueta cheia — usada por `aurora` e `ring`. */
+/** Filled silhouette — used by `aurora` and `ring`. */
 function renderSolid(shapes: Shape[], tint: string, s: number, behind: string): string {
   return shapes
     .map((sh) => {
@@ -118,7 +119,7 @@ function renderSolid(shapes: Shape[], tint: string, s: number, behind: string): 
     .join("");
 }
 
-/** Contorno — usado por `neon`, que empilha três passadas desta função. */
+/** Outline — used by `neon`, which stacks three passes of this function. */
 function renderOutline(shapes: Shape[], tint: string, s: number, extra = ""): string {
   return shapes
     .map((sh) => {
@@ -135,7 +136,7 @@ function renderOutline(shapes: Shape[], tint: string, s: number, extra = ""): st
 }
 
 // ---------------------------------------------------------------------------
-// Os 18 ícones
+// The 18 icons
 // ---------------------------------------------------------------------------
 
 function star(cx: number, cy: number, r: number): Shape {
@@ -172,7 +173,7 @@ const GLYPHS: Record<Exclude<IconName, "none">, Shape[]> = {
     cut("line", [21.5, 28, 50.5, 28]),
   ],
 
-  // Duas setas opostas dizem "troca de idioma" sem depender de fonte com CJK.
+  // Two opposing arrows say "language swap" without depending on a CJK-capable font.
   translate: [
     ink("path", undefined, "M 22 22 H 47", 1.15),
     ink("path", undefined, "M 41 16.5 L 47 22 L 41 27.5", 1.15),
@@ -246,14 +247,14 @@ const GLYPHS: Record<Exclude<IconName, "none">, Shape[]> = {
   ],
 };
 
-/** Aviso — não é escolhível no painel, mas passa pelo mesmo pipeline de estilo. */
+/** Warning — not selectable in the panel, but it goes through the same style pipeline. */
 const WARN: Shape[] = [
   body("path", undefined, "M 36 10.5 L 54 41.5 L 18 41.5 Z"),
   cut("line", [36, 22, 36, 31], undefined, 1.3),
   cutfill("circle", [36, 36.5, 2.2]),
 ];
 
-/** Todos os ícones oferecidos, na ordem em que o painel os mostra. */
+/** Every icon on offer, in the order the panel shows them. */
 export const ICON_NAMES: IconName[] = [
   "mic", "micOff", "waves", "headset",
   "globe", "translate", "bubble", "quote",
@@ -266,26 +267,26 @@ export const ICON_NAMES: IconName[] = [
 export const KEY_STYLES: KeyStyle[] = ["neon", "aurora", "ring"];
 
 // ---------------------------------------------------------------------------
-// As três direções
+// The three directions
 // ---------------------------------------------------------------------------
 
 /**
- * O traço, compensado pelo encolhimento — parcialmente.
+ * The stroke, compensated for the shrinking — partially.
  *
- * MEDIDO, não estimado: com o rótulo em três linhas o glifo cai para k ≈ 0,4, e um
- * traço de 3,1 px vira 1,2 px e some. Compensar por inteiro (1/k, que é o que
- * `vector-effect="non-scaling-stroke"` faria) devolve os 3,1 px — mas num glifo
- * reduzido a 40% isso fica proporcionalmente enorme e o microfone vira uma mancha.
- * A raiz fica no meio: ~2,0 px efetivos, visível sem engordar.
+ * MEASURED, not estimated: with a three-line label the glyph drops to k ~ 0.4, and a
+ * 3.1 px stroke becomes 1.2 px and disappears. Compensating in full (1/k, which is what
+ * `vector-effect="non-scaling-stroke"` would do) gives back the 3.1 px — but on a glyph
+ * reduced to 40% that is proportionally enormous and the microphone turns into a blob.
+ * The square root sits in the middle: ~2.0 px effective, visible without fattening up.
  */
 function strokeFor(k: number): number {
   return 3.1 / Math.sqrt(k);
 }
 
 type Art = {
-  /** Vai atrás de tudo e NÃO encolhe com o glifo — atmosfera da tecla inteira. */
+  /** Goes behind everything and does NOT shrink with the glyph — atmosphere for the whole key. */
   backdrop: string;
-  /** Encolhe junto com o glifo quando o rótulo ocupa espaço. */
+  /** Shrinks along with the glyph when the label takes up space. */
   glyph: string;
   defs: string;
 };
@@ -296,8 +297,8 @@ function styleArt(style: KeyStyle, shapes: Shape[], color: string, k: number): A
 
   switch (style) {
     case "neon": {
-      // Três passadas: eco largo e apagado, traço na cor, filete branco no miolo.
-      // É o que dá a impressão de luz sem um único filtro.
+      // Three passes: a wide faint echo, a stroke in the colour, a white hairline in the
+      // middle. That is what gives the impression of light without a single filter.
       return {
         defs:
           `<radialGradient id="h" cx="0.5" cy="0.5" r="0.5">` +
@@ -315,8 +316,9 @@ function styleArt(style: KeyStyle, shapes: Shape[], color: string, k: number): A
     }
 
     case "aurora": {
-      // A mancha é da TECLA, não do glifo: fica fora do grupo que encolhe, e o raio
-      // acompanha o da tecla — sem isso ela vaza pelos cantos arredondados.
+      // The smear belongs to the KEY, not to the glyph: it sits outside the group that
+      // shrinks, and its radius follows the key's — without that it leaks out of the
+      // rounded corners.
       return {
         defs:
           `<radialGradient id="h" cx="0.38" cy="0.30" r="0.75">` +
@@ -330,7 +332,7 @@ function styleArt(style: KeyStyle, shapes: Shape[], color: string, k: number): A
     }
 
     case "ring": {
-      // Arco de ~300°, aberto embaixo. O glifo entra reduzido para caber dentro.
+      // A ~300 degree arc, open at the bottom. The glyph goes in reduced so it fits inside.
       return {
         defs:
           `<linearGradient id="h" x1="0" y1="0" x2="0" y2="1">` +
@@ -350,10 +352,11 @@ function styleArt(style: KeyStyle, shapes: Shape[], color: string, k: number): A
 }
 
 // ---------------------------------------------------------------------------
-// Estados animados — iguais nas três direções, porque já são cor pura sobre escuro
+// Animated states — identical across the three directions, because they are already
+// pure colour on dark
 // ---------------------------------------------------------------------------
 
-/** Reticencias animadas por fase — dá sensacao de progresso sem custo. */
+/** Ellipsis animated by phase — gives a sense of progress at no cost. */
 function dotsGlyph(color: string, phase: number): string {
   const { lite } = shade(color);
   return [0, 1, 2]
@@ -364,7 +367,7 @@ function dotsGlyph(color: string, phase: number): string {
     .join("");
 }
 
-/** Waveform rolante: `levels` em 0..1, do mais antigo ao mais recente. */
+/** Rolling waveform: `levels` in 0..1, oldest to most recent. */
 function waveGlyph(levels: number[]): string {
   const BARS = 9;
   const w = 4.6;
@@ -381,8 +384,8 @@ function waveGlyph(levels: number[]): string {
     .map((v, i) => {
       const h = Math.max(3, v * maxH);
       const x = x0 + i * (w + gap);
-      // Barras mais recentes (a direita) um pouco mais opacas: reforca o sentido
-      // da rolagem sem precisar de animacao.
+      // The most recent bars (on the right) are slightly more opaque: it reinforces the
+      // direction of the roll without needing animation.
       const op = 0.5 + 0.5 * (i / (BARS - 1));
       return (
         `<rect x="${f(x)}" y="${f(cy - h / 2)}" width="${f(w)}" height="${f(h)}" rx="${f(w / 2)}" ` +
@@ -402,21 +405,21 @@ const waveDefs = (color: string): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Texto
+// Text
 // ---------------------------------------------------------------------------
 
-/** Largura útil para texto dentro da tecla, em px. */
+/** Usable width for text inside the key, in px. */
 const TEXT_WIDTH = 62;
-/** Largura média de um caractere, em fração do corpo da fonte (Segoe UI semibold). */
+/** Average character width, as a fraction of the font size (Segoe UI semibold). */
 const CHAR_RATIO = 0.56;
 
 /**
- * Uma linha de texto que CABE.
+ * A line of text that FITS.
  *
- * Reduz o corpo da fonte em vez de espremer os glifos com `textLength`: numa tecla de
- * 72 px o texto comprimido fica ilegível bem antes de o texto menor ficar. A quebra em
- * linhas (wrapLabel) resolve a maioria dos casos; isto é a rede para uma palavra única
- * comprida, que não tem onde quebrar.
+ * Reduces the font size instead of squeezing the glyphs with `textLength`: on a 72 px key
+ * compressed text becomes illegible well before smaller text does. Wrapping into lines
+ * (wrapLabel) handles most cases; this is the net for a single long word with nowhere to
+ * break.
  */
 function textEl(s: string, y: number, size: number): string {
   const t = esc(s);
@@ -429,11 +432,11 @@ function textEl(s: string, y: number, size: number): string {
 }
 
 /**
- * Quebra o rótulo em linhas.
+ * Wraps the label into lines.
  *
- * Respeita a quebra que a pessoa digitou; se não houver, quebra sozinho por palavra
- * quando o texto não cabe. Sem isto, "Petição inicial" viraria uma linha só espremida
- * até ficar ilegível — a tecla tem 72 px.
+ * Honours the break the person typed; if there is none, it breaks by word on its own when
+ * the text does not fit. Without this, "Petição inicial" would become a single line
+ * squeezed until illegible — the key is 72 px.
  */
 export function wrapLabel(text: string, size: number, maxLines = 3): string[] {
   const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -456,19 +459,20 @@ export function wrapLabel(text: string, size: number, maxLines = 3): string[] {
 }
 
 /**
- * A linha de base de cada linha de texto, dado o corpo de fonte de cada uma.
+ * The baseline of each line of text, given each one's font size.
  *
- * O bloco é ancorado pelo RODAPÉ da tecla e cresce para cima: com uma linha o texto
- * fica onde sempre esteve; com duas ou três ele sobe, em vez de vazar para fora.
+ * The block is anchored to the key's FOOTER and grows upwards: with one line the text
+ * stays where it always was; with two or three it rises, instead of spilling out.
  *
- * O passo entre duas linhas soma a ascendente da de baixo com a descendente da de
- * cima — com corpos iguais dá exatamente `corpo + gap`, o mesmo espaçamento de antes.
+ * The step between two lines adds the ascender of the lower one to the descender of the
+ * upper one — with equal sizes that comes to exactly `size + gap`, the same spacing as
+ * before.
  */
 function textLayout(sizes: number[], gap: number): number[] {
   const n = sizes.length;
   if (n <= 0) return [];
   const ys = new Array<number>(n);
-  ys[n - 1] = 68 - (sizes[n - 1] - 14) * 0.25; // corpos maiores respiram um pouco mais
+  ys[n - 1] = 68 - (sizes[n - 1] - 14) * 0.25; // bigger sizes breathe a little more
   for (let i = n - 2; i >= 0; i--) {
     ys[i] = ys[i + 1] - (0.75 * sizes[i + 1] + 0.25 * sizes[i] + gap);
   }
@@ -476,30 +480,31 @@ function textLayout(sizes: number[], gap: number): number[] {
 }
 
 // ---------------------------------------------------------------------------
-// A tecla
+// The key
 // ---------------------------------------------------------------------------
 
 export type KeySpec = {
   color: string;
-  /** Direção visual. Sem isto, `neon`. */
+  /** Visual direction. Without this, `neon`. */
   style?: KeyStyle;
   icon?: IconName;
-  /** Substitui o glifo do ícone. */
+  /** Replaces the icon's glyph. */
   special?: "check" | "cross" | "warn" | "dots" | "wave";
   levels?: number[];
   phase?: number;
-  /** Até três linhas embaixo. */
+  /** Up to three lines at the bottom. */
   lines?: string[];
-  /** Corpo da fonte do texto, em px. */
+  /** Text font size, in px. */
   fontSize?: number;
   /**
-   * Corpo de CADA linha, quando elas não são iguais — é o que permite "142" grande
-   * sobre "palavras" pequeno na confirmação. Cada posição sem valor cai em `fontSize`.
+   * The size of EACH line, when they are not equal — this is what allows a big "142"
+   * over a small "words" in the confirmation. Any position with no value falls back to
+   * `fontSize`.
    */
   fontSizes?: number[];
-  /** Espaço extra entre linhas, em px. */
+  /** Extra space between lines, in px. */
   lineGap?: number;
-  /** Sigla no canto (ex.: "EN") — a tecla mostra para qual idioma ela traduz. */
+  /** Code in the corner (e.g. "EN") — the key shows which language it translates into. */
   badge?: string;
 };
 
@@ -509,7 +514,7 @@ function shapesFor(spec: KeySpec): Shape[] | null {
     case "cross": return GLYPHS.micOff;
     case "warn": return WARN;
     case "dots":
-    case "wave": return null; // têm desenho próprio
+    case "wave": return null; // these have a drawing of their own
     default: {
       const icon = spec.icon ?? "mic";
       return icon === "none" ? [] : GLYPHS[icon] ?? GLYPHS.mic;
@@ -522,9 +527,9 @@ export function keyImage(spec: KeySpec): string {
 
   const lines = (spec.lines ?? []).filter((l) => l && l.length).slice(0, 3);
   const gap = spec.lineGap ?? 0;
-  // Respeita o corpo escolhido e só encolhe se o bloco não couber na faixa de texto
-  // da tecla (~38 px). Assim "fonte grande" continua grande com uma linha. Quando as
-  // linhas têm corpos diferentes, todas encolhem na mesma proporção.
+  // Honours the chosen size and only shrinks if the block does not fit the key's text
+  // band (~38 px). That way "big font" stays big with one line. When the lines have
+  // different sizes, they all shrink by the same proportion.
   const wanted = lines.map((_, i) => spec.fontSizes?.[i] ?? spec.fontSize ?? 14);
   const height = wanted.reduce((a, b) => a + b, 0) + Math.max(0, lines.length - 1) * gap;
   const sizes = height > 38 ? wanted.map((s) => Math.max(8, (s * 38) / height)) : wanted;
@@ -532,9 +537,9 @@ export function keyImage(spec: KeySpec): string {
   const ys = textLayout(sizes, gap);
   const text = ys.map((y, i) => textEl(lines[i], y, sizes[i])).join("");
 
-  // O texto manda no espaço: com duas ou três linhas o glifo ENCOLHE e sobe, em vez
-  // de ficar por baixo das letras. Sem isto, "Relato de atendimento" imprime as
-  // linhas em cima do microfone e nada fica legível.
+  // The text owns the space: with two or three lines the glyph SHRINKS and moves up,
+  // instead of ending up underneath the letters. Without this, "Attendance report" prints
+  // its lines on top of the microphone and nothing is legible.
   const textTop = ys.length ? ys[0] - sizes[0] : SIZE;
   const boxTop = 5;
   const boxBottom = Math.min(SIZE - 4, textTop - 3);
@@ -560,13 +565,13 @@ export function keyImage(spec: KeySpec): string {
       backdrop = a.backdrop;
       center = a.glyph;
     } else {
-      center = ""; // ícone "none": só o rótulo
+      center = ""; // icon "none": label only
     }
 
     if (k >= 0.995) {
       art = center;
     } else if (center) {
-      // Escala em torno do centro natural do glifo (36, 28) e recentraliza na sobra.
+      // Scales around the glyph's natural centre (36, 28) and recentres in the leftover.
       const cy = boxTop + available / 2;
       art = `<g transform="translate(36 ${f(cy)}) scale(${f(k)}) translate(-36 -28)">${center}</g>`;
     }
@@ -585,7 +590,7 @@ export function keyImage(spec: KeySpec): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
 
-/** Selo de canto: diz o destino da tradução sem precisar abrir o painel. */
+/** Corner badge: tells you the translation target without opening the panel. */
 function badgeSvg(text: string): string {
   const t = esc(text.slice(0, 3).toUpperCase());
   const w = t.length <= 2 ? 22 : 27;
@@ -597,10 +602,10 @@ function badgeSvg(text: string): string {
 }
 
 /**
- * O ícone sozinho, para as grades de escolha do painel.
+ * The icon on its own, for the panel's selection grids.
  *
- * Sai do MESMO desenho da tecla — a grade mostra o que a tecla vai mostrar, não uma
- * ilustração parecida feita à parte.
+ * It comes out of the SAME drawing as the key — the grid shows what the key will show,
+ * not a similar illustration made separately.
  */
 export function iconThumb(icon: IconName, style: KeyStyle, color: string): string {
   if (icon === "none") {

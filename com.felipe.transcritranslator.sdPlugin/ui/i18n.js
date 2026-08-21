@@ -1,11 +1,11 @@
-// Textos da INTERFACE do painel, em três idiomas.
+// The panel INTERFACE text, in three languages.
 //
-// Aqui só mora texto que o usuário lê. O que a IA lê — nomes e instruções dos presets,
-// camadas de prompt — vive no lado do plugin (src/lib/preset-text.ts e prompt-text.ts)
-// e chega ao painel já resolvido, para não existir a mesma frase em dois lugares.
+// Only text the user reads lives here. What the AI reads — preset names and instructions,
+// prompt layers — lives on the plugin side (src/lib/preset-text.ts and prompt-text.ts) and
+// reaches the panel already resolved, so the same sentence never exists in two places.
 //
-// O idioma do painel e o do conteúdo são escolhidos separadamente: dá para ler o painel
-// em inglês e ter os presets em português.
+// The panel language and the content language are chosen separately: you can read the
+// panel in English and have the presets in Portuguese.
 
 window.TT_I18N = {
   pt: {
@@ -188,22 +188,22 @@ window.TT_I18N = {
     ffmpegPh: "vazio = procura no PATH",
     saved: "salvo",
 
-    // idiomas
+    // languages
     langSection: "Idiomas",
     langUi: "Painel",
     langContent: "Presets e prompts",
     langUiTitle: "Idioma do painel",
     langContentAuto: "Segue o idioma falado da tecla",
-    // Fica em inglês de propósito, como os nomes dos idiomas ao lado: é a única opção
-    // do seletor que não é um idioma, e ela precisa ser legível para quem abriu o
-    // painel numa língua que não lê e está justamente procurando como trocar.
+    // In English on purpose, like the language names next to it: it is the only option
+    // in the selector that is not a language, and it has to be legible to someone who
+    // opened the panel in a language they cannot read and is looking for how to change it.
     langFollowApp: "Default",
     langHint:
       "São coisas diferentes: o painel é o que VOCÊ lê; os presets e os prompts são o que a IA lê. " +
       "Dá para manter o Stream Deck em inglês e trabalhar em português. " +
       "Em Painel, Default significa acompanhar o idioma do app Stream Deck.",
 
-    // dicionário
+    // dictionary
     dictOpen: "Abrir dicionário",
     dictTerms: "termos",
     dictNone: "vazio",
@@ -215,7 +215,7 @@ window.TT_I18N = {
     dictFooter: "Um termo por vírgula ou por linha. MAIÚSCULAS são tratadas como siglas.",
     close: "Fechar",
 
-    // chave ausente
+    // missing key
     noKeyTitle: "Falta a chave da OpenAI",
     noKeyBody: "Sem ela, a tecla mostra erro ao ser apertada. Leva dois minutos para resolver.",
     noKeyHow: "Como consigo uma chave?",
@@ -237,7 +237,7 @@ window.TT_I18N = {
     openBilling: "Billing",
     openPricing: "Preços",
 
-    // preset: descrição e detalhamento
+    // preset: description and breakdown
     presetDesc_raw:
       "Cru, do jeito que saiu da boca. Não passa por uma segunda chamada, então é o mais rápido " +
       "e o mais barato — bom para anotação solta, lista de compras, ideia que você não quer perder.",

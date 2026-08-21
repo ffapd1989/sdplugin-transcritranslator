@@ -1,15 +1,15 @@
-// Estado vivo das teclas, FORA da instancia da ação.
+// Live key state, OUTSIDE the action instance.
 //
-// POR QUE FORA: o SDK dispara willDisappear quando você navega para outra página,
-// perfil ou pasta — a tecla some e sai da lista de acoes visiveis. Se o estado da
-// gravação morasse na instancia, trocar de página no meio de um ditado mataria a
-// gravação. Aqui ele vive num registro global indexado pelo id da ação (que não
-// muda), entao a gravação continua em background e a tecla reassume o estado ao
-// vivo quando você volta.
+// WHY OUTSIDE: the SDK fires willDisappear when you navigate to another page, profile or
+// folder — the key vanishes and drops out of the list of visible actions. If the
+// recording state lived in the instance, switching pages mid-dictation would kill the
+// recording. Here it lives in a global registry indexed by the action id (which does not
+// change), so the recording carries on in the background and the key picks the live
+// state back up when you return.
 //
-// TRAVA GLOBAL: só uma gravação por vez na máquina inteira. Você tem uma boca —
-// duas gravações simultaneas do mesmo microfone gerariam dois textos disputando o
-// clipboard e o Ctrl+V no final.
+// GLOBAL LOCK: only one recording at a time on the whole machine. You have one mouth —
+// two simultaneous recordings from the same microphone would produce two texts fighting
+// over the clipboard and the Ctrl+V at the end.
 
 import { execFile } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
@@ -32,16 +32,16 @@ export type KeyState = {
   recorder?: Recorder;
   audioPath?: string;
   focusPid: number;
-  /** Historico de níveis para a waveform (0..1, mais recente por último). */
+  /** Level history for the waveform (0..1, most recent last). */
   levels: number[];
   startedAt: number;
-  /** Texto transitorio mostrado na tecla (ex.: "copiado"). */
+  /** Transient text shown on the key (e.g. "copied"). */
   message?: string[];
-  /** Aborta a chamada de API em andamento. */
+  /** Aborts the API call in flight. */
   abort?: AbortController;
-  /** Momento do keyDown, para distinguir toque curto de segurar. */
+  /** Moment of keyDown, to tell a short tap from a hold. */
   downAt?: number;
-  /** Timer que troca a tecla para "SOLTE P/ CANCELAR" enquanto você segura. */
+  /** Timer that switches the key to "RELEASE TO CANCEL" while you hold it. */
   holdTimer?: NodeJS.Timeout;
   resetTimer?: NodeJS.Timeout;
 };
@@ -62,7 +62,7 @@ export function allStates(): Map<string, KeyState> {
   return states;
 }
 
-/** true se conseguiu a trava. */
+/** true if the lock was acquired. */
 export function acquireLock(actionId: string): boolean {
   if (lockOwner && lockOwner !== actionId) return false;
   lockOwner = actionId;
@@ -77,7 +77,7 @@ export function isBusyElsewhere(actionId: string): boolean {
   return lockOwner !== null && lockOwner !== actionId;
 }
 
-// --- rastreio de PIDs, para não deixar ffmpeg órfão ---
+// --- PID tracking, so no ffmpeg is left orphaned ---
 
 const livePids = new Set<number>();
 
@@ -97,15 +97,15 @@ async function persistPids(): Promise<void> {
   try {
     await writeFile(PIDS_FILE, JSON.stringify([...livePids]), "utf8");
   } catch {
-    /* rastreio é best-effort */
+    /* tracking is best-effort */
   }
 }
 
 /**
- * Mata ffmpeg deixado para tras por um encerramento abrupto do app Stream Deck.
+ * Kills ffmpeg processes left behind by an abrupt shutdown of the Stream Deck app.
  *
- * Confere que o PID ainda é um ffmpeg antes de matar: PIDs são reciclados pelo
- * Windows, e matar as cegas poderia derrubar um processo alheio.
+ * Checks that the PID is still an ffmpeg before killing: Windows recycles PIDs, and
+ * killing blindly could bring down somebody else's process.
  */
 export async function cleanupOrphans(): Promise<void> {
   let pids: number[] = [];
@@ -139,7 +139,7 @@ export async function cleanupOrphans(): Promise<void> {
   await writeFile(PIDS_FILE, "[]", "utf8").catch(() => {});
 }
 
-/** Encerra tudo ao descarregar o plugin. */
+/** Shuts everything down when the plugin is unloaded. */
 export function killAll(): void {
   for (const s of states.values()) {
     try { s.recorder?.cancel(); } catch { /* noop */ }

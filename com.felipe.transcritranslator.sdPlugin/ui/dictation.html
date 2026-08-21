@@ -5,8 +5,8 @@
 <title>TranscriTranslator</title>
 <script src="i18n.js"></script>
 <style>
-  /* Visual do painel do Stream Deck, escrito à mão: sem CDN, sem dependência de
-     rede para configurar uma tecla. */
+  /* The Stream Deck panel's look, written by hand: no CDN, no network dependency to
+     configure a key. */
   :root {
     --bg: #2d2d2d; --fg: #d8d8d8; --muted: #969696; --line: #3d3d3d;
     --field: #3d3d3d; --accent: #77f; --ok: #4caf50; --warn: #d6a00a; --err: #d96a6a;
@@ -19,7 +19,7 @@
     font: 9pt/1.5 "Segoe UI", Arial, sans-serif;
   }
 
-  /* barra de modo simples/avançado + idioma */
+  /* simple/advanced mode bar + language */
   .topbar { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
   .seg { display: flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
   .seg button {
@@ -28,10 +28,11 @@
   }
   .seg button.on { background: #46617f; color: #eaf2fb; }
   .topbar select { width: auto; flex: 0 0 auto; font-size: 8.5pt; padding: 3px 5px; }
-  /* Globo + "UI" dizem que aquele seletor é o idioma DA INTERFACE, e dizem isso em
-     qualquer idioma — que é o ponto: quem abriu o painel numa língua que não lê
-     precisa achar este seletor sem conseguir ler nada em volta. Pela mesma razão as
-     opções são todas invariáveis (Default, Português, English, Español). */
+  /* Globe + "UI" say that this selector is the INTERFACE language, and they say it in
+     any language — which is the point: someone who opened the panel in a language they
+     cannot read has to find this selector without being able to read anything around it.
+     For the same reason the options are all invariant (Default, Português, English,
+     Español). */
   .topbar .globe { font-size: 11pt; line-height: 1; opacity: .85; }
   .topbar .uitag {
     font-size: 7.5pt; font-weight: 600; letter-spacing: .06em;
@@ -67,16 +68,16 @@
     background: var(--field); color: var(--fg); border: 1px solid #4a4a4a;
     border-radius: 4px; padding: 4px 6px; font: inherit; width: 100%; min-width: 0;
   }
-  /* Textareas de prompt nascem grandes: são campos para escrever instrução de
-     verdade, não uma linha. Redimensionar na mão toda vez é atrito à toa. */
+  /* Prompt textareas are born big: they are fields for writing a real instruction, not
+     one line. Resizing by hand every time is friction for nothing. */
   textarea { resize: vertical; min-height: 112px; font-size: 8.5pt; line-height: 1.45; }
   textarea.tall { min-height: 150px; }
-  /* O rótulo da tecla cabe em duas ou três linhas curtas — não precisa de caixa grande. */
+  /* The key label fits in two or three short lines — it does not need a big box. */
   textarea.short { min-height: 44px; }
   input[type=range] { flex: 1 1 auto; min-width: 60px; accent-color: var(--accent); padding: 0; }
-  /* Linha subordinada: indentada e com marcador, para ler como "isto pertence ao
-     campo de cima" em vez de virar mais uma configuração solta.
-     Classe própria — `.sub` já é usada pelos blocos de tradução e instrução. */
+  /* A subordinate row: indented and marked, so it reads as "this belongs to the field
+     above" instead of becoming yet another loose setting.
+     Its own class — `.sub` is already used by the translation and instruction blocks. */
   .subrow { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
   .subrow > label:first-child {
     flex: 0 0 108px; text-align: right; font-size: 8pt;
@@ -119,7 +120,7 @@
   .status.warn { color: var(--warn); }
   .status.err { color: var(--err); }
 
-  /* etapas do pipeline */
+  /* pipeline steps */
   .step { border-left: 3px solid var(--step1); padding: 2px 0 2px 9px; margin-bottom: 12px; }
   .step.two { border-left-color: var(--step2); }
   .step.off { border-left-color: #4a4a4a; opacity: .62; }
@@ -146,7 +147,7 @@
   .meter > i { display: block; height: 100%; background: var(--ok); width: 0; transition: width .2s; }
   .meter.over > i { background: var(--err); }
 
-  /* leitura dos prompts */
+  /* reading the prompts */
   #promptBox { margin-top: 6px; display: none; }
   #promptBox.on { display: block; }
   .pblock { margin-bottom: 8px; }
@@ -162,7 +163,7 @@
   }
   .pblock .meta { color: var(--muted); font-size: 7.5pt; margin-top: 2px; }
 
-  /* explicação do preset */
+  /* preset explanation */
   .presetInfo {
     margin: 2px 0 8px; padding: 7px 9px; border-radius: 4px;
     background: #2a2a2a; border: 1px solid var(--line);
@@ -193,7 +194,7 @@
     padding: 1px 5px; font-size: 7.5pt; margin-left: 6px; text-transform: none; letter-spacing: 0;
   }
 
-  /* rodapé: versão e autoria, discretos */
+  /* footer: version and authorship, discreet */
   footer#about {
     margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
     text-align: center; color: var(--muted); font-size: 7.5pt; line-height: 1.7;
@@ -202,10 +203,10 @@
   footer#about em { opacity: .9; }
   footer#about button.link { font-size: 7.5pt; margin-left: 4px; }
 
-  /* modo simples esconde o que for avançado */
+  /* simple mode hides whatever is advanced */
   body.simple .adv { display: none !important; }
 
-  /* aviso de chave ausente — primeira coisa que aparece */
+  /* missing-key warning — the first thing that shows up */
   .alert {
     display: none; margin-bottom: 8px; padding: 9px 11px; border-radius: 5px;
     background: #4a3520; border: 1px solid #7a5a2a;
@@ -215,7 +216,7 @@
   .alert span { color: #d8c9b0; font-size: 8.5pt; }
   .alert button { margin-top: 7px; }
 
-  /* modais (o PI é um webview: overlay é mais confiável que window.open) */
+  /* modals (the PI is a webview: an overlay is more reliable than window.open) */
   .modal {
     display: none; position: fixed; inset: 0; z-index: 50;
     background: rgba(0,0,0,.62); padding: 14px; overflow: auto;
@@ -237,8 +238,9 @@
   }
   .modal textarea { min-height: 190px; }
 
-  /* grades de escolha: 18 ícones num <select> seria ilegível, e a graça é ver.
-     As miniaturas são geradas pelo plugin, no estilo e na cor da própria tecla. */
+  /* selection grids: 18 icons in a <select> would be illegible, and the whole point is
+     to see them. The thumbnails are generated by the plugin, in the key's own style and
+     colour. */
   .grid { display: flex; flex-wrap: wrap; gap: 4px; }
   .grid button {
     width: 40px; height: 40px; padding: 0; border-radius: 7px;
@@ -248,21 +250,21 @@
   .grid button:hover { background: #1c1c23; border-color: #4d4d5a; }
   .grid button.on { border-color: var(--accent); background: #1e2033; }
   .grid button img { width: 34px; height: 34px; display: block; }
-  /* O estilo é a decisão maior: miniatura maior e nome embaixo. */
+  /* Style is the bigger decision: a bigger thumbnail with the name underneath. */
   .grid.styles button { width: 62px; height: 62px; flex-direction: column; gap: 1px; }
   .grid.styles button img { width: 38px; height: 38px; }
   .grid.styles button span { font-size: 7pt; color: var(--muted); }
   .grid.styles button.on span { color: #cfe0f5; }
 
-  /* prévia da tecla: a MESMA imagem que vai para o Stream Deck, em tamanho real
-     (72 px). A placa escura por trás imita o corpo do aparelho — sem ela, os cantos
-     arredondados da tecla sumiriam contra o fundo do painel. */
+  /* key preview: the SAME image that goes to the Stream Deck, at real size (72 px).
+     The dark plate behind it mimics the device body — without it, the key's rounded
+     corners would disappear against the panel background. */
   .keyprev {
     width: 72px; height: 72px; flex: 0 0 72px;
     border-radius: 13px; background: #131313;
   }
 
-  /* seletores de idioma */
+  /* language selectors */
   .langRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
   .langRow > label { flex: 0 0 118px; text-align: right; color: var(--muted); font-size: 8.5pt; }
   .langRow > label::before { content: "🌐 "; }
@@ -333,8 +335,8 @@
       </div>
     </div>
 
-    <!-- A imagem vem PRONTA do plugin: é literalmente o SVG que a tecla física
-         recebe, e não uma reconstrução em HTML que envelheceria à parte. -->
+    <!-- The image arrives READY from the plugin: it is literally the SVG the physical
+         key receives, and not an HTML reconstruction that would age separately. -->
     <div class="row">
       <label data-i18n="preview">Prévia da tecla</label>
       <div class="ctl">
@@ -352,9 +354,9 @@
     </div>
     <div class="status" id="micStatus"></div>
 
-    <!-- Fica aqui, e não no avançado, porque é a configuração de maior impacto do
-         painel: a documentação da OpenAI diz que informar o idioma melhora acurácia
-         E latência. -->
+    <!-- It sits here, and not in advanced, because it is the panel's highest-impact
+         setting: OpenAI's documentation says that supplying the language improves
+         accuracy AND latency. -->
     <div class="row" id="spokenRow">
       <label data-i18n="spokenLang">Eu vou falar em</label>
       <div class="ctl"><select id="langList" data-setting="language" data-type="str"></select></div>
@@ -368,7 +370,7 @@
   <summary data-i18n="secPipeline">O que esta tecla faz</summary>
   <div class="body">
 
-    <!-- ETAPA 1 -->
+    <!-- STEP 1 -->
     <div class="step" id="step1">
       <h4>
         <span data-i18n="step1Title">1. OUVIR</span>
@@ -406,7 +408,7 @@
 
     <div class="arrow">↓</div>
 
-    <!-- ETAPA 2 -->
+    <!-- STEP 2 -->
     <div class="step two" id="step2">
       <h4>
         <span data-i18n="step2Title">2. ESCREVER</span>
@@ -505,10 +507,10 @@
     </div>
     <div class="hint full" data-i18n="beepHint"></div>
 
-    <!-- ATALHO DE TECLADO.
-         O apelido é, ao mesmo tempo, o endereço da tecla e o interruptor da coisa:
-         tecla sem apelido não é alcançável de fora. Como qualquer programa da máquina
-         pode disparar um endereço streamdeck://, o campo vazio é a posição segura. -->
+    <!-- KEYBOARD SHORTCUT.
+         The nickname is at once the key's address and the switch for the whole thing: a
+         key with no nickname is not reachable from outside. Since any program on the
+         machine can fire a streamdeck:// address, an empty field is the safe position. -->
     <div class="row">
       <label data-i18n="shortcut">Atalho de teclado</label>
       <div class="ctl">
@@ -580,8 +582,8 @@
       </div>
     </div>
 
-    <!-- Direção visual e ícone são escolhidos VENDO, não lendo um <select>: as
-         miniaturas vêm desenhadas pelo próprio plugin, na cor da tecla. -->
+    <!-- Visual direction and icon are chosen by LOOKING, not by reading a <select>:
+         the thumbnails come drawn by the plugin itself, in the key's colour. -->
     <div class="stack">
       <label data-i18n="keyStyle">Estilo da tecla</label>
       <div class="grid styles" id="styleGrid"></div>
@@ -652,8 +654,8 @@
   </div>
 </details>
 
-<!-- Modal do dicionário: o campo é grande e explicado, em vez de um textarea
-     escondido no fim do painel. -->
+<!-- The dictionary modal: the field is large and explained, instead of a textarea
+     hidden at the bottom of the panel. -->
 <div class="modal" id="dictModal">
   <div class="sheet">
     <h3 data-i18n="dictTitle">Dicionário de palavras canônicas</h3>
@@ -665,7 +667,7 @@
   </div>
 </div>
 
-<!-- Como obter a chave da OpenAI, com os links certos. -->
+<!-- How to get the OpenAI key, with the right links. -->
 <div class="modal" id="keyModal">
   <div class="sheet">
     <h3 data-i18n="helpTitle">Como obter uma chave da OpenAI</h3>
@@ -684,9 +686,9 @@
     <div class="note" data-i18n="helpCost"></div>
     <div class="note" data-i18n="helpSafety"></div>
 
-    <!-- O campo fica AQUI porque é aqui que a chave está no clipboard: quem acabou
-         de copiá-la no passo 4 não deveria ter de fechar isto, achar a seção da
-         máquina e abri-la para colar. Escreve no mesmo cofre do outro campo. -->
+    <!-- The field sits HERE because this is where the key is on the clipboard: someone
+         who has just copied it in step 4 should not have to close this, find the machine
+         section and open it to paste. It writes to the same vault as the other field. -->
     <div class="row">
       <label data-i18n="apiKey">Chave OpenAI</label>
       <div class="ctl">
@@ -708,7 +710,7 @@
 
 <script>
 // ---------------------------------------------------------------------------
-// Protocolo do Property Inspector (o Stream Deck chama esta função ao abrir).
+// The Property Inspector protocol (the Stream Deck calls this function on open).
 // ---------------------------------------------------------------------------
 let ws, uuid, settings = {}, ready = false, appLang = "pt";
 
@@ -731,11 +733,11 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
   try {
     settings = JSON.parse(inActionInfo)?.payload?.settings ?? {};
     appLang = (JSON.parse(inInfo)?.application?.language || "pt").slice(0, 2);
-  } catch { /* segue com os padrões */ }
+  } catch { /* carry on with the defaults */ }
 
   ws = new WebSocket("ws://127.0.0.1:" + port);
   ws.onopen = () => {
-    // O registro é o único frame com `uuid` em vez de `context`.
+    // Registration is the only frame carrying `uuid` instead of `context`.
     ws.send(JSON.stringify({ event: registerEvent, uuid: inUUID }));
     toPlugin({ cmd: "init", autoLabel: t("langDetect") });
   };
@@ -751,11 +753,11 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
 };
 
 // ---------------------------------------------------------------------------
-// Idioma da interface
+// Interface language
 // ---------------------------------------------------------------------------
-// Se o i18n não carregar, o painel continua funcionando com os textos que já estão
-// no HTML (português). Sem esta guarda, um arquivo ausente derrubaria tudo — nem os
-// campos de configuração responderiam.
+// If the i18n file does not load, the panel keeps working with the texts already in the
+// HTML (Portuguese). Without this guard, a missing file would bring everything down —
+// not even the settings fields would respond.
 const I18N = window.TT_I18N || { pt: {} };
 const HAS_I18N = !!window.TT_I18N;
 let lang = "pt";
@@ -766,7 +768,7 @@ function t(key) {
 
 function applyLang() {
   document.documentElement.lang = lang;
-  // Sem i18n, mantém o texto que já veio no HTML em vez de esvaziar a interface.
+  // With no i18n, keep the text that came in the HTML instead of emptying the interface.
   if (HAS_I18N) {
     for (const el of document.querySelectorAll("[data-i18n]")) {
       const v = t(el.dataset.i18n);
@@ -776,8 +778,8 @@ function applyLang() {
       const v = t(el.dataset.i18nPh);
       if (v) el.placeholder = v;
     }
-    // O seletor do topo não tem rótulo visível — o "UI" ao lado é um símbolo, e a
-    // frase inteira mora aqui, no tooltip.
+    // The selector at the top has no visible label — the "UI" next to it is a symbol,
+    // and the whole sentence lives here, in the tooltip.
     for (const el of document.querySelectorAll("[data-i18n-title]")) {
       const v = t(el.dataset.i18nTitle);
       if (v) el.title = v;
@@ -791,9 +793,9 @@ function applyLang() {
 }
 
 /**
- * Dois seletores, porque são duas perguntas: em que idioma você LÊ o painel, e em que
- * idioma a IA lê os presets e os prompts. Ambos ficam nas configurações globais do
- * plugin — não no navegador — para valerem em qualquer tecla e sobreviverem a reinstalação.
+ * Two selectors, because they are two questions: which language you READ the panel in, and
+ * which language the AI reads the presets and prompts in. Both live in the plugin's global
+ * settings — not in the browser — so they apply to any key and survive a reinstall.
  */
 function buildLangPickers(prefs) {
   const langOptions = (extraLabel) => {
@@ -826,7 +828,7 @@ function buildLangPickers(prefs) {
 }
 
 // ---------------------------------------------------------------------------
-// Binding dos campos
+// Field binding
 // ---------------------------------------------------------------------------
 const DEFAULTS = {
   label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 10,
@@ -858,7 +860,7 @@ function applyToForm() {
   refreshKeyPreview(true);
 }
 
-/** Número ao lado de cada slider — sem ele não dá para saber onde se está. */
+/** The number next to each slider — without it there is no telling where you are. */
 function showSliderValues() {
   for (const [key, id] of [["labelSize", "outLabelSize"], ["labelGap", "outLabelGap"]]) {
     const el = document.getElementById(id);
@@ -866,7 +868,7 @@ function showSliderValues() {
   }
 }
 
-/** Mostra só o que faz sentido para a configuração atual. */
+/** Shows only what makes sense for the current configuration. */
 function syncVisibility() {
   const t1 = document.getElementById("transcribeOn").checked;
   const t2 = document.getElementById("textOn").checked;
@@ -882,12 +884,12 @@ function syncVisibility() {
   document.getElementById("translateBox").style.display = sm === "translate" ? "" : "none";
   document.getElementById("customBox").style.display = sm === "custom" ? "" : "none";
 
-  // Sem gravação não há idioma falado a declarar.
+  // With no recording there is no spoken language to declare.
   const spokenVisible = t1;
   document.getElementById("spokenRow").style.display = spokenVisible ? "" : "none";
   document.getElementById("spokenHint").style.display = spokenVisible ? "" : "none";
 
-  // A dica sobre fala misturada só interessa a quem escolheu detecção automática.
+  // The hint about mixed speech only matters to whoever chose auto-detection.
   const auto = (document.getElementById("langList").value || "") === "";
   document.getElementById("mixedHint").style.display = spokenVisible && auto ? "" : "none";
 }
@@ -905,15 +907,16 @@ function bind() {
       if (key === "transcribeOn" || key === "textOn" || key === "language") syncVisibility();
       if (key === "transcribeContext") refreshBudget();
       refreshPromptIfOpen();
-      // As miniaturas são desenhadas na cor e no estilo da tecla: mexeu num dos
-      // dois, as duas grades precisam ser redesenhadas junto.
+      // The thumbnails are drawn in the key's colour and style: touch either one, and
+      // both grids have to be redrawn together.
       refreshKeyPreview(key === "colorIdle" || key === "keyStyle" || key === "icon");
     });
   }
 
-  // A pausa que encerra tem faixa fixa (ver SILENCE_MIN/MAX em settings.ts). O clamp
-  // roda no `change` — ao sair do campo ou dar Enter —, nunca no `input`: corrigir
-  // durante a digitação faria "3" virar 3 antes de a pessoa terminar de escrever "30".
+  // The pause that ends a recording has a fixed range (see SILENCE_MIN/MAX in
+  // settings.ts). The clamp runs on `change` — on leaving the field or pressing Enter —
+  // never on `input`: correcting mid-typing would turn "3" into 3 before the person
+  // finished writing "30".
   const silenceEl = document.querySelector('[data-setting="silenceSeconds"]');
   if (silenceEl) {
     silenceEl.addEventListener("change", () => {
@@ -954,7 +957,7 @@ function status(el, text, cls) {
 }
 
 // ---------------------------------------------------------------------------
-// Respostas do plugin
+// Replies from the plugin
 // ---------------------------------------------------------------------------
 let hasKeyCached = false;
 
@@ -983,8 +986,8 @@ function handlePlugin(p) {
         }
       }
 
-      // O idioma do painel vem das globais do plugin, então os seletores são
-      // montados antes de traduzir a interface.
+      // The panel's language comes from the plugin's global settings, so the selectors
+      // are built before the interface is translated.
       if (p.appLanguage) appLang = String(p.appLanguage).slice(0, 2);
       buildLangPickers({ uiLang: p.uiLang, contentLang: p.contentLang });
       if (p.uiLocale && I18N[p.uiLocale]) { lang = p.uiLocale; applyLang(); }
@@ -999,8 +1002,8 @@ function handlePlugin(p) {
       refreshKeyStatus();
       ready = true;
       applyToForm();
-      // Mostra o endereço já pronto quando a tecla tem apelido; de quebra, é o que
-      // acusa o apelido duplicado assim que o painel abre.
+      // Shows the ready-made address when the key has a nickname; as a bonus, it is what
+      // flags a duplicate nickname the moment the panel opens.
       if (settings.shortcutAlias) toPlugin({ cmd: "shortcutCheck", alias: settings.shortcutAlias });
       break;
     }
@@ -1019,14 +1022,14 @@ function handlePlugin(p) {
       refreshKeyStatus();
       document.getElementById("apiKey").value = "";
       document.getElementById("modalKey").value = "";
-      // Salvou pelo modal: o trabalho acabou ali, então o modal sai da frente.
+      // Saved from the modal: the job ended there, so the modal gets out of the way.
       if (p.hasKey && keyCameFromModal) closeModals();
       keyCameFromModal = false;
       break;
     case "globalSaved":
       status(document.getElementById("globalStatus"), t("saved"), "ok");
-      // Trocar o idioma de conteúdo renomeia os presets de fábrica e reescreve as
-      // instruções deles: a lista volta junto para o painel não ficar defasado.
+      // Changing the content language renames the built-in presets and rewrites their
+      // instructions: the list comes back along with it so the panel does not lag behind.
       if (p.presets) renderPresets(p.presets);
       break;
     case "micResult": status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err"); break;
@@ -1060,30 +1063,30 @@ function handlePlugin(p) {
   }
 }
 
-/** Os DOIS indicadores dizem a mesma coisa — são a mesma chave, no mesmo cofre. */
+/** BOTH indicators say the same thing — it is the same key, in the same vault. */
 function refreshKeyStatus() {
   const text = hasKeyCached ? t("keyOk") : t("keyMissing");
   const cls = hasKeyCached ? "ok" : "warn";
   status(document.getElementById("keyStatus"), text, cls);
   status(document.getElementById("modalKeyStatus"), text, cls);
-  // Sem chave, o aviso aparece no topo — antes de qualquer configuração.
+  // With no key, the warning appears at the top — before any settings.
   document.body.classList.toggle("nokey", !hasKeyCached);
 }
 
 /**
- * Gravar a chave, venha ela de onde vier.
+ * Save the key, wherever it comes from.
  *
- * Os dois campos (o do modal de ajuda e o da Configuração da máquina) passam por
- * aqui de propósito: validar em dois lugares é a receita para eles divergirem, e
- * eles escrevem no mesmo cofre.
+ * Both fields (the one in the help modal and the one in Machine settings) go through here
+ * on purpose: validating in two places is the recipe for the two drifting apart, and they
+ * write to the same vault.
  */
 let keyCameFromModal = false;
 function submitKey(inputId, statusId, fromModal) {
   const st = document.getElementById(statusId);
   const key = document.getElementById(inputId).value.trim();
   if (!key) { status(st, t("keyEmpty"), "err"); return; }
-  // Não dá para saber se a chave é boa sem gastar uma chamada, mas dá para pegar o
-  // erro mais provável: colar outra coisa que estava no clipboard.
+  // There is no telling whether the key is good without spending a call, but the most
+  // likely mistake can be caught: pasting something else that was on the clipboard.
   if (!/^sk-/.test(key)) { status(st, t("keyBadFormat"), "err"); return; }
   status(st, t("keySaving"));
   keyCameFromModal = fromModal;
@@ -1091,10 +1094,11 @@ function submitKey(inputId, statusId, fromModal) {
 }
 
 /**
- * A tecla desenhada pelo próprio plugin, ao vivo.
+ * The key drawn by the plugin itself, live.
  *
- * Sem isto só se via o efeito de cor, ícone e rótulo olhando o Stream Deck físico —
- * e o ciclo de ajuste de aparência ficava lento a ponto de desencorajar o ajuste.
+ * Without this you could only see the effect of colour, icon and label by looking at the
+ * physical Stream Deck — and the appearance-tuning cycle got slow enough to discourage
+ * tuning at all.
  */
 let previewTimer;
 function refreshKeyPreview(withThumbs = false) {
@@ -1104,11 +1108,11 @@ function refreshKeyPreview(withThumbs = false) {
 }
 
 /**
- * As grades de estilo e de ícone.
+ * The style and icon grids.
  *
- * Os botões escrevem no `<select hidden>` correspondente e disparam `change`: assim
- * a gravação, a prévia e o preset continuam passando por UM caminho só, o mesmo de
- * qualquer outro campo. A grade é a cara do controle, não um controle paralelo.
+ * The buttons write into the matching `<select hidden>` and fire `change`: that way
+ * saving, the preview and the preset keep going through ONE path, the same as any other
+ * field. The grid is the face of the control, not a parallel control.
  */
 function renderGrid(id, items, key, label) {
   const box = document.getElementById(id);
@@ -1151,7 +1155,7 @@ function refreshStyleHint() {
   if (el) el.textContent = t("styleHint_" + (settings.keyStyle ?? DEFAULTS.keyStyle)) || "";
 }
 
-/** Quantos termos o dicionário tem, ao lado do botão que o abre. */
+/** How many terms the dictionary holds, next to the button that opens it. */
 function refreshDictCount() {
   const raw = document.getElementById("canonTerms").value || "";
   const n = raw.split(/[,\n;]+/).map((x) => x.trim()).filter((x) => x.length >= 2).length;
@@ -1162,8 +1166,8 @@ function refreshDictCount() {
 }
 
 /**
- * "v. 1.0.0.0 — 25 jul 2026", com o mês escrito no idioma do painel.
- * Guarda os valores porque o rodapé é redesenhado quando o idioma muda.
+ * "v. 1.0.0.0 — 25 jul 2026", with the month written in the panel's language.
+ * It keeps the values because the footer is redrawn when the language changes.
  */
 let versionInfo = null;
 function showVersion(version, isoDate) {
@@ -1173,8 +1177,8 @@ function showVersion(version, isoDate) {
   try {
     const [y, m, d] = (versionInfo.isoDate || "").split("-").map(Number);
     if (y) {
-      // Monta a partir das partes em vez de usar o format() pronto: em português ele
-      // devolveria "25 de jul. de 2026", que é longo demais para um rodapé.
+      // Built from the parts instead of using the ready-made format(): in Portuguese it
+      // would return "25 de jul. de 2026", which is far too long for a footer.
       const parts = new Intl.DateTimeFormat(lang, {
         day: "2-digit", month: "short", year: "numeric",
       }).formatToParts(new Date(y, m - 1, d));
@@ -1202,11 +1206,11 @@ function renderPresets(list) {
 }
 
 /**
- * Explicação do preset selecionado.
+ * Explanation of the selected preset.
  *
- * A frase curta é escrita à mão (e traduzida) só para os presets de fábrica. O
- * detalhamento é GERADO a partir das configurações do próprio preset — assim ele
- * nunca mente: se o preset mudar, a descrição muda junto.
+ * The short sentence is hand-written (and translated) for the built-in presets only. The
+ * breakdown is GENERATED from the preset's own settings — that way it never lies: if the
+ * preset changes, the description changes with it.
  */
 function renderPresetInfo() {
   const box = document.getElementById("presetInfo");
@@ -1270,7 +1274,7 @@ function refreshBudget() {
 }
 
 // ---------------------------------------------------------------------------
-// Leitura dos prompts — nada de texto oculto
+// Reading the prompts — no hidden text
 // ---------------------------------------------------------------------------
 function refreshPromptIfOpen() {
   if (document.getElementById("promptBox").classList.contains("on")) {
@@ -1303,14 +1307,14 @@ function renderPreview(p) {
 }
 
 // ---------------------------------------------------------------------------
-// Botões
+// Buttons
 // ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   buildLangPickers(null);
   applyLang();
   bind();
 
-  // --- modais ---
+  // --- modals ---
   document.getElementById("dictOpen").onclick = () => {
     openModal("dictModal");
     document.getElementById("canonTerms").focus();
@@ -1322,12 +1326,12 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModals(); });
 
-  // Links da OpenAI: quem abre o navegador é o Stream Deck, não o webview do painel.
+  // OpenAI links: the Stream Deck opens the browser, not the panel's webview.
   for (const b of document.querySelectorAll("[data-url]")) {
     b.onclick = () => send("openUrl", { url: b.dataset.url });
   }
 
-  // modo simples / avançado
+  // simple / advanced mode
   const setMode = (advanced) => {
     document.body.classList.toggle("simple", !advanced);
     document.getElementById("btnSimple").classList.toggle("on", !advanced);
@@ -1345,7 +1349,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (on) toPlugin({ cmd: "preview" });
   };
 
-  // Trocar a seleção já explica o preset, antes de aplicar qualquer coisa.
+  // Changing the selection already explains the preset, before anything is applied.
   document.getElementById("presetList").addEventListener("change", renderPresetInfo);
 
   document.getElementById("presetApply").onclick = () =>
@@ -1373,7 +1377,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("keySave").onclick = () => submitKey("apiKey", "keyStatus", false);
   document.getElementById("modalKeySave").onclick = () => submitKey("modalKey", "modalKeyStatus", true);
-  // Enter no campo salva: a pessoa acabou de colar, a mão já está no teclado.
+  // Enter in the field saves: the person has just pasted, their hand is on the keyboard.
   for (const [input, statusId, fromModal] of [
     ["apiKey", "keyStatus", false], ["modalKey", "modalKeyStatus", true],
   ]) {
@@ -1403,11 +1407,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("ffmpegPath").addEventListener("input", saveGlobal);
 
-  // --- atalho de teclado ---
+  // --- keyboard shortcut ---
   //
-  // Quem aplaina o apelido é o PLUGIN, não este painel: se as duas pontas tivessem
-  // cada uma a sua regra de tirar acento, a que valeria na hora de acionar seria
-  // sempre a do plugin, e o endereço mostrado aqui poderia mentir.
+  // The one that flattens the nickname is the PLUGIN, not this panel: if the two ends each
+  // had their own rule for stripping accents, the one that counted at trigger time would
+  // always be the plugin's, and the address shown here could lie.
   const aliasInput = document.getElementById("shortcutAlias");
   let aliasTimer;
   const checkAlias = () => {
@@ -1415,8 +1419,8 @@ document.addEventListener("DOMContentLoaded", () => {
     aliasTimer = setTimeout(() => toPlugin({ cmd: "shortcutCheck", alias: aliasInput.value }), 250);
   };
   aliasInput.addEventListener("input", checkAlias);
-  // No blur o campo assume a forma normalizada: o que está gravado passa a ser
-  // exatamente o que o endereço usa.
+  // On blur the field takes the normalised form: what is saved becomes exactly what the
+  // address uses.
   aliasInput.addEventListener("blur", () => {
     const url = document.getElementById("shortcutUrl").value;
     const norm = url ? decodeURIComponent(url.split("key=")[1].split("&")[0]) : "";
@@ -1431,8 +1435,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const el = document.getElementById("shortcutUrl");
     el.select();
     el.setSelectionRange(0, 999);
-    // execCommand em vez de navigator.clipboard: o Property Inspector é um webview
-    // sem permissão de clipboard garantida, e aqui há gesto do usuário de qualquer jeito.
+    // execCommand instead of navigator.clipboard: the Property Inspector is a webview
+    // with no guaranteed clipboard permission, and there is a user gesture here anyway.
     let ok = false;
     try { ok = document.execCommand("copy"); } catch { ok = false; }
     status(document.getElementById("shortcutStatus"), t(ok ? "shortcutCopied" : "shortcutCopyFail"), ok ? "ok" : "err");

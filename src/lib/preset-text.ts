@@ -1,9 +1,9 @@
-// Nomes e instruções dos presets de fábrica, em três idiomas.
+// Names and instructions of the built-in presets, in three languages.
 //
-// Ficam aqui, e não no i18n do painel, porque a INSTRUÇÃO é gravada nas configurações
-// da tecla quando você aplica o preset — ela vira um prompt de verdade, enviado à API.
-// O painel só exibe o que o plugin já resolveu, então não há texto duplicado nos dois
-// lados nem risco de sair de sincronia.
+// They live here, and not in the panel's i18n, because the INSTRUCTION is written into
+// the key's settings when you apply the preset — it becomes a real prompt, sent to the
+// API. The panel only displays what the plugin has already resolved, so there is no text
+// duplicated on both sides and no risk of drifting out of sync.
 
 import type { Locale } from "./prompt-text.js";
 
@@ -11,7 +11,7 @@ export type PresetTextKey = "raw" | "clean" | "translate" | "email" | "topics" |
 
 export type PresetText = {
   name: string;
-  /** Instrução da camada de estilo. Ausente nos presets que não usam. */
+  /** The style layer's instruction. Absent in presets that do not use one. */
   style?: string;
 };
 

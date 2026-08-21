@@ -1,16 +1,17 @@
-// Presets: moldes de configuração de tecla.
+// Presets: moulds for a key's configuration.
 //
-// Um preset NÃO é configuração compartilhada — aplicar um preset COPIA os valores
-// para aquela tecla, que segue independente dali em diante. É só um jeito de não
-// preencher 20 campos na mão toda vez que você cria uma tecla parecida com outra.
+// A preset is NOT shared configuration — applying a preset COPIES the values into that
+// key, which goes its own way from then on. It is just a way of not filling in 20 fields
+// by hand every time you create a key similar to another one.
 //
-// Os presets de fábrica são NEUTROS de propósito: o plugin é de ditado geral, não uma
-// ferramenta de nenhum domínio. O que for do seu trabalho entra pelo seu dicionário
-// canônico e pelos presets que você salvar.
+// The built-in presets are NEUTRAL on purpose: the plugin is for general dictation, not a
+// tool for any particular domain. Whatever belongs to your work comes in through your
+// canonical dictionary and through the presets you save.
 //
-// Nome e instrução vêm de preset-text.ts e são resolvidos no idioma de CONTEÚDO — que
-// é independente do idioma do painel. Dá para ter a interface em inglês e os presets
-// em português, que é exatamente o caso de quem usa o Stream Deck em inglês.
+// Name and instruction come from preset-text.ts and are resolved in the CONTENT language
+// — which is independent of the panel's language. You can have the interface in English
+// and the presets in Portuguese, which is exactly the case for someone running the Stream
+// Deck in English.
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join, dirname } from "node:path";
@@ -24,20 +25,20 @@ export type Preset = {
   name: string;
   builtin?: boolean;
   /**
-   * Chave do texto curto que explica o preset, traduzido em ui/i18n.js.
-   * Só os presets de fábrica têm: os seus são descritos pelo resumo que o painel
-   * gera a partir das próprias configurações — assim nunca fica desatualizado.
+   * Key of the short text explaining the preset, translated in ui/i18n.js.
+   * Only the built-in presets have one: yours are described by the summary the panel
+   * generates from the settings themselves — that way it never goes stale.
    */
   descKey?: string;
   settings: Partial<ActionSettings>;
 };
 
-/** Molde de fábrica antes de ser traduzido. */
+/** A built-in mould before being translated. */
 type BuiltinPreset = {
   id: string;
   textKey: PresetTextKey;
   descKey: string;
-  /** Rótulo da tecla. Quando ausente, usa o nome traduzido do preset. */
+  /** The key's label. When absent, the preset's translated name is used. */
   keyLabel?: string;
   settings: Partial<ActionSettings>;
 };
@@ -120,8 +121,8 @@ const BUILTINS: BuiltinPreset[] = [
     descKey: "presetDesc_rewrite",
     settings: {
       transcribeOn: false, textOn: true,
-      // Texto já escrito não passa pela limpeza de DITADO: não há hesitação nem
-      // comando de pontuação falado para tratar.
+      // Already-written text does not go through DICTATION clean-up: there is no
+      // hesitation and no spoken punctuation command to handle.
       cleanup: false, styleMode: "custom",
       icon: "pen", colorIdle: "#7A4FA8",
     },
@@ -133,7 +134,7 @@ function builtinToPreset(b: BuiltinPreset, locale: Locale): Preset {
   const text = presetText(locale, b.textKey);
   const target = b.settings.targetLanguage;
 
-  // "Traduzir" + idioma de destino, no idioma do conteúdo.
+  // "Translate" + target language, in the content language.
   const name = target ? `${text.name} → ${languageName(locale, target)}` : text.name;
 
   return {
@@ -171,16 +172,21 @@ export async function getPreset(id: string, locale: Locale): Promise<Preset | un
   return (await listPresets(locale)).find((p) => p.id === id);
 }
 
-/** Salva (ou substitui) um preset do usuário. Presets de fábrica são imutáveis. */
+/**
+ * Saves (or replaces) a user preset. Built-in presets are immutable.
+ *
+ * NOTE: the messages thrown here are echoed verbatim in the property inspector, so they
+ * are user-facing text that does NOT go through i18n. English by decision — see vault.ts.
+ */
 export async function savePreset(
   name: string,
   settings: Partial<ActionSettings>,
   locale: Locale,
 ): Promise<Preset> {
   const trimmed = name.trim();
-  if (!trimmed) throw new Error("nome vazio");
+  if (!trimmed) throw new Error("empty name");
   if (builtinPresets(locale).some((p) => p.name.toLowerCase() === trimmed.toLowerCase())) {
-    throw new Error("esse nome é de um preset de fábrica");
+    throw new Error("that name belongs to a built-in preset");
   }
 
   const users = await readUserPresets();
@@ -202,7 +208,7 @@ export async function deletePreset(id: string): Promise<void> {
   await writeFile(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
 }
 
-/** Campos que um preset carrega. Fora daqui (microfone, cores finas) é da tecla. */
+/** Fields a preset carries. Outside this list (microphone, fine colours) belongs to the key. */
 export const PRESET_FIELDS: Array<keyof ActionSettings> = [
   "label",
   "mode",

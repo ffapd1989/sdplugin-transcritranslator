@@ -1,294 +1,299 @@
-# TranscriTranslator — ditado por voz no Stream Deck
+*Language: **English** · [Português](README.pt-BR.md)*
 
-Uma tecla do Stream Deck vira um microfone de ditado: **aperta, fala, aperta de novo**, e o
-texto aparece no campo onde você estava digitando — transcrito pela OpenAI e, se você quiser,
-já limpo, traduzido ou reescrito no tom que você definir.
+# TranscriTranslator — voice dictation on the Stream Deck
 
-É um plugin **de propósito geral**. Não vem com vocabulário nem prompts de nenhuma área: o
-que for do seu trabalho entra pelo seu dicionário e pelos seus presets.
+One Stream Deck key becomes a dictation microphone: **press, speak, press again**, and the
+text shows up in the field you were typing into — transcribed by OpenAI and, if you want it,
+already cleaned up, translated or rewritten in the tone you defined.
+
+It is a **general-purpose** plugin. It ships with no vocabulary and no domain prompts: whatever
+belongs to your line of work comes in through your dictionary and your presets.
 
 ```
-┌────────┐   aperta   ┌────────┐   aperta   ┌────────┐        ┌────────┐
-│   ▂▄▆   │  ───────>  │ ▁▃▅█▆▃▁ │  ───────>  │   ▚▚    │ ─────> │   ✓    │
-│   ███   │            │ ▁▃▅█▆▃▁ │            │         │        │        │
-│ Ditado  │            │  0:07   │            │ enviando│        │142 pal.│
-└────────┘            └────────┘            └────────┘        └────────┘
-   ocioso               gravando              enviando          colado
+┌────────┐   press   ┌────────┐   press   ┌────────┐        ┌────────┐
+│   ▂▄▆   │  ──────>  │ ▁▃▅█▆▃▁ │  ──────>  │   ▚▚    │ ─────> │   ✓    │
+│   ███   │           │ ▁▃▅█▆▃▁ │           │         │        │  142   │
+│ Dictate │           │  0:07   │           │ sending │        │ words  │
+└────────┘           └────────┘           └────────┘        └────────┘
+   idle                recording            sending           pasted
 ```
 
-## Instalação
+## Installation
 
-Pré-requisitos: **Node 24+**, app **Stream Deck 6.5+**, **ffmpeg** no PATH (o
-`ffmpeg full build` traz o `ffplay`, usado nos bipes) e uma **chave da API da OpenAI**.
+Prerequisites: **Node 24+**, the **Stream Deck 6.5+** app, **ffmpeg** on the PATH (the
+`ffmpeg full build` includes `ffplay`, used for the beeps) and an **OpenAI API key**.
 
 ```powershell
-cd "H:\...\PLUGINS STREAMDECK\TRANSCRITRANSLATOR"
+cd path\to\TRANSCRITRANSLATOR
 npm install
 npm run build
 powershell -NoProfile -ExecutionPolicy Bypass -File .\render-images.ps1
 
-streamdeck dev                                        # uma vez, libera plugins locais
+streamdeck dev                                        # once, enables local plugins
 streamdeck link com.felipe.transcritranslator.sdPlugin
 streamdeck restart com.felipe.transcritranslator
 ```
 
-No app Stream Deck, arraste **Ditado** (categoria *TranscriTranslator*) para uma tecla. Abra
-a seção **Configuração da máquina** no painel e cole a chave da OpenAI — isso é feito **uma
-vez** e vale para todas as teclas.
+In the Stream Deck app, drag **Dictate** (category *TranscriTranslator*) onto a key. Open the
+**Machine settings** section in the property inspector and paste your OpenAI key — this is done
+**once** and applies to every key.
 
-## Como usar
+## How to use it
 
-| Ação | O que faz |
+| Action | What it does |
 |---|---|
-| Toque | Começa a gravar. A tecla vira vermelha e as barras mostram sua voz |
-| Toque de novo | Para, transcreve e cola |
-| **Segurar ~1 s gravando** | **Cancela** e descarta, sem gastar API |
-| Segurar durante o envio | Aborta a chamada em andamento |
+| Tap | Starts recording. The key turns red and the bars show your voice |
+| Tap again | Stops, transcribes and pastes |
+| **Hold ~1 s while recording** | **Cancels** and discards, spending no API |
+| Hold while sending | Aborts the call in flight |
 
-Ficar ~10 s em silêncio também encerra sozinho (configurável de 2,5 a 30 s). No modo **Segurar**, a tecla
-grava enquanto você mantém o dedo e para ao soltar.
+Staying quiet for ~10 s also ends the recording on its own (configurable from 2.5 to 30 s). In
+**hold-to-talk** mode the key records while your finger is down and stops when you release it.
 
 ## Presets
 
-Cada tecla é independente. Os presets são **moldes**: aplicar copia os valores para a tecla,
-que segue própria dali em diante. Salve os seus com *Salvar como…* — eles vão para
-`%LOCALAPPDATA%\transcritranslator\presets.json` e podem ser levados para outra máquina.
+Every key is independent. Presets are **moulds**: applying one copies the values into the key,
+which goes its own way from then on. Save your own with *Save as…* — they land in
+`%LOCALAPPDATA%\transcritranslator\presets.json` and can be carried to another machine.
 
-| Preset | Grava? | Faz com o texto |
+| Preset | Records? | What it does with the text |
 |---|---|---|
-| Ditado cru | sim | nada — cola exatamente o que foi transcrito |
-| **Ditado limpo** (padrão) | sim | pontua e limpa a fala, sem trocar suas palavras |
-| Traduzir → inglês | sim | limpa e traduz (badge `EN` na tecla) |
-| Traduzir → espanhol | sim | limpa e traduz (badge `ES` na tecla) |
-| Traduzir → português | sim | para captar um trecho estrangeiro na sua língua |
-| E-mail formal | sim | limpa e reescreve como e-mail |
-| Tópicos | sim | limpa e organiza em marcadores |
-| Só revisar a seleção | **não** | pega o texto selecionado (Ctrl+C) e revisa por cima |
+| Raw dictation | yes | nothing — pastes exactly what was transcribed |
+| **Clean dictation** (default) | yes | punctuates and cleans up the speech, without swapping your words |
+| Translate → English | yes | cleans up and translates (`EN` badge on the key) |
+| Translate → Spanish | yes | cleans up and translates (`ES` badge on the key) |
+| Translate → Portuguese | yes | to capture a foreign passage in your own language |
+| Formal email | yes | cleans up and rewrites as an email |
+| Bullet points | yes | cleans up and organises into bullets |
+| Proofread selection only | **no** | grabs the selected text (Ctrl+C) and proofreads it in place |
 
-## As duas etapas
+## The two steps
 
-O painel mostra a tecla como um caminho de duas etapas, porque é isso que ela é:
+The property inspector presents the key as a two-step path, because that is what it is:
 
 ```
-1. OUVIR          sua voz vira texto        [modelo de áudio]
+1. LISTEN         your voice becomes text     [audio model]
         ↓
-2. ESCREVER       o texto vira outro texto  [modelo de linguagem]
+2. WRITE          the text becomes other text [language model]
 ```
 
-São dois modelos diferentes porque são dois trabalhos diferentes: um escuta áudio, o outro
-escreve. **Traduzir é trabalho do segundo** — o primeiro só sabe transcrever o que foi falado,
-no idioma em que foi falado. Cada etapa liga e desliga por conta, e é daí que saem as
-combinações úteis:
+Two different models, because these are two different jobs: one listens to audio, the other
+writes. **Translating is the second one's job** — the first only knows how to transcribe what
+was said, in the language it was said in. Each step switches on and off independently, and that
+is where the useful combinations come from:
 
-| 1. Ouvir | 2. Escrever | Resultado |
+| 1. Listen | 2. Write | Result |
 |---|---|---|
-| ✅ | ❌ | ditado cru, mais rápido e mais barato |
-| ✅ | limpeza | ditado limpo — mesmas palavras, escrita arrumada |
-| ✅ | limpeza + tradução | fala em português, sai em inglês |
-| ✅ | limpeza + instrução | formalizado, em tópicos, no tom que você pedir |
-| ❌ | qualquer | reescreve o que está selecionado, **sem gravar nada** |
+| ✅ | ❌ | raw dictation, faster and cheaper |
+| ✅ | clean-up | clean dictation — same words, tidy writing |
+| ✅ | clean-up + translation | you speak Portuguese, English comes out |
+| ✅ | clean-up + instruction | formalised, in bullets, in whatever tone you asked for |
+| ❌ | anything | rewrites whatever is selected, **recording nothing** |
 
-A **limpeza de ditado** pontua, tira hesitações ("né", "tipo"), respeita autocorreções
-("manda pro João, *quer dizer*, pra Maria" → "manda para a Maria"), converte comandos falados
-("vírgula", "novo parágrafo") e formata números e datas. Ela **não** troca suas palavras nem
-resume.
+**Dictation clean-up** punctuates, removes hesitations ("um", "like"), honours the speaker's
+self-corrections ("send it to John, *I mean*, to Mary" → "send it to Mary"), converts spoken
+commands ("comma", "new paragraph") and formats numbers and dates. It does **not** swap your
+words and it does not summarise.
 
-Para traduzir **não é preciso escrever prompt**: marque *Traduzir para outro idioma*, escolha
-o idioma na lista, e a tecla passa a exibir a sigla no canto (`EN`, `ES`). A instrução é
-montada por baixo — e você pode lê-la, veja abaixo.
+Translating **requires no prompt writing**: tick *Translate into another language*, pick the
+language from the list, and the key starts showing the code in the corner (`EN`, `ES`). The
+instruction is assembled underneath — and you can read it, see below.
 
-## O painel
+## The property inspector
 
-- **Simples / Avançado** — o modo Simples mostra preset, rótulo, microfone, **o idioma que você
-  vai falar** e as duas etapas. O Avançado abre modelos, contexto, silêncio, limites, cores e
-  ffmpeg.
-- **Cada preset se explica** — ao selecionar um, aparece uma frase dizendo para que ele serve;
-  no modo Avançado vem junto o detalhamento do que ele configura, **gerado a partir do próprio
-  preset**, então nunca diverge do que ele faz de verdade.
-- **Ver o que será enviado** — abre o texto **exato** que vai para a OpenAI nas duas etapas,
-  peça por peça: limpeza, tradução ou sua instrução, grafia canônica e as travas de segurança.
-  Nenhum prompt é oculto: se o plugin manda, você pode ler.
-- **Sem chave configurada**, um aviso aparece no topo com um guia passo a passo de como obter
-  uma na OpenAI, com os links diretos e o custo estimado.
+- **Simple / Advanced** — Simple mode shows the preset, the label, the microphone, **the
+  language you are going to speak** and the two steps. Advanced opens up models, context,
+  silence, limits, colours and ffmpeg.
+- **Every preset explains itself** — selecting one brings up a sentence saying what it is for;
+  in Advanced mode it comes with a breakdown of what it configures, **generated from the preset
+  itself**, so it can never drift from what the preset actually does.
+- **See what will be sent** — opens the **exact** text that goes to OpenAI in both steps, piece
+  by piece: clean-up, translation or your instruction, canonical spelling and the safety locks.
+  No prompt is hidden: if the plugin sends it, you can read it.
+- **With no key configured**, a warning appears at the top with a step-by-step guide on getting
+  one from OpenAI, with direct links and the estimated cost.
 
-## Idiomas — três eixos independentes
+## Languages — three independent axes
 
-Português, inglês e espanhol, em três lugares que **não precisam concordar**:
+Portuguese, English and Spanish, in three places that **do not have to agree**:
 
-| Eixo | O que controla | Padrão |
+| Axis | What it controls | Default |
 |---|---|---|
-| 🌐 **Painel** | o que **você** lê | segue o app Stream Deck |
-| 📝 **Presets e prompts** | o que a **IA** lê | segue o idioma falado da tecla |
-| 🎙 **Idioma falado** (por tecla) | o que a transcrição espera ouvir | português |
+| 🌐 **Panel** | what **you** read | follows the Stream Deck app |
+| 📝 **Presets and prompts** | what the **AI** reads | follows the key's spoken language |
+| 🎙 **Spoken language** (per key) | what the transcription expects to hear | Portuguese |
 
-Isso existe porque são perguntas diferentes. Quem usa o Stream Deck em inglês e trabalha em
-português precisa exatamente disso — e o app só informa um idioma.
+This exists because they are different questions. Someone running the Stream Deck in English
+while working in Portuguese needs exactly this — and the app only reports one language.
 
-**Vale informar o idioma falado.** A documentação da OpenAI é explícita: fornecê-lo *"will
-improve accuracy and latency"*. Por isso ele fica na seção essencial, e não escondido no
-avançado. Deixe em *Detectar* só se você realmente varia de idioma.
+**It is worth declaring the spoken language.** OpenAI's documentation is explicit: supplying it
+*"will improve accuracy and latency"*. That is why it sits in the essential section rather than
+buried in Advanced. Leave it on *Detect* only if you genuinely switch languages.
 
-**E se eu misturo idiomas?** O `language` é uma **dica, não um filtro**: palavras soltas em
-outro idioma (*deploy*, *commit*, *workshop*) saem certas mesmo com um idioma fixo. O que
-quebra é fixar o idioma errado num áudio majoritariamente estrangeiro — aí use *Detectar*. E
-para garantir a **grafia** de termos estrangeiros, o caminho é o dicionário canônico, que é
-determinístico e não depende de o modelo acertar.
+**What if I mix languages?** `language` is a **hint, not a filter**: isolated words from another
+language (*deploy*, *commit*, *workshop*) come out right even with a fixed language. What breaks
+is pinning the wrong language on audio that is mostly foreign — use *Detect* there. And to
+guarantee the **spelling** of foreign terms, the way to go is the canonical dictionary, which is
+deterministic and does not depend on the model getting it right.
 
-E não é só rótulo traduzido: **os prompts mudam de idioma junto**, porque a camada de limpeza
-depende de exemplos da língua falada. "vírgula" e as muletas "né", "tipo" só existem em
-português; em inglês são "comma", "um", "you know"; em espanhol, "coma", "este", "o sea". Um
-prompt em português aplicado a uma fala em inglês perderia justamente a parte que trabalha.
-Os nomes e as instruções dos presets seguem o mesmo eixo.
+And it is not just translated labels: **the prompts change language along with the speech**,
+because the clean-up layer relies on examples from the spoken language. "vírgula" and the
+fillers "né", "tipo" only exist in Portuguese; in English they are "comma", "um", "you know";
+in Spanish, "coma", "este", "o sea". A Portuguese prompt applied to English speech would lose
+precisely the part that does the work. Preset names and instructions follow the same axis.
 
-## Dicionário de palavras canônicas
+## Canonical word dictionary
 
-Suas siglas e termos próprios. Fica em **Configuração da máquina → Abrir dicionário**, que
-abre uma janela própria com o campo grande e a contagem de termos ao lado do botão. Ele age em
-duas frentes:
+Your acronyms and proper terms. It lives in **Machine settings → Open dictionary**, which opens
+a window of its own with a large field and the term count next to the button. It works on two
+fronts:
 
-1. **No prompt de transcrição** — ajuda o modelo a *ouvir* certo. Tem teto de **224 tokens**
-   (~75 siglas); o que passar disso a API descarta em silêncio, e descarta o *começo*, por
-   isso o dicionário é cortado antes do seu contexto. O painel mostra um medidor.
-2. **Na correção final** — uma comparação exata força a grafia canônica no texto pronto.
-   Sem limite de quantidade, sem custo e sem chance de alucinação. É esta que garante o
-   resultado; a primeira só melhora as chances.
+1. **In the transcription prompt** — it helps the model *hear* correctly. It has a ceiling of
+   **224 tokens** (~75 acronyms); anything past that is silently dropped by the API, and it
+   drops the *beginning*, which is why the dictionary is trimmed before your context. The panel
+   shows a meter.
+2. **In the final correction** — an exact comparison forces the canonical spelling on the
+   finished text. No quantity limit, no cost and no chance of hallucination. This is the one
+   that guarantees the result; the first only improves the odds.
 
-## O prompt de transcrição vai vazio até você preencher
+## The transcription prompt goes out empty until you fill it in
 
-Vale saber, porque não é óbvio: o parâmetro `prompt` da etapa 1 é montado de **duas fontes,
-ambas suas** — o dicionário de palavras canônicas e o campo *Contexto* da tecla. Os dois
-nascem vazios, e **nenhum preset de fábrica preenche o Contexto**. Enquanto os dois estiverem
-vazios, o parâmetro nem é enviado à API.
+Worth knowing, because it is not obvious: the step-1 `prompt` parameter is assembled from **two
+sources, both yours** — the canonical word dictionary and the key's *Context* field. Both start
+out empty, and **no built-in preset fills in the Context**. While both are empty, the parameter
+is not even sent to the API.
 
-Isso é deliberado: contexto genérico atrapalha mais do que ajuda. Preencha o Contexto quando a
-tecla tiver assunto fixo ("Reunião técnica sobre infraestrutura de rede") — aí o modelo passa a
-ouvir esperando aquele vocabulário.
+That is deliberate: generic context hurts more than it helps. Fill in the Context when the key
+has a fixed subject ("Technical meeting about network infrastructure") — from then on the model
+listens expecting that vocabulary.
 
-## Onde ficam as coisas
+## Where things live
 
-| Caminho | O quê |
+| Path | What |
 |---|---|
-| `%LOCALAPPDATA%\transcritranslator\openai-key.xml` | chave, cifrada por **DPAPI** |
-| `…\historico\AAAA-MM.md` | histórico mensal (transcrição crua + texto final) |
-| `…\audio\` | áudios, se você pedir para guardar |
-| `…\audio\falhou\` | áudio de envio que falhou — **sempre preservado** |
-| `…\presets.json` | seus presets |
+| `%LOCALAPPDATA%\transcritranslator\openai-key.xml` | key, encrypted with **DPAPI** |
+| `…\historico\YYYY-MM.md` | monthly history (raw transcription + final text) |
+| `…\audio\` | audio files, if you ask for them to be kept |
+| `…\audio\falhou\` | audio from a failed upload — **always preserved** |
+| `…\presets.json` | your presets |
 
-A chave **não** fica nas configurações do Stream Deck: elas viram um `.json` em texto plano em
-`%APPDATA%\Elgato`. No DPAPI ela só abre nesta conta do Windows. Mesmo padrão do `cred.xml`
-da VPN em `C:\SRVDRU\configurar srvdru\vpn`.
+The key does **not** live in the Stream Deck settings: those become a plain-text `.json` under
+`%APPDATA%\Elgato`. Under DPAPI it only opens on this Windows account.
 
-## Decisões que não são óbvias
+## Decisions that are not obvious
 
-**O medidor de nível sai pelo stderr do ffmpeg, não pelo stdout.** Medido nesta máquina:
+**The level meter comes out of ffmpeg's stderr, not stdout.** Measured on this machine:
 
-| Saída | Primeira amostra |
+| Output | First sample |
 |---|---|
-| `ametadata … file=-` (stdout) | **4519 ms**, tudo de uma vez no fim |
-| `ametadata` sem `file` (log → stderr) | **373 ms**, fluxo contínuo |
+| `ametadata … file=-` (stdout) | **4519 ms**, all at once at the end |
+| `ametadata` with no `file` (log → stderr) | **373 ms**, continuous stream |
 
-O stdout passa por `avio`, que bufferiza; o log vai direto. Pelo stdout a tecla só viraria
-"gravando" depois de 4,5 s — as primeiras palavras se perderiam toda vez. **Não troque de
-volta.**
+stdout goes through `avio`, which buffers; the log goes straight out. Over stdout the key would
+only turn "recording" after 4.5 s — the first words would be lost every single time. **Do not
+switch it back.**
 
-**Os limiares de fala e silêncio são relativos ao piso de ruído, não absolutos.** O FIFINE
-mede −80 dBFS em silêncio e o headset CORSAIR −96 dBFS. Um limiar fixo tipo "−34 dB é fala"
-funcionaria num microfone e diria "sem fala" em todo ditado no outro. O piso é medido durante
-a própria gravação (o menor nível visto, que se calibra nos vales entre sílabas), e fala é
-"piso + 14 dB".
+**Speech and silence thresholds are relative to the noise floor, not absolute.** The FIFINE
+measures −80 dBFS in silence and the CORSAIR headset −96 dBFS. A fixed threshold like "−34 dB
+is speech" would work on one microphone and report "no speech" on every dictation with the
+other. The floor is measured during the recording itself (the lowest level seen, which
+calibrates itself in the valleys between syllables), and speech is "floor + 14 dB".
 
-**A tecla só vira REC quando o ffmpeg confirma captura**, e é aí que o bipe toca. O bipe deixa
-de ser enfeite e vira o sinal de "pode falar".
+**The key only turns REC once ffmpeg confirms capture**, and that is when the beep plays. The
+beep stops being decoration and becomes the "you may speak now" signal.
 
-**Áudio é MP3 16 kHz mono 48 kbps** — ~0,36 MB/min contra ~1,9 MB do WAV. O ganho não é banda,
-é o teto de 25 MB da API: 13 min viram ~70 min. E sai de graça, porque o encode roda *durante*
-a captura. MP3 e não m4a porque é stream puro, sem *moov atom* para finalizar — se o processo
-morrer no meio, o que foi gravado continua válido.
+**Audio is MP3 16 kHz mono 48 kbps** — ~0.36 MB/min against ~1.9 MB for WAV. The gain is not
+bandwidth, it is the API's 25 MB ceiling: 13 min become ~70 min. And it is free, because the
+encode runs *during* capture. MP3 and not m4a because it is a pure stream, with no *moov atom*
+to finalise — if the process dies halfway, what was recorded is still valid.
 
-**Parar é `q` no stdin do ffmpeg, nunca `taskkill`** — é o `q` que fecha o arquivo direito.
+**Stopping is `q` on ffmpeg's stdin, never `taskkill`** — it is the `q` that closes the file
+properly.
 
-**Anti-eco.** Os modelos GPT-4o às vezes devolvem o próprio `prompt` como se fosse a
-transcrição quando o áudio é curto ou silencioso. Como o dicionário vai no prompt, sem defesa
-um toque sem querer colaria a sua lista de siglas dentro do documento. Três barreiras: áudio
-com menos de 0,8 s ou sem fala não é enviado; retorno parecido demais com o prompt é
-descartado; e o auto-parar por silêncio evita gravar vazio.
+**Anti-echo.** The GPT-4o models sometimes return the `prompt` itself as if it were the
+transcription when the audio is short or silent. Since the dictionary goes into the prompt,
+without a defence an accidental tap would paste your list of acronyms into the document. Three
+barriers: audio shorter than 0.8 s or with no speech is not sent; a return that resembles the
+prompt too closely is discarded; and auto-stop on silence keeps you from recording nothing.
 
-**Recusa do modelo não custa a sua fala.** Se a etapa de texto for bloqueada por política de
-conteúdo, o plugin cola a **transcrição crua** e avisa "cru — bloqueado" — em vez de perder
-minutos de ditado por causa do embelezamento.
+**A model refusal does not cost you your speech.** If the text step is blocked by content
+policy, the plugin pastes the **raw transcription** and reports "raw — blocked" — rather than
+losing minutes of dictation over the polishing.
 
-**Injeção de prompt.** Na modalidade "só reescrever seleção" o texto vem do **clipboard**, que
-pode ter sido copiado de qualquer página. O system prompt declara que o texto do usuário é
-dado a transformar, nunca ordem a cumprir.
+**Prompt injection.** In "rewrite selection only" mode the text comes from the **clipboard**,
+which may have been copied from any page at all. The system prompt states that the user's text
+is data to transform, never an order to carry out.
 
-**A gravação sobrevive à troca de página no Stream Deck.** O SDK dispara `willDisappear` ao
-navegar para outra página ou perfil; se o estado morasse na instância da tecla, o ditado
-morreria junto. Ele vive num registro global indexado pelo id da ação
+**A recording survives page changes on the Stream Deck.** The SDK fires `willDisappear` when you
+navigate to another page or profile; if the state lived in the key's instance, the dictation
+would die with it. It lives in a global registry indexed by the action id
 ([`sessions.ts`](src/lib/sessions.ts)).
 
-**O Ctrl+V só acontece se a janela em foco não mudou.** O processo em foco é lido no início e
-conferido no fim (`UIAutomation`, 75 ms — P/Invoke com `Add-Type -TypeDefinition` custaria
-~1 s porque compila C#). Se você foi fazer outra coisa, o plugin copia e avisa em vez de colar
-no lugar errado.
+**Ctrl+V only happens if the focused window has not changed.** The focused process is read at
+the start and checked at the end (`UIAutomation`, 75 ms — P/Invoke with `Add-Type
+-TypeDefinition` would cost ~1 s because it compiles C#). If you went off to do something else,
+the plugin copies and tells you, instead of pasting in the wrong place.
 
-## Desenvolvimento
+## Development
 
 ```powershell
-npm run check     # tipos
-npm run test      # 80 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
-npm run mic       # grava 3 s do microfone e valida o núcleo contra o hardware
-npm run watch     # rebuild automático
+npm run check     # types
+npm run test      # 236 assertions over the pure parts (dictionary, prompts, languages, SVG, defaults)
+npm run mic       # records 3 s from the microphone and validates the core against the hardware
+npm run watch     # automatic rebuild
 npm run build
 streamdeck restart com.felipe.transcritranslator
 ```
 
-`npm run mic -- "NOME DO MICROFONE"` testa um dispositivo específico. Ele reporta latência de
-confirmação, taxa de amostras, pico em dBFS e se o MP3 saiu válido — é o teste que pega
-regressão no comando do ffmpeg.
+`npm run mic -- "MICROPHONE NAME"` tests a specific device. It reports confirmation latency,
+sample rate, peak in dBFS and whether the MP3 came out valid — it is the test that catches
+regressions in the ffmpeg command.
 
-O `@action` do SDK v2 usa **decorators TC39** — não ative `experimentalDecorators`. O bundle
-precisa do banner `createRequire` em [`build.mjs`](build.mjs), porque a lib `ws` do SDK usa
-`require()` de builtins.
+The SDK v2 `@action` decorator uses **TC39 decorators** — do not enable
+`experimentalDecorators`. The bundle needs the `createRequire` banner in
+[`build.mjs`](build.mjs), because the SDK's `ws` library uses `require()` on builtins.
 
-Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
-`com.felipe.transcritranslator`; "Plugin connected" = subiu).
+Plugin log: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (look for
+`com.felipe.transcritranslator`; "Plugin connected" means it came up).
 
-## Estrutura
+## Structure
 
-| Arquivo | Papel |
+| File | Role |
 |---|---|
-| [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
-| [src/lib/openai.ts](src/lib/openai.ts) | as duas chamadas, retries, recusa, anti-eco |
-| [src/lib/prompts.ts](src/lib/prompts.ts) | composição do prompt em camadas |
-| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | o texto dos prompts em pt/en/es — o que a IA lê |
-| [src/lib/preset-text.ts](src/lib/preset-text.ts) | nomes e instruções dos presets em pt/en/es |
-| [src/lib/canon.ts](src/lib/canon.ts) | dicionário: prompt com teto de tokens + correção por regex |
-| [src/lib/deliver.ts](src/lib/deliver.ts) | foco, clipboard, colagem, histórico |
-| [src/lib/sessions.ts](src/lib/sessions.ts) | estado global das teclas, trava de gravação única, órfãos |
-| [src/lib/icons.ts](src/lib/icons.ts) | a tecla desenhada em SVG |
-| [src/actions/dictation.ts](src/actions/dictation.ts) | máquina de estados e ponte com o painel |
-| [com.felipe.transcritranslator.sdPlugin/ui/dictation.html](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | painel, sem dependência de rede |
-| [com.felipe.transcritranslator.sdPlugin/ui/i18n.js](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | textos do painel em pt/en/es |
+| [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lists microphones, records, measures level, detects silence |
+| [src/lib/openai.ts](src/lib/openai.ts) | the two calls, retries, refusals, anti-echo |
+| [src/lib/prompts.ts](src/lib/prompts.ts) | layered prompt composition |
+| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | the text of the prompts in pt/en/es — what the AI reads |
+| [src/lib/preset-text.ts](src/lib/preset-text.ts) | preset names and instructions in pt/en/es |
+| [src/lib/canon.ts](src/lib/canon.ts) | dictionary: prompt with a token ceiling + regex correction |
+| [src/lib/deliver.ts](src/lib/deliver.ts) | focus, clipboard, pasting, history |
+| [src/lib/sessions.ts](src/lib/sessions.ts) | global key state, single-recording lock, orphans |
+| [src/lib/icons.ts](src/lib/icons.ts) | the key drawn in SVG |
+| [src/actions/dictation.ts](src/actions/dictation.ts) | state machine and bridge to the property inspector |
+| [com.felipe.transcritranslator.sdPlugin/ui/dictation.html](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | the property inspector, with no network dependency |
+| [com.felipe.transcritranslator.sdPlugin/ui/i18n.js](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | property inspector text in pt/en/es |
 
-## Diagnóstico
+## Troubleshooting
 
-| Sintoma | Causa provável |
+| Symptom | Likely cause |
 |---|---|
-| "sem chave" | chave não salva no cofre — painel → Configuração da máquina |
-| "sem ffmpeg" | ffmpeg fora do PATH; informe o caminho no painel |
-| "sem fala" sempre | microfone mudo ou errado — rode `npm run mic` e use **Testar** no painel |
-| "copiado, Ctrl+V" | você trocou de janela durante o processamento; o texto está no clipboard |
-| "cru — bloqueado" | a etapa de texto foi recusada; a transcrição foi colada sem tratamento |
-| "ocupado" | outra tecla já está gravando |
-| Tecla não aparece | rode `streamdeck dev` e refaça o `link` |
+| "no key" | key not saved in the vault — panel → Machine settings |
+| "no ffmpeg" | ffmpeg not on the PATH; set the path in the panel |
+| always "no speech" | microphone muted or wrong — run `npm run mic` and use **Test** in the panel |
+| "copied, Ctrl+V" | you switched windows during processing; the text is on the clipboard |
+| "raw — blocked" | the text step was refused; the transcription was pasted untreated |
+| "recording on another key" | another key is already recording |
+| Key does not show up | run `streamdeck dev` and redo the `link` |
 
 ---
 
-## Documentação
+## Documentation
 
-| Arquivo | Para quem |
+| File | For whom |
 |---|---|
-| **README.md** (este) | quem vai **usar** o plugin |
-| [CLAUDE.md](CLAUDE.md) | quem vai **mexer no código** — arquitetura, armadilhas e decisões que não devem ser revertidas |
-| [docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md) | histórico: o plano aprovado antes da implementação, com o porquê de cada escolha |
-| [docs/ROADMAP.md](docs/ROADMAP.md) | o que vem depois — pendências e ideias, com contexto para retomar |
+| **README.md** (this one) | people who are going to **use** the plugin |
+| [CLAUDE.md](CLAUDE.md) | people who are going to **work on the code** — architecture, traps and decisions that must not be reverted |
+| [docs/ORIGINAL-PLAN.md](docs/ORIGINAL-PLAN.md) | history: the plan approved before implementation, with the reasoning behind each choice |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | what comes next — open items and ideas, with enough context to pick them up |
+
+Every one of these documents also exists in Portuguese, next to it with the `.pt-BR` suffix.

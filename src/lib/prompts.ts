@@ -1,17 +1,17 @@
-// Montagem do system prompt da etapa de texto, em camadas.
+// Layered assembly of the text step's system prompt.
 //
-//   Camada A — LIMPEZA DE DITADO: regras genéricas de transformar fala em texto.
-//              Não muda o que você disse; arruma como ficou escrito.
-//   Camada B — ESTILO: traduzir para um idioma, ou a instrução livre da tecla.
-//   + grafia canônica  + travas de segurança.
+//   Layer A — DICTATION CLEAN-UP: generic rules for turning speech into text.
+//             It does not change what you said; it tidies up how it came out written.
+//   Layer B — STYLE: translating into a language, or the key's free instruction.
+//   + canonical spelling  + safety locks.
 //
-// As camadas são independentes: A sozinha dá "ditado limpo"; B sozinha aplica só o
-// estilo; A+B faz as duas coisas numa única chamada de API.
+// The layers are independent: A alone gives "clean dictation"; B alone applies only the
+// style; A+B does both in a single API call.
 //
-// Todo o texto vem de prompt-text.ts, no idioma resolvido para aquela tecla. A camada
-// A é adaptada do FALA TU, sem nada do domínio jurídico dele — as regras aproveitadas
-// (pontuação falada, autocorreção, hesitações, números, datas) valem para qualquer
-// ditado, em qualquer idioma.
+// All the text comes from prompt-text.ts, in the language resolved for that key. Layer A
+// is adapted from FALA TU, with nothing of its legal domain — the rules we took
+// (spoken punctuation, self-correction, hesitations, numbers, dates) hold for any
+// dictation, in any language.
 
 import { promptText, type Locale } from "./prompt-text.js";
 import { languageName } from "./languages.js";
@@ -21,7 +21,7 @@ export type TextPromptOptions = {
   locale: Locale;
   cleanup: boolean;
   styleMode: StyleMode;
-  /** Código ISO do idioma de destino (ex.: "en"). */
+  /** ISO code of the target language (e.g. "en"). */
   targetLanguage: string;
   style: string;
   canonTerms: string[];
@@ -29,7 +29,7 @@ export type TextPromptOptions = {
 
 type StyleInput = Pick<TextPromptOptions, "locale" | "styleMode" | "targetLanguage" | "style">;
 
-/** A instrução da camada B, seja qual for o modo. Vazia = não há camada B. */
+/** Layer B's instruction, whatever the mode. Empty = there is no layer B. */
 export function styleInstruction(o: StyleInput): string {
   const T = promptText(o.locale);
   if (o.styleMode === "translate") {
@@ -39,7 +39,7 @@ export function styleInstruction(o: StyleInput): string {
   return "";
 }
 
-/** true se há alguma coisa para a etapa de texto fazer. */
+/** true if there is anything for the text step to do. */
 export function hasTextWork(o: StyleInput & { cleanup: boolean }): boolean {
   return o.cleanup || styleInstruction(o).length > 0;
 }
@@ -62,8 +62,8 @@ function styleBlock(o: TextPromptOptions): string {
 }
 
 /**
- * As peças do system prompt, nomeadas — é exatamente isto que o painel mostra quando
- * você pede para ver o que será enviado. Nada de texto oculto.
+ * The pieces of the system prompt, named — this is exactly what the panel shows when you
+ * ask to see what will be sent. No hidden text.
  */
 export function textPromptParts(o: TextPromptOptions): Array<{ title: string; body: string }> {
   const T = promptText(o.locale);
@@ -100,7 +100,7 @@ export function buildTextSystemPrompt(o: TextPromptOptions): string {
   const block = styleBlock(o);
   if (block) layers.push(block);
 
-  // hasTextWork() barra antes, mas um system prompt vazio seria pior que isto.
+  // hasTextWork() blocks this earlier, but an empty system prompt would be worse.
   if (layers.length === 0) layers.push(T.passthrough);
 
   return layers.join("\n\n") + canonBlock(o) + guardsBlock(o.locale);

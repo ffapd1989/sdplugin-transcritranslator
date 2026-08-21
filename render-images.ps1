@@ -1,12 +1,14 @@
-# Gera os PNGs estaticos do plugin (catalogo do Stream Deck e estado inicial da tecla).
+# Generates the plugin's static PNGs (the Stream Deck catalogue and the key's initial
+# state).
 #
-# A tecla EM USO nao usa estes arquivos — ela e' desenhada como SVG em runtime
-# (src/lib/icons.ts). Estes PNGs sao o que aparece ANTES do plugin rodar: o icone da
-# categoria, o icone da acao na lista e a imagem inicial da tecla.
+# The key IN USE does not use these files — it is drawn as SVG at runtime
+# (src/lib/icons.ts). These PNGs are what shows up BEFORE the plugin runs: the category
+# icon, the action icon in the list and the key's initial image.
 #
-# O desenho do microfone aqui e' o mesmo do SVG. Ao mexer no visual, mexa nos dois.
+# The microphone drawing here is the same as the SVG's. When you touch the visuals, touch
+# both.
 #
-# Rodar com Windows PowerShell 5.1:
+# Run it with Windows PowerShell 5.1:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\render-images.ps1
 
 Add-Type -AssemblyName System.Drawing
@@ -17,8 +19,8 @@ Ensure (Join-Path $root "states")
 Ensure (Join-Path $root "action")
 Ensure (Join-Path $root "plugin")
 
-# Fator positivo clareia, negativo escurece. Sempre chamar com o fator entre
-# parenteses: solto, o parser do PowerShell le "-0.42" como nome de parametro.
+# A positive factor lightens, a negative one darkens. Always call it with the factor in
+# parentheses: loose, the PowerShell parser reads "-0.42" as a parameter name.
 function Mix-Channel([int]$c, [double]$f) {
     $v = if ($f -ge 0) { $c + (255 - $c) * $f } else { $c * (1 + $f) }
     [int][Math]::Max(0, [Math]::Min(255, [Math]::Round($v)))
@@ -35,7 +37,7 @@ function Get-Shade([string]$hex) {
     }
 }
 
-# Microfone centrado, proporcional ao tamanho da imagem (coordenadas de uma grade 72x72).
+# A centred microphone, proportional to the image size (coordinates on a 72x72 grid).
 function Add-Mic($g, [single]$s) {
     $k = $s / 72.0
     $white = [System.Drawing.Brushes]::White
@@ -43,7 +45,7 @@ function Add-Mic($g, [single]$s) {
     $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $pen.EndCap   = [System.Drawing.Drawing2D.LineCap]::Round
 
-    # Capsula
+    # Capsule
     $capsule = New-Object System.Drawing.Drawing2D.GraphicsPath
     $r = 6 * $k
     $capsule.AddArc([single](30*$k), [single](12*$k), [single]($r*2), [single]($r*2), 180, 180)
@@ -52,7 +54,7 @@ function Add-Mic($g, [single]$s) {
     $g.FillPath($white, $capsule)
     $capsule.Dispose()
 
-    # Arco, haste e base
+    # Arc, stem and base
     $g.DrawArc($pen, [single](25*$k), [single](17*$k), [single](22*$k), [single](22*$k), 0, 180)
     $g.DrawLine($pen, [single](36*$k), [single](39*$k), [single](36*$k), [single](45*$k))
     $g.DrawLine($pen, [single](29*$k), [single](45*$k), [single](43*$k), [single](45*$k))
@@ -92,11 +94,11 @@ function Save-Key([int]$size, [string]$hex, [string]$path) {
     Write-Host "  $path"
 }
 
-# Estado inicial da tecla (cinza grafite, igual ao default de "ocioso").
+# The key's initial state (graphite grey, the same as the "idle" default).
 Save-Key 72  '#404650' (Join-Path $root "states\idle.png")
 Save-Key 144 '#404650' (Join-Path $root "states\idle@2x.png")
 
-# Identidade no catalogo (azul, para destacar na lista de acoes).
+# Identity in the catalogue (blue, to stand out in the action list).
 Save-Key 20  '#3B6FD4' (Join-Path $root "action\mic.png")
 Save-Key 40  '#3B6FD4' (Join-Path $root "action\mic@2x.png")
 Save-Key 28  '#3B6FD4' (Join-Path $root "plugin\category.png")
@@ -104,4 +106,4 @@ Save-Key 56  '#3B6FD4' (Join-Path $root "plugin\category@2x.png")
 Save-Key 256 '#3B6FD4' (Join-Path $root "plugin\plugin.png")
 Save-Key 512 '#3B6FD4' (Join-Path $root "plugin\plugin@2x.png")
 
-Write-Host "Imagens geradas." -ForegroundColor Green
+Write-Host "Images generated." -ForegroundColor Green

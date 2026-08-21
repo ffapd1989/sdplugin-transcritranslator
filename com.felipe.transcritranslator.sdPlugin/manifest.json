@@ -1,9 +1,9 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "TranscriTranslator",
-  "Version": "1.3.1.0",
+  "Version": "1.3.2.0",
   "Author": "Felipe Drummond",
-  "Description": "Ditado por voz: grava o microfone, transcreve na OpenAI e cola o texto no campo focado. Cada tecla é configurável — limpeza, tradução, reescrita, dicionário próprio e aparência.",
+  "Description": "Voice dictation: records the microphone, transcribes it at OpenAI and pastes the text into the focused field. Every key is configurable — clean-up, translation, rewriting, your own dictionary and appearance.",
   "Category": "TranscriTranslator",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/plugin",
@@ -25,10 +25,10 @@
   "UUID": "com.felipe.transcritranslator",
   "Actions": [
     {
-      "Name": "Ditado",
+      "Name": "Dictate",
       "UUID": "com.felipe.transcritranslator.dictate",
       "Icon": "imgs/action/mic",
-      "Tooltip": "Grava o microfone, transcreve e cola no campo focado. Escolha um preset no painel.",
+      "Tooltip": "Records the microphone, transcribes it and pastes into the focused field. Pick a preset in the property inspector.",
       "PropertyInspectorPath": "ui/dictation.html",
       "Controllers": [
         "Keypad"

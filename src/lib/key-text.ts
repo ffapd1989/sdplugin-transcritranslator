@@ -1,31 +1,32 @@
-// As palavras que aparecem NA TECLA, nos três idiomas.
+// The words that show up ON THE KEY, in the three languages.
 //
-// É um terceiro lugar de texto, e existe porque tem um terceiro leitor: prompt-text.ts
-// é o que a IA lê, ui/i18n.js é o que se lê no painel, e isto é o que se lê na tecla
-// física. O idioma que manda aqui é o do PAINEL (`uiLang`) — quem olha a tecla é a
-// mesma pessoa que configura o plugin, não o modelo.
+// This is a third home for text, and it exists because there is a third reader:
+// prompt-text.ts is what the AI reads, ui/i18n.js is what you read in the panel, and
+// this is what you read on the physical key. The language in charge here is the PANEL's
+// (`uiLang`) — whoever looks at the key is the same person who configures the plugin,
+// not the model.
 //
-// Tudo aqui é curtíssimo de propósito: a tecla tem 72 px e o corpo da fonte encolhe
-// até caber. Duas palavras por estado é o teto prático; por isso os pares.
+// Everything here is extremely short on purpose: the key is 72 px and the font size
+// shrinks until it fits. Two words per state is the practical ceiling; hence the pairs.
 
 import type { Locale } from "./prompt-text.js";
 
 export type KeyText = {
-  /** Rótulo de fábrica, quando a tecla não tem um escrito. */
+  /** Factory label, for when the key has none written on it. */
   defaultLabel: string;
 
-  // --- estados do ciclo de gravação ---
+  // --- states of the recording cycle ---
   opening: string;
   sending: string;
   writing: string;
-  /** Aparece ANTES de a ação acontecer, enquanto a tecla está segurada. */
+  /** Shows up BEFORE the action happens, while the key is being held. */
   releaseCancel: [string, string];
   wait: string;
   cancelled: string;
   tooShort: string;
   busy: [string, string];
 
-  // --- avisos e erros ---
+  // --- warnings and errors ---
   noKey: string;
   noFfmpeg: string;
   noSpeech: string;
@@ -34,15 +35,15 @@ export type KeyText = {
   copied: [string, string];
   rawBlocked: [string, string];
 
-  // --- confirmação final ---
+  // --- final confirmation ---
   word: string;
   words: string;
 
-  // --- erros de API, resumidos em duas palavras ---
+  // --- API errors, boiled down to two words ---
   errBadKey: string;
   errBlocked: string;
   errTimeout: string;
-  /** Prefixo de "erro 429". */
+  /** Prefix of "error 429". */
   errGeneric: string;
 };
 
@@ -127,7 +128,7 @@ export function keyText(locale: Locale): KeyText {
   return TEXT[locale] ?? TEXT.en;
 }
 
-/** "142 palavras" quebrado em duas linhas, com o singular certo. */
+/** "142 words" broken into two lines, with the right singular. */
 export function wordCountLines(n: number, locale: Locale): [string, string] {
   const T = keyText(locale);
   return [String(n), n === 1 ? T.word : T.words];

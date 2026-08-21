@@ -1,75 +1,75 @@
-// Gravação pelo ffmpeg (DirectShow).
+// Recording through ffmpeg (DirectShow).
 //
-// UM processo, DUAS saídas simultaneas:
-//   1. o MP3 que vai para a API;
-//   2. um medidor de nível (~21 amostras/s) — é dele que sai a waveform ao vivo da
-//      tecla E a detecção de silêncio.
+// ONE process, TWO simultaneous outputs:
+//   1. the MP3 that goes to the API;
+//   2. a level meter (~21 samples/s) — this is what feeds the key's live waveform AND
+//      the silence detection.
 //
-// O MEDIDOR SAI PELO STDERR, e isso NÃO é detalhe. Medido nesta máquina:
-//   ametadata ... file=-  (stdout) -> primeira amostra em 4519 ms, tudo de uma vez
-//   ametadata sem `file`  (stderr) -> primeira amostra em  373 ms, fluxo contínuo
-// O stdout do ffmpeg passa por avio, que bufferiza; o log vai direto. Pelo stdout a
-// tecla só viraria REC depois de 4,5 s — o ditado inteiro seria perdido.
+// THE METER COMES OUT OF STDERR, and that is NOT a detail. Measured on this machine:
+//   ametadata ... file=-  (stdout) -> first sample at 4519 ms, all at once
+//   ametadata with no `file` (stderr) -> first sample at 373 ms, continuous stream
+// ffmpeg's stdout goes through avio, which buffers; the log goes straight out. Over
+// stdout the key would only turn REC after 4.5 s — the whole dictation would be lost.
 //
-// O silêncio NÃO usa o filtro silencedetect: como o RMS já chega, o silêncio é
-// calculado aqui — e assim dá para ARMAR o auto-stop somente depois que houve fala,
-// senão ele encerraria a gravação enquanto você ainda respira fundo para começar.
+// Silence does NOT use the silencedetect filter: since the RMS already arrives, silence
+// is computed here — and that way the auto-stop can be ARMED only after there has been
+// speech, otherwise it would end the recording while you are still taking a deep breath.
 //
-// Parar é `q` no stdin, nunca taskkill: o `q` faz o ffmpeg fechar o arquivo direito.
+// Stopping is `q` on stdin, never taskkill: the `q` makes ffmpeg close the file properly.
 
 import { spawn, execFile, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 
 export type AudioDevice = { name: string; alternativeName?: string };
 
-// Limiares RELATIVOS ao piso de ruído, não absolutos.
+// Thresholds RELATIVE to the noise floor, not absolute.
 //
-// Medido nesta máquina em silêncio: FIFINE = -80 dBFS, headset CORSAIR = -96 dBFS.
-// Um limiar fixo como "-34 dB é fala" quebraria em qualquer microfone de ganho
-// baixo: a fala chegaria abaixo dele e o plugin diria "sem fala" em TODO ditado.
-// Ancorando no piso observado, a mesma regra vale para um USB de mesa e para o
-// microfone de um headset.
+// Measured on this machine in silence: FIFINE = -80 dBFS, CORSAIR headset = -96 dBFS.
+// A fixed threshold like "-34 dB is speech" would break on any low-gain microphone:
+// speech would land below it and the plugin would say "no speech" on EVERY dictation.
+// By anchoring on the observed floor, the same rule holds for a desktop USB mic and for
+// a headset microphone.
 
-/** Fala = piso + isto. */
+/** Speech = floor + this. */
 const SPEECH_OVER_FLOOR = 14;
-/** Silêncio = abaixo de piso + isto. A folga entre os dois evita oscilação. */
+/** Silence = below floor + this. The gap between the two avoids flapping. */
 const SILENCE_OVER_FLOOR = 8;
-/** Teto de segurança: em ambiente ruidoso o piso não arrasta o limiar para cima. */
+/** Safety ceiling: in a noisy room the floor must not drag the threshold upwards. */
 const MAX_FLOOR_DB = -30;
-/** Fala precisa durar isto para armar o auto-stop — evita armar com um estalo. */
+/** Speech has to last this long to arm the auto-stop — a click must not arm it. */
 const SPEECH_ARM_MS = 250;
-/** Antes disto o piso ainda não é confiável; usa escala fixa para desenhar. */
+/** Before this the floor is not trustworthy yet; a fixed scale is used for drawing. */
 const WARMUP_SAMPLES = 8;
 
 export type RecorderEvents = {
-  /** ffmpeg confirmou que está capturando — é aqui que a tecla vira REC. */
+  /** ffmpeg confirmed it is capturing — this is where the key turns REC. */
   ready: [];
-  /** Nível instantâneo, já normalizado em 0..1 para desenhar a barra. */
+  /** Instantaneous level, already normalised to 0..1 for drawing the bar. */
   level: [number];
-  /** Silêncio prolongado depois de ter havido fala. */
+  /** Prolonged silence after there has been speech. */
   silence: [];
-  /** Limite máximo de gravação atingido. */
+  /** Maximum recording limit reached. */
   maxReached: [];
   error: [Error];
-  /** Processo encerrou. ok=false quando saiu com código != 0. */
+  /** The process exited. ok=false when it exited with a code != 0. */
   done: [{ ok: boolean; stderr: string }];
 };
 
 export class Recorder extends EventEmitter {
   private proc: ChildProcess | undefined;
-  /** Sobra de linha incompleta entre chunks do stderr. */
+  /** Leftover incomplete line between stderr chunks. */
   private logBuf = "";
-  /** Log do ffmpeg sem as amostras, para diagnóstico de falha. */
+  /** ffmpeg's log without the samples, for diagnosing failures. */
   private stderrBuf = "";
   private silenceSince: number | undefined;
   private speechSince: number | undefined;
   private maxTimer: NodeJS.Timeout | undefined;
-  /** Um `q` só. O segundo chegaria num cano já fechado. */
+  /** A single `q`. The second would arrive at an already-closed pipe. */
   private stopped = false;
 
-  /** Ficou true assim que houve fala sustentada. Base da blindagem anti-eco. */
+  /** Turns true as soon as there has been sustained speech. Basis of the anti-echo shield. */
   speechDetected = false;
-  /** Maior nível visto, em dBFS. -Infinity se nunca chegou nada. */
+  /** Highest level seen, in dBFS. -Infinity if nothing ever arrived. */
   peakDb = -Infinity;
   startedAt = 0;
 
@@ -98,20 +98,20 @@ export class Recorder extends EventEmitter {
     const a = this.opts;
     const args = [
       "-hide_banner",
-      // `info` é o que faz o ametadata chegar ao vivo (ver nota no topo).
+      // `info` is what makes ametadata arrive live (see the note at the top).
       "-loglevel", "info",
       "-f", "dshow",
-      // Buffer curto: menos latência entre falar e a barrinha mexer.
+      // Short buffer: less latency between speaking and the bar moving.
       "-audio_buffer_size", "50",
       "-i", `audio=${a.device}`,
-      // Saída 1 — o arquivo que será' enviado.
+      // Output 1 — the file that will be uploaded.
       "-map", "0:a",
       "-ac", "1",
       "-ar", "16000",
       "-c:a", "libmp3lame",
       "-b:a", "48k",
       "-y", a.outFile,
-      // Saída 2 — medidor de nível, descartado. Sem `file=`: vai para o log.
+      // Output 2 — level meter, discarded. With no `file=`: it goes to the log.
       "-map", "0:a",
       "-af", "astats=metadata=1:reset=1,ametadata=mode=print:key=lavfi.astats.Overall.RMS_level",
       "-f", "null", "-",
@@ -134,7 +134,7 @@ export class Recorder extends EventEmitter {
     }
   }
 
-  /** Encerra limpo: `q` no stdin finaliza o MP3 corretamente. */
+  /** Clean shutdown: `q` on stdin finalises the MP3 properly. */
   stop(): void {
     clearTimeout(this.maxTimer);
     const p = this.proc;
@@ -143,12 +143,12 @@ export class Recorder extends EventEmitter {
 
     const stdin = p.stdin;
     if (stdin) {
-      // O erro de "write after end" NÃO é lançado aqui: ele chega assíncrono, como
-      // evento `error` do stream. Sem este listener ele vira exceção não tratada e
-      // derruba o processo do plugin — foi o que aconteceu quando dois pedidos de
-      // parada chegaram juntos pelo atalho de teclado.
+      // The "write after end" error is NOT thrown here: it arrives asynchronously, as
+      // an `error` event on the stream. Without this listener it becomes an unhandled
+      // exception and brings the plugin process down — which is what happened when two
+      // stop requests arrived together over the keyboard shortcut.
       stdin.on("error", () => {
-        /* o ffmpeg já fechou o cano; o `q` não tinha mais para onde ir */
+        /* ffmpeg already closed the pipe; the `q` had nowhere left to go */
       });
       try {
         if (stdin.writable) {
@@ -156,10 +156,10 @@ export class Recorder extends EventEmitter {
           stdin.end();
         }
       } catch {
-        /* já morreu */
+        /* already dead */
       }
     }
-    // Rede de segurança: se não encerrar sozinho, mata.
+    // Safety net: if it does not shut down on its own, kill it.
     setTimeout(() => {
       if (this.proc && this.proc.exitCode === null) {
         try { this.proc.kill(); } catch { /* noop */ }
@@ -167,16 +167,16 @@ export class Recorder extends EventEmitter {
     }, 3000);
   }
 
-  /** Descarta: não há arquivo a preservar, entao pode matar direto. */
+  /** Discards: there is no file to preserve, so it can be killed outright. */
   cancel(): void {
     clearTimeout(this.maxTimer);
     try { this.proc?.kill(); } catch { /* noop */ }
   }
 
   /**
-   * O stderr traz duas coisas misturadas: as amostras do medidor e o log normal do
-   * ffmpeg. As amostras viram nível; o resto é guardado (limitado) para diagnóstico
-   * quando algo dá errado.
+   * stderr carries two things mixed together: the meter's samples and ffmpeg's normal
+   * log. The samples become levels; the rest is kept (capped) for diagnostics when
+   * something goes wrong.
    */
   private onMeter(chunk: string): void {
     this.logBuf += chunk;
@@ -186,8 +186,8 @@ export class Recorder extends EventEmitter {
     for (const line of lines) {
       const m = /RMS_level=(-?[\d.]+|-?inf)/i.exec(line);
       if (!m) {
-        // Cada amostra vem acompanhada de "[Parsed_ametadata_1 @ …] frame:21 pts:…"
-        // e da linha de progresso "size=…". Nenhuma das duas ajuda a diagnosticar.
+        // Every sample comes with "[Parsed_ametadata_1 @ …] frame:21 pts:…" and with
+        // the progress line "size=…". Neither of them helps with diagnostics.
         if (line.trim() && !/frame:\s*\d+\s+pts:/.test(line) && !/^\s*size=/.test(line)) {
           this.stderrBuf += line + "\n";
           if (this.stderrBuf.length > 8000) this.stderrBuf = this.stderrBuf.slice(-8000);
@@ -203,8 +203,8 @@ export class Recorder extends EventEmitter {
       const db = m[1].toLowerCase().includes("inf") ? -Infinity : parseFloat(m[1]);
       if (db > this.peakDb) this.peakDb = db;
 
-      // O piso é o menor nível já visto. Se a pessoa começa a falar de imediato,
-      // os vales entre sílabas ainda o calibram — não depende de uma pausa inicial.
+      // The floor is the lowest level seen so far. If the person starts speaking right
+      // away, the valleys between syllables still calibrate it — no initial pause needed.
       this.samples++;
       if (isFinite(db) && db < this.floorDb) this.floorDb = db;
 
@@ -216,13 +216,13 @@ export class Recorder extends EventEmitter {
   private samples = 0;
   private floorDb = Infinity;
 
-  /** Piso efetivo, com teto para não subir demais em ambiente barulhento. */
+  /** Effective floor, capped so it does not climb too high in a noisy room. */
   private get floor(): number {
     if (!isFinite(this.floorDb)) return -60;
     return Math.min(this.floorDb, MAX_FLOOR_DB);
   }
 
-  /** dBFS -> 0..1, ancorado no piso: a barra mexe com qualquer ganho de microfone. */
+  /** dBFS -> 0..1, anchored on the floor: the bar moves with any microphone gain. */
   private normalize(db: number): number {
     if (!isFinite(db)) return 0;
     if (this.samples < WARMUP_SAMPLES) return Math.max(0, Math.min(1, (db + 55) / 49));
@@ -248,9 +248,9 @@ export class Recorder extends EventEmitter {
     }
 
     this.speechSince = undefined;
-    if (db >= silenceDb) return; // zona morta entre os dois limiares
+    if (db >= silenceDb) return; // dead zone between the two thresholds
 
-    // So' conta silêncio depois que houve fala: não encerra durante a pausa inicial.
+    // Silence only counts after there has been speech: it must not end during the initial pause.
     if (!this.opts.silenceStop || !this.speechDetected) return;
 
     this.silenceSince ??= now;
@@ -267,10 +267,10 @@ export declare interface Recorder {
 }
 
 /**
- * Lista os microfones do DirectShow.
+ * Lists the DirectShow microphones.
  *
- * O ffmpeg escreve isto no stderr e sai com código != 0 de propósito (a entrada
- * `dummy` não existe) — por isso o erro do execFile é ignorado.
+ * ffmpeg writes this to stderr and exits with a code != 0 on purpose (the `dummy` input
+ * does not exist) — which is why execFile's error is ignored.
  */
 export function listAudioDevices(ffmpegPath: string): Promise<AudioDevice[]> {
   return new Promise((resolve) => {
@@ -293,7 +293,7 @@ export function listAudioDevices(ffmpegPath: string): Promise<AudioDevice[]> {
           const named = /"([^"]+)"/.exec(line);
           if (!named) continue;
 
-          // ffmpeg novo marca o tipo na própria linha; o antigo usa secoes.
+          // Newer ffmpeg marks the type on the line itself; older ones use sections.
           const isAudio = /\(audio\)/i.test(line) || (inAudioSection && !/\(video\)/i.test(line));
           if (!isAudio) continue;
 

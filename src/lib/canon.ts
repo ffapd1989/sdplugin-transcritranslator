@@ -1,25 +1,25 @@
-// Dicionário de palavras canônicas — as siglas e termos próprios de quem usa.
+// Canonical word dictionary — the user's own acronyms and proper terms.
 //
-// DUAS FRENTES, e a segunda é a que realmente garante o resultado:
+// TWO FRONTS, and the second is the one that actually guarantees the result:
 //
-//   1. PROMPT de transcrição: ajuda o modelo a OUVIR certo ("cê-pê-cê" → "CPC").
-//      Só isso alcança erro fonético. Mas tem teto de 224 tokens e um risco real
-//      (o modelo pode despejar a lista quando o áudio é curto ou silencioso — ver
-//      openai.ts, que blinda contra isso).
+//   1. Transcription PROMPT: helps the model HEAR correctly ("see-pee-see" -> "CPC").
+//      Only this one reaches phonetic error. But it has a 224-token ceiling and a real
+//      risk (the model may dump the whole list when the audio is short or silent — see
+//      openai.ts, which shields against that).
 //
-//   2. PÓS-PROCESSAMENTO por regex: força a grafia canônica no texto já transcrito.
-//      Determinístico, sem limite de tamanho, sem custo e sem alucinação possível.
-//      Roda SEMPRE, depois de cada etapa. Estratégia herdada do FALA TU, que chegou
-//      a ela depois de apanhar do método 1 em produção.
+//   2. Regex POST-PROCESSING: forces the canonical spelling on the already-transcribed
+//      text. Deterministic, no size limit, no cost and no hallucination possible.
+//      Runs ALWAYS, after each step. A strategy inherited from FALA TU, which arrived at
+//      it after getting burned by method 1 in production.
 //
-// Pegadinha do JS que custou tempo lá e não vai custar aqui: `\b` NÃO reconhece
-// letras acentuadas. "acórdão" não casaria em "no acórdão." com \b. Por isso o
-// limite de palavra é feito com lookaround Unicode explícito.
+// A JS gotcha that cost time over there and will not cost any here: `\b` does NOT
+// recognise accented letters. "acórdão" would not match inside "no acórdão." with \b.
+// That is why the word boundary is built with explicit Unicode lookaround.
 
-/** Teto documentado do parâmetro `prompt` de /v1/áudio/transcriptions. */
+/** Documented ceiling of the `prompt` parameter of /v1/audio/transcriptions. */
 export const PROMPT_TOKEN_LIMIT = 224;
 
-/** Estimativa conservadora: siglas curtas gastam ~1 token a cada 3 caracteres. */
+/** Conservative estimate: short acronyms cost ~1 token per 3 characters. */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 3);
 }
@@ -41,8 +41,8 @@ function escapeRegex(s: string): string {
 }
 
 /**
- * Força a grafia canônica de cada termo no texto.
- * Case-insensitive na busca, canônico na escrita: "cpc" e "Cpc" viram "CPC".
+ * Forces the canonical spelling of every term in the text.
+ * Case-insensitive when searching, canonical when writing: "cpc" and "Cpc" become "CPC".
  */
 export function applyCanon(text: string, terms: string[]): string {
   let out = text;
@@ -54,12 +54,12 @@ export function applyCanon(text: string, terms: string[]): string {
 }
 
 /**
- * Monta o prompt da etapa de transcrição respeitando o teto de 224 tokens.
+ * Builds the transcription step's prompt while respecting the 224-token ceiling.
  *
- * A ORDEM importa: a documentação diz que o modelo considera os ÚLTIMOS 224 tokens
- * e descarta o começo silenciosamente. Por isso o contexto da tecla (mais específico
- * e mais valioso) vai por ÚLTIMO, e o dicionário — que tem a rede de segurança da
- * regex no pós-processamento — é o que se corta primeiro.
+ * ORDER matters: the documentation says the model considers the LAST 224 tokens and
+ * silently drops the beginning. That is why the key's context (more specific and more
+ * valuable) goes LAST, and the dictionary — which has the safety net of the regex in
+ * post-processing — is the first thing to be cut.
  */
 export function buildTranscribePrompt(opts: {
   terms: string[];
@@ -68,7 +68,7 @@ export function buildTranscribePrompt(opts: {
 }): { prompt: string; droppedTerms: number } {
   const context = opts.context.trim();
   const contextTokens = estimateTokens(context);
-  let budget = PROMPT_TOKEN_LIMIT - contextTokens - 4; // folga para os separadores
+  let budget = PROMPT_TOKEN_LIMIT - contextTokens - 4; // slack for the separators
 
   if (!opts.useCanon || opts.terms.length === 0 || budget <= 0) {
     return { prompt: context, droppedTerms: opts.useCanon ? opts.terms.length : 0 };
@@ -76,7 +76,7 @@ export function buildTranscribePrompt(opts: {
 
   const kept: string[] = [];
   for (const term of opts.terms) {
-    const cost = estimateTokens(term) + 1; // +1 pela vírgula
+    const cost = estimateTokens(term) + 1; // +1 for the comma
     if (cost > budget) break;
     budget -= cost;
     kept.push(term);
@@ -86,7 +86,7 @@ export function buildTranscribePrompt(opts: {
   return { prompt: parts.join("\n"), droppedTerms: opts.terms.length - kept.length };
 }
 
-/** Quanto do orçamento de 224 tokens a configuração atual consome (para o painel). */
+/** How much of the 224-token budget the current configuration consumes (for the panel). */
 export function promptBudget(terms: string[], context: string): { used: number; limit: number } {
   const list = terms.join(", ");
   return {

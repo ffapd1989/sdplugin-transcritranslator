@@ -1,307 +1,335 @@
-# TranscriTranslator — guia para quem for mexer no código
+*Language: **English** · [Português](CLAUDE.pt-BR.md)*
 
-Plugin do Stream Deck: uma tecla grava o microfone, transcreve na OpenAI e cola o texto no
-campo em foco, opcionalmente limpando, traduzindo ou reescrevendo antes.
+# TranscriTranslator — guide for anyone touching the code
 
-Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [README.md](README.md).
+A Stream Deck plugin: one key records the microphone, transcribes it at OpenAI and pastes the
+text into the focused field, optionally cleaning it up, translating it or rewriting it first.
 
-> **Leia a seção [Decisões que não devem ser revertidas](#decisões-que-não-devem-ser-revertidas)
-> antes de mexer em `recorder.ts`, `openai.ts` ou `canon.ts`.** Várias escolhas ali parecem
-> tortas e são consequência de medição ou de bug em produção — inclusive de outro projeto.
+This file is the **development** guide. For usage and configuration, see [README.md](README.md).
+
+> **Read the section [Decisions that must not be reverted](#decisions-that-must-not-be-reverted)
+> before touching `recorder.ts`, `openai.ts` or `canon.ts`.** Several choices in there look
+> crooked and are the consequence of a measurement or of a production bug — including one from
+> another project.
 
 ---
 
-## Comandos
+## Commands
 
 ```powershell
-npm run check     # tipos (tsc --noEmit)
-npm run test      # 230 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
-npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
+npm run check     # types (tsc --noEmit)
+npm run test      # 236 assertions over the pure parts — no Stream Deck, no network, no microphone
+npm run mic       # records 3 s from the real microphone and validates the core against the hardware
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
-npm run watch     # rebuild automático
+npm run watch     # automatic rebuild
 
-streamdeck restart com.felipe.transcritranslator   # recarrega no app
+streamdeck restart com.felipe.transcritranslator   # reloads it in the app
 ```
 
-Ciclo normal de trabalho: **bump** → `check` → `test` → `build` → `restart`. Mexeu em
-`recorder.ts`, rode `npm run mic` também — é o único teste que exercita o comando do ffmpeg de
-verdade.
+Normal working cycle: **bump** → `check` → `test` → `build` → `restart`. If you touched
+`recorder.ts`, run `npm run mic` as well — it is the only test that exercises the real ffmpeg
+command.
 
-## REGRA: toda alteração sobe a versão
+## RULE: every change bumps the version
 
-Antes de commitar qualquer mudança, edite [version.json](version.json) — é a **fonte única**:
+Before committing any change, edit [version.json](version.json) — it is the **single source**:
 
 ```json
 { "version": "1.0.0.0", "date": "2026-07-25" }
 ```
 
-Quatro dígitos, `a.b.c.d`, como o manifest da Elgato exige. Suba o último em correção pequena,
-o terceiro em mudança de comportamento, o segundo em recurso novo, o primeiro em virada grande.
-Atualize a `date` junto — ela aparece no rodapé do painel.
+Four digits, `a.b.c.d`, as Elgato's manifest requires. Bump the last one for a small fix, the
+third for a behaviour change, the second for a new feature, the first for a major turn. Update
+the `date` along with it — it shows in the panel footer.
 
-O `build.mjs` **sincroniza o manifest sozinho** a partir daí e injeta os valores no bundle, então
-versão do painel e versão do Stream Deck não têm como divergir. Ele também recusa o build se o
-formato não for `a.b.c.d`.
+`build.mjs` **syncs the manifest by itself** from that file and injects the values into the
+bundle, so the panel version and the Stream Deck version cannot drift apart. It also refuses to
+build if the format is not `a.b.c.d`.
 
-### E o commit? Só com autorização
+### And the commit? Only when authorised
 
-Bumpar é automático. **Commitar e dar push, não.** Deixe a mudança pronta e verificada, diga o
-que está pendente e espere o aval — ou pergunte, quando a alteração for significativa o
-bastante para justificar a interrupção.
+Bumping is automatic. **Committing and pushing are not.** Leave the change ready and verified,
+say what is pending and wait for the go-ahead — or ask, when the change is significant enough
+to justify the interruption.
 
-O motivo é de histórico, não de segurança: dez commits de ajuste fino são piores que um commit
-coeso, e quem decide o recorte é quem vai conviver com o repositório.
+The reason is about history, not security: ten fine-tuning commits are worse than one coherent
+commit, and whoever has to live with the repository is the one who decides where the cuts go.
 
-Instalação inicial (uma vez): `npm install`, `render-images.ps1`, `streamdeck dev`,
+Initial setup (once): `npm install`, `render-images.ps1`, `streamdeck dev`,
 `streamdeck link com.felipe.transcritranslator.sdPlugin`.
+
+## RULE: documentation is bilingual — English and Portuguese
+
+Every document exists twice: the English file is canonical (`README.md`, `CLAUDE.md`,
+`docs/ROADMAP.md`, `docs/ORIGINAL-PLAN.md`), and the Portuguese one sits next to it with the
+`.pt-BR` suffix. **Both change in the same edit.** A `.pt-BR` file that lags behind is worse
+than no translation at all, because it looks current.
+
+Code comments, commit messages and identifiers are in **English**. User-facing strings are a
+different matter: they live in the i18n files and exist in all three languages (see the rule
+further down). Portuguese strings carry **full diacritics** — `Configurações`, never
+`Configuracoes`; if mojibake shows up on screen (`Ã§`, `Ã£`), the bug is in the encoding, and
+you fix the encoding rather than dropping the accent.
 
 ---
 
-## Arquitetura
+## Architecture
 
 ```
-apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
-        → ffmpeg dshow — 1 processo, 2 saídas simultâneas
+press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
+        → ffmpeg dshow — 1 process, 2 simultaneous outputs
                ├─ MP3 16 kHz mono 48 kbps → %LOCALAPPDATA%\transcritranslator\audio\
-               └─ medidor de nível (RMS) pelo stderr → waveform da tecla + auto-stop
-        → parar: "q" no stdin
-        → [etapa 1] POST /v1/audio/transcriptions
-        → regex do dicionário canônico
-        → [etapa 2] POST /v1/chat/completions   (limpeza + estilo, em camadas)
-        → regex do dicionário canônico
-        → histórico .md → clipboard → cola se o foco não mudou
+               └─ level meter (RMS) over stderr → key waveform + auto-stop
+        → stop: "q" on stdin
+        → [step 1] POST /v1/audio/transcriptions
+        → canonical dictionary regex
+        → [step 2] POST /v1/chat/completions   (clean-up + style, in layers)
+        → canonical dictionary regex
+        → .md history → clipboard → paste if the focus has not changed
 ```
 
-| Arquivo | Papel |
+| File | Role |
 |---|---|
-| [src/plugin.ts](src/plugin.ts) | Boot: cria pastas, mata ffmpeg órfão, aquece o cofre, conecta |
-| [src/actions/dictation.ts](src/actions/dictation.ts) | Máquina de estados da tecla + ponte com o painel. É o arquivo grande (~800 linhas) |
-| [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
-| [src/lib/openai.ts](src/lib/openai.ts) | As duas chamadas, retries, detecção de recusa, anti-eco |
-| [src/lib/prompts.ts](src/lib/prompts.ts) | Composição do system prompt em camadas |
-| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | **Texto** dos prompts em pt/en/es — é o que a IA lê |
-| [src/lib/key-text.ts](src/lib/key-text.ts) | **Texto da tecla** em pt/en/es — "enviando", "sem fala", "palavras" |
-| [src/lib/preset-text.ts](src/lib/preset-text.ts) | Nomes e instruções dos presets em pt/en/es |
-| [src/lib/presets.ts](src/lib/presets.ts) | Moldes de fábrica + salvar/aplicar os do usuário |
-| [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: orçamento de 224 tokens + correção por regex |
-| [src/lib/deliver.ts](src/lib/deliver.ts) | Foco, clipboard, colagem, histórico |
-| [src/lib/sessions.ts](src/lib/sessions.ts) | Estado global das teclas, trava de gravação única, PIDs órfãos |
-| [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Apelido → tecla, para o atalho de teclado alcançar tecla fora da tela |
-| [src/lib/icons.ts](src/lib/icons.ts) | A tecla desenhada em SVG (ícones, waveform, badges) |
-| [src/lib/settings.ts](src/lib/settings.ts) | Tipos, defaults e a cascata de resolução de idioma |
-| [src/lib/vault.ts](src/lib/vault.ts) | Cofre DPAPI da chave da OpenAI |
-| [src/lib/theme.ts](src/lib/theme.ts), [beep.ts](src/lib/beep.ts), [paths.ts](src/lib/paths.ts) | Cores derivadas, bipes por ffplay, caminhos |
-| [`…sdPlugin/ui/dictation.html`](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | Painel inteiro: HTML+CSS+JS à mão, sem dependência externa |
-| [`…sdPlugin/ui/i18n.js`](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | Textos da **interface** em pt/en/es — é o que o usuário lê |
+| [src/plugin.ts](src/plugin.ts) | Boot: creates folders, kills orphan ffmpeg, warms the vault, connects |
+| [src/actions/dictation.ts](src/actions/dictation.ts) | The key's state machine + bridge to the panel. This is the big file (~800 lines) |
+| [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lists microphones, records, measures level, detects silence |
+| [src/lib/openai.ts](src/lib/openai.ts) | The two calls, retries, refusal detection, anti-echo |
+| [src/lib/prompts.ts](src/lib/prompts.ts) | Layered composition of the system prompt |
+| [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | The **text** of the prompts in pt/en/es — this is what the AI reads |
+| [src/lib/key-text.ts](src/lib/key-text.ts) | The **key's text** in pt/en/es — "sending", "no speech", "words" |
+| [src/lib/preset-text.ts](src/lib/preset-text.ts) | Preset names and instructions in pt/en/es |
+| [src/lib/presets.ts](src/lib/presets.ts) | Built-in moulds + saving/applying the user's own |
+| [src/lib/canon.ts](src/lib/canon.ts) | Dictionary: 224-token budget + regex correction |
+| [src/lib/deliver.ts](src/lib/deliver.ts) | Focus, clipboard, pasting, history |
+| [src/lib/sessions.ts](src/lib/sessions.ts) | Global key state, single-recording lock, orphan PIDs |
+| [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Nickname → key, so the keyboard shortcut can reach an off-screen key |
+| [src/lib/icons.ts](src/lib/icons.ts) | The key drawn in SVG (icons, waveform, badges) |
+| [src/lib/settings.ts](src/lib/settings.ts) | Types, defaults and the language resolution cascade |
+| [src/lib/vault.ts](src/lib/vault.ts) | DPAPI vault for the OpenAI key |
+| [src/lib/theme.ts](src/lib/theme.ts), [beep.ts](src/lib/beep.ts), [paths.ts](src/lib/paths.ts) | Derived colours, beeps via ffplay, paths |
+| [`…sdPlugin/ui/dictation.html`](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | The whole panel: hand-written HTML+CSS+JS, no external dependency |
+| [`…sdPlugin/ui/i18n.js`](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | **Interface** text in pt/en/es — this is what the user reads |
 
-### Os três eixos de idioma
+### The three language axes
 
-Não são a mesma coisa e não precisam concordar:
+They are not the same thing and they do not have to agree:
 
-| Eixo | Onde mora | Resolve em |
+| Axis | Where it lives | Resolves to |
 |---|---|---|
-| Painel (o que **você** lê) | `GlobalSettings.uiLang` | `resolveUiLocale()` → app Stream Deck |
-| Presets e prompts (o que a **IA** lê) | `GlobalSettings.contentLang` | `resolveContentLocale()` → idioma falado → painel → app |
-| Idioma falado (por tecla) | `ActionSettings.language` | vai direto no parâmetro `language` da API |
+| Panel (what **you** read) | `GlobalSettings.uiLang` | `resolveUiLocale()` → Stream Deck app |
+| Presets and prompts (what the **AI** reads) | `GlobalSettings.contentLang` | `resolveContentLocale()` → spoken language → panel → app |
+| Spoken language (per key) | `ActionSettings.language` | goes straight into the API's `language` parameter |
 
-Texto de interface vive em `ui/i18n.js`; texto que a IA lê vive em `src/lib/prompt-text.ts` e
-`preset-text.ts`; texto que aparece **na tecla** vive em `src/lib/key-text.ts`. **Nunca duplique
-uma frase entre eles** — o painel recebe do plugin o que já foi resolvido.
+Interface text lives in `ui/i18n.js`; text the AI reads lives in `src/lib/prompt-text.ts` and
+`preset-text.ts`; text that shows up **on the key** lives in `src/lib/key-text.ts`. **Never
+duplicate a phrase between them** — the panel receives from the plugin whatever has already
+been resolved.
 
-A tecla segue o idioma do **painel** (`uiLang`), não o da fala: quem olha a tecla é quem
-configurou o plugin. O `uiLocaleCache` em `dictation.ts` guarda esse idioma porque a tecla é
-redesenhada a 8 fps — um `getGlobalSettings()` por quadro seria absurdo. Ele é atualizado no
-`willAppear`, no `init` do painel e depois de cada `setGlobal`.
+The key follows the **panel's** language (`uiLang`), not the spoken one: whoever looks at the
+key is whoever configured the plugin. The `uiLocaleCache` in `dictation.ts` holds that language
+because the key is redrawn at 8 fps — one `getGlobalSettings()` per frame would be absurd. It
+is updated on `willAppear`, on the panel's `init` and after every `setGlobal`.
 
-### REGRA: tudo que é texto tem de existir nos três idiomas
+### RULE: everything that is text must exist in all three languages
 
-O plugin é publicável na loja da Elgato, então **não existe "só em português"**. Ao acrescentar
-qualquer texto, os três (`pt`, `en`, `es`) entram na mesma mudança:
+The plugin is publishable on Elgato's store, so **there is no "Portuguese only"**. When you add
+any text, all three (`pt`, `en`, `es`) go in the same change:
 
-| Se você acrescentar… | Tem de mexer em |
+| If you add… | You have to touch |
 |---|---|
-| Rótulo, dica ou botão do painel | `ui/i18n.js` — os três blocos |
-| Regra na camada de limpeza, trava, instrução de tradução | `src/lib/prompt-text.ts` — os três blocos |
-| Preset de fábrica (nome ou instrução) | `src/lib/preset-text.ts` — os três blocos |
-| Palavra que aparece **na tecla** (estado, aviso, erro) | `src/lib/key-text.ts` — os três blocos |
-| Nome de idioma | **nada** — vem do `Intl.DisplayNames` |
-| Idioma novo de tradução | **só o código** em `TARGET_CODES` — nome e ordem vêm do `Intl` |
+| A panel label, hint or button | `ui/i18n.js` — all three blocks |
+| A rule in the clean-up layer, a lock, a translation instruction | `src/lib/prompt-text.ts` — all three blocks |
+| A built-in preset (name or instruction) | `src/lib/preset-text.ts` — all three blocks |
+| A word that shows up **on the key** (state, warning, error) | `src/lib/key-text.ts` — all three blocks |
+| A language name | **nothing** — it comes from `Intl.DisplayNames` |
+| A new translation target language | **only the code** in `TARGET_CODES` — name and ordering come from `Intl` |
 
-Duas verificações rápidas antes de commitar:
+Two quick checks before committing:
 
 ```bash
-# paridade das chaves do painel
+# key parity across the panel languages
 node -e "global.window={};require('./com.felipe.transcritranslator.sdPlugin/ui/i18n.js');
 const I=global.window.TT_I18N,b=Object.keys(I.pt);
 for(const l of ['pt','en','es']){const m=b.filter(k=>!(k in I[l]));
-console.log(l, m.length?('FALTA '+m):'completo')}"
+console.log(l, m.length?('MISSING '+m):'complete')}"
 
-npm run test   # cobre prompts e presets nos três idiomas
+npm run test   # covers prompts and presets in all three languages
 ```
 
-**Nomes de idioma não são traduzidos à mão.** `src/lib/languages.ts` usa `Intl.DisplayNames` —
-verificado: o Node do Stream Deck tem ICU completo. São duas formas: `languageName()` devolve
-minúsculo para caber na frase do prompt ("Traduza o texto para inglês"); `languageLabel()`
-devolve capitalizado para a lista do painel ("Inglês"). Inglês escreve idioma em maiúscula e
-português/espanhol em minúscula — o Intl já entrega a forma certa de cada um.
+**Language names are not translated by hand.** `src/lib/languages.ts` uses `Intl.DisplayNames`
+— verified: the Stream Deck's Node has full ICU. There are two forms: `languageName()` returns
+lowercase so it fits inside the prompt sentence ("Translate the text into english");
+`languageLabel()` returns it capitalised for the panel list ("English"). English writes
+language names capitalised and Portuguese/Spanish in lowercase — `Intl` already delivers the
+right form for each.
 
 ---
 
-## Decisões que não devem ser revertidas
+## Decisions that must not be reverted
 
-Cada uma custou medição ou bug. Se for mudar, meça de novo antes.
+Each one cost a measurement or a bug. If you are going to change it, measure again first.
 
-**1. O medidor de nível sai pelo stderr do ffmpeg, não pelo stdout.** Medido nesta máquina:
+**1. The level meter comes out of ffmpeg's stderr, not stdout.** Measured on this machine:
 
-| Saída | Primeira amostra |
+| Output | First sample |
 |---|---|
-| `ametadata … file=-` (stdout) | **4519 ms**, tudo de uma vez no fim |
-| `ametadata` sem `file` (log → stderr) | **373 ms**, fluxo contínuo |
+| `ametadata … file=-` (stdout) | **4519 ms**, all at once at the end |
+| `ametadata` with no `file` (log → stderr) | **373 ms**, continuous stream |
 
-O stdout passa por `avio`, que bufferiza. Pelo stdout a tecla só viraria "gravando" depois de
-4,5 s e as primeiras palavras de todo ditado se perderiam. É por isso que o `-loglevel` é
-`info` e o parser separa amostra de ruído em `onMeter()`.
+stdout goes through `avio`, which buffers. Over stdout the key would only turn "recording"
+after 4.5 s and the first words of every dictation would be lost. That is why `-loglevel` is
+`info` and the parser separates sample from noise in `onMeter()`.
 
-**2. Limiares de fala e silêncio são relativos ao piso de ruído, não absolutos.** O FIFINE mede
-−80 dBFS em silêncio e o headset CORSAIR −96 dBFS. Um limiar fixo ("−34 dB é fala") funciona num
-microfone e diz "sem fala" em *todo* ditado no outro.
+**2. Speech and silence thresholds are relative to the noise floor, not absolute.** The FIFINE
+measures −80 dBFS in silence and the CORSAIR headset −96 dBFS. A fixed threshold ("−34 dB is
+speech") works on one microphone and reports "no speech" on *every* dictation with the other.
 
-**3. Parar é `q` no stdin, nunca `taskkill`.** É o `q` que fecha o MP3 corretamente.
+**3. Stopping is `q` on stdin, never `taskkill`.** It is the `q` that closes the MP3 properly.
 
-**4. MP3, não m4a/opus.** Stream puro, sem *moov atom* para finalizar: se o processo morrer no
-meio, o que foi gravado continua válido. E é formato oficialmente aceito pela API.
+**4. MP3, not m4a/opus.** A pure stream, with no *moov atom* to finalise: if the process dies
+halfway, what was recorded is still valid. And it is a format the API officially accepts.
 
-**5. Anti-eco.** Os modelos GPT-4o devolvem o próprio `prompt` como se fosse a transcrição quando
-o áudio é curto ou silencioso — comportamento que o projeto FALA TU sofreu em produção. Como o
-dicionário vai no prompt, sem defesa um toque acidental colaria a lista de siglas no documento.
-Três barreiras: áudio < 0,8 s ou sem fala não é enviado; retorno parecido demais com o prompt é
-descartado; auto-stop por silêncio evita gravar vazio.
+**5. Anti-echo.** The GPT-4o models return the `prompt` itself as if it were the transcription
+when the audio is short or silent — behaviour the FALA TU project suffered in production. Since
+the dictionary goes into the prompt, without a defence an accidental tap would paste the list of
+acronyms into the document. Three barriers: audio under 0.8 s or with no speech is not sent; a
+return that resembles the prompt too closely is discarded; auto-stop on silence avoids recording
+nothing.
 
-**6. A grafia canônica é garantida por regex, não pelo modelo.** Determinística, sem limite de
-tamanho, sem custo. O prompt de transcrição só *melhora as chances* de ouvir certo. E o `\b` do
-JS **não** reconhece letras acentuadas — o limite de palavra usa `(?<![\p{L}\p{N}])…`.
+**6. Canonical spelling is guaranteed by regex, not by the model.** Deterministic, with no size
+limit and no cost. The transcription prompt only *improves the odds* of hearing it right. And
+JS's `\b` does **not** recognise accented letters — the word boundary uses
+`(?<![\p{L}\p{N}])…`.
 
-**7. Chave no cofre DPAPI, nunca nas settings do Stream Deck** — elas viram `.json` em texto
-plano em `%APPDATA%\Elgato`.
+**7. The key goes in the DPAPI vault, never in the Stream Deck settings** — those become a
+plain-text `.json` under `%APPDATA%\Elgato`.
 
-**8. O prompt da etapa de texto muda de idioma junto com a fala.** A camada de limpeza depende
-de exemplos da língua falada ("vírgula", "né" / "comma", "um"). A doc da OpenAI reforça: *"The
-prompt should match the audio language."*
+**8. The text step's prompt changes language along with the speech.** The clean-up layer relies
+on examples from the spoken language ("vírgula", "né" / "comma", "um"). OpenAI's docs reinforce
+it: *"The prompt should match the audio language."*
 
-**9. Estado das gravações vive em `sessions.ts`, fora da instância da ação.** O SDK dispara
-`willDisappear` ao trocar de página/perfil; na instância, o ditado morreria junto.
+**9. Recording state lives in `sessions.ts`, outside the action instance.** The SDK fires
+`willDisappear` when you switch page or profile; inside the instance, the dictation would die
+with it.
 
-**10. Cada ícone é desenhado UMA vez, e os dois modos saem dele.** Em `icons.ts` um ícone é
-uma lista de formas com papéis (`body`, `ink`, `cut`, `cutfill`, `fill`, `slash`). O estilo
-`neon` renderiza essa lista como contorno; `aurora` e `ring`, como silhueta cheia. Se um dia
-alguém for "simplificar" escrevendo dois conjuntos de glifos, os dois divergem no mês seguinte.
-Todo ícone vive na grade de 32×32 centrada em (36,28) — há teste reprovando coordenada fora dela.
+**10. Each icon is drawn ONCE, and both modes come out of it.** In `icons.ts` an icon is a list
+of shapes with roles (`body`, `ink`, `cut`, `cutfill`, `fill`, `slash`). The `neon` style
+renders that list as an outline; `aurora` and `ring` render it as a filled silhouette. If
+someone one day "simplifies" this by writing two sets of glyphs, the two will diverge the
+following month. Every icon lives on the 32×32 grid centred at (36,28) — there is a test that
+fails on any coordinate outside it.
 
-**11. O traço encolhido é compensado por `1/√k`, não por `1/k`.** Medido: com rótulo de três
-linhas o glifo cai para `k ≈ 0,4` e um traço de 3,1 px vira 1,2 px e some. Compensar por
-inteiro — que é o que `vector-effect="non-scaling-stroke"` faz — devolve 3,1 px e o glifo vira
-uma mancha, porque num desenho a 40% aquilo é proporcionalmente enorme. A raiz fica no meio.
-**Não trocar por `non-scaling-stroke`:** já foi avaliado e é a resposta errada, não a fácil.
+**11. The shrunken stroke is compensated by `1/√k`, not by `1/k`.** Measured: with a three-line
+label the glyph drops to `k ≈ 0.4` and a 3.1 px stroke becomes 1.2 px and disappears.
+Compensating in full — which is what `vector-effect="non-scaling-stroke"` does — gives back
+3.1 px and the glyph turns into a blob, because on a drawing at 40% that is proportionally
+enormous. The square root sits in the middle. **Do not swap it for `non-scaling-stroke`:** it
+has already been evaluated and it is the wrong answer, not the easy one.
 
-**12. Nada de `<filter>` no SVG da tecla.** Brilho e halo são gradientes — o mesmo mecanismo
-que a tecla sempre usou e que sabemos que o renderizador do Stream Deck aceita. O halo do
-`neon` são três passadas do mesmo contorno (larga e apagada, média na cor, filete branco).
-Blur de verdade só entra se alguém validar no aparelho físico primeiro.
+**12. No `<filter>` in the key's SVG.** Glow and halo are gradients — the same mechanism the key
+has always used and that we know the Stream Deck renderer accepts. The `neon` halo is three
+passes of the same outline (wide and faint, medium in the colour, white hairline). Real blur
+only goes in if someone validates it on the physical device first.
 
-**13. A prévia da tecla no painel usa a MESMA função que desenha a tecla.** `idleImage()` é
-chamada pelo `render()` e pelo comando `keyPreview`. Se um dia a prévia for reimplementada em
-HTML "para ficar mais rápido", ela passa a mentir no dia seguinte, e uma prévia que mente é pior
-que nenhuma. As configurações viajam **na mensagem** do painel, não são lidas de `getSettings()`:
-o painel grava com 150 ms de atraso e a prévia mostraria sempre o penúltimo caractere digitado.
+**13. The key preview in the panel uses the SAME function that draws the key.** `idleImage()` is
+called by `render()` and by the `keyPreview` command. If the preview is ever reimplemented in
+HTML "to make it faster", it starts lying the next day, and a preview that lies is worse than no
+preview. The settings travel **in the panel's message**, they are not read from `getSettings()`:
+the panel saves with a 150 ms delay and the preview would always show the second-to-last
+character typed.
 
-**14. Na tecla, o texto manda no espaço e o ícone cede.** Com duas ou três linhas de rótulo o
-glifo encolhe e sobe (`<g transform="…scale(…)">` em `keyImage`). Sem isso, "Relato de
-atendimento" imprime as linhas **em cima** do microfone. Há teste travando a não-sobreposição;
-se mexer no layout da tecla, renderize e olhe — o teste garante a geometria, não a estética.
-
----
-
-**15. O ditado não precisa de tecla na tela — quem manda é a `Surface`.** O SDK só
-entrega as ações **visíveis** (`SingletonAction.actions` é literalmente *"the visible
-actions"*), e o atalho de teclado existe justamente para acionar a tecla da tela 5
-estando na tela 1. Por isso o pipeline recebe uma `Surface` (id, `getSettings`,
-`setImage`), que tanto uma `KeyAction` real quanto a superfície emprestada satisfazem.
-A emprestada lê de uma cópia guardada em `shortcuts.ts` e desenha em **qualquer** tecla
-do plugin que esteja à vista — preferindo a dona, se ela aparecer. Se não houver
-nenhuma, o ditado roda sem visor e os bipes fazem o serviço. **Não trocar por "buscar a
-tecla no SDK":** ela não está lá, e é essa a razão do caderninho existir.
-
-**16. O apelido do atalho é o interruptor da porta de fora.** Qualquer programa da
-máquina pode disparar um `streamdeck://`. Tecla sem apelido é inalcançável, e o campo
-nasce vazio — a exposição é sempre um ato consciente, uma tecla por vez. Não
-acrescentar um "permitir acionamento externo" separado: seriam dois interruptores para
-a mesma porta, e um deles ficaria mentindo.
-
-**17. Acionamento por teclado é sempre alternado.** O recado do Windows é um pulso; não
-existe "soltou o atalho". Tecla configurada como *segurar para falar* roda como
-alternada quando vem do teclado, em vez de recusar — recusar puniria a pessoa por uma
-limitação do transporte.
-
-## Decisões de produto (definidas com o usuário)
-
-Não são acidentes de implementação — foram escolhidas explicitamente:
-
-- Trocar de página no Stream Deck **não** interrompe a gravação.
-- **Uma gravação por vez** na máquina; a segunda tecla pisca "ocupado".
-- Foco mudou entre gravar e entregar → **não cola**, só copia e avisa.
-- Recusa por política de conteúdo → **entrega a transcrição crua** em vez de perder a fala.
-- Falha de API → 2 retries só em erro transitório, e o **áudio é preservado**.
-- Segurar durante a gravação cancela; o aviso `SOLTE P/ CANCELAR` aparece *antes* da ação.
-- Presets são **moldes**: aplicar copia valores, a tecla segue independente.
-- Custo **não** é rastreado.
-- O plugin é **de propósito geral** — nada de domínio específico embutido. Dicionário e campo
-  de estilo nascem vazios.
-
-O histórico completo dessas decisões está no plano em
-[docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md).
+**14. On the key, the text owns the space and the icon gives way.** With a two- or three-line
+label the glyph shrinks and moves up (`<g transform="…scale(…)">` in `keyImage`). Without that,
+"Attendance report" prints its lines **on top of** the microphone. There is a test locking down
+the non-overlap; if you touch the key layout, render it and look — the test guarantees the
+geometry, not the aesthetics.
 
 ---
 
-## Armadilhas do ambiente
+**15. Dictation does not need a key on screen — the `Surface` is what matters.** The SDK only
+hands over the **visible** actions (`SingletonAction.actions` is literally *"the visible
+actions"*), and the keyboard shortcut exists precisely so you can trigger the key on page 5
+while standing on page 1. That is why the pipeline receives a `Surface` (id, `getSettings`,
+`setImage`), which both a real `KeyAction` and the borrowed surface satisfy. The borrowed one
+reads from a copy kept in `shortcuts.ts` and draws on **any** visible key of the plugin —
+preferring the owner, if it happens to be showing. If there is none, dictation runs with no
+display and the beeps do the job. **Do not swap this for "look the key up in the SDK":** it is
+not there, and that is the whole reason the little notebook exists.
 
-- **Decorators TC39.** O `@action` do SDK v2 exige decorators TC39 — **não** ative
-  `experimentalDecorators` no tsconfig.
-- **Banner `createRequire` em [build.mjs](build.mjs).** A lib `ws` do SDK usa `require()` de
-  builtins; sem o banner, o bundle ESM quebra em runtime.
-- **O plugin roda no Node 20 do Stream Deck**, não no Node do sistema
-  (`%APPDATA%\Elgato\StreamDeck\NodeJS\20.x\node.exe`). `File`, `FormData`, `fetch` e
-  `AbortSignal.timeout` existem lá — já verificado —, mas API mais nova pode não existir.
-- **`streamDeck.ui.sendToPropertyInspector(...)`** é quem fala com o painel, não o objeto da ação.
-- **PowerShell e números negativos:** `Mix-Channel $r -0.42` faz o parser ler `-0.42` como nome
-  de parâmetro. Sempre entre parênteses: `(Mix-Channel $r (-0.42))`.
-- **Acentuação completa em português** em comentários, prompts e interface. Os prompts vão para
-  a API em português correto — não em ASCII.
-- **O atalho de teclado REPETE enquanto a tecla é segurada.** Medido: o PowerToys
-  dispara a ação a cada repetição automática do teclado, ~30 ms uma da outra — um toque
-  um pouco demorado virou 28 recados e oito gravações simultâneas do mesmo microfone.
-  Por isso `onDeepLink` tem duas travas **síncronas** (janela de 600 ms por apelido e
-  ferrolho de reentrância) antes de qualquer `await`. Não mover essas travas para
-  depois de um `await`: é exatamente na espera que a rajada entra.
-- **A tecla demora a refletir o novo build.** Depois de `streamdeck restart`, a imagem na tecla
-  física pode continuar a antiga por alguns segundos. Já custou um diagnóstico errado: um
-  rótulo cortado parecia bug de layout e era só o desenho velho ainda na tela. Antes de sair
-  investigando, confirme gerando o SVG direto (`keyImage(...)` num script) e comparando com o
-  que a tecla mostra — se divergirem, é cache, não código.
+**16. The shortcut nickname is the switch on the outside door.** Any program on the machine can
+fire a `streamdeck://` URL. A key with no nickname is unreachable, and the field starts out
+empty — exposure is always a conscious act, one key at a time. Do not add a separate "allow
+external triggering" toggle: that would be two switches on the same door, and one of them would
+end up lying.
+
+**17. Keyboard triggering is always toggle.** The message from Windows is a pulse; there is no
+"shortcut released". A key configured as *hold to talk* runs as a toggle when the trigger comes
+from the keyboard, instead of refusing — refusing would punish the person for a limitation of
+the transport.
+
+## Product decisions (settled with the user)
+
+These are not implementation accidents — they were chosen explicitly:
+
+- Switching pages on the Stream Deck does **not** interrupt a recording.
+- **One recording at a time** on the machine; the second key blinks "busy".
+- Focus changed between recording and delivery → **do not paste**, only copy and warn.
+- Refusal on content policy → **deliver the raw transcription** rather than lose the speech.
+- API failure → 2 retries on transient errors only, and the **audio is preserved**.
+- Holding the key during recording cancels; the `RELEASE TO CANCEL` warning appears *before*
+  the action.
+- Presets are **moulds**: applying one copies values, the key stays independent afterwards.
+- Cost is **not** tracked.
+- The plugin is **general-purpose** — no domain-specific content baked in. The dictionary and
+  the style field start out empty.
+
+The full history of these decisions is in the plan at
+[docs/ORIGINAL-PLAN.md](docs/ORIGINAL-PLAN.md).
 
 ---
 
-## Como testar
+## Environment traps
 
-**`npm run test`** cobre o que é puro: dicionário, orçamento de tokens, anti-eco, composição de
-prompt nos três idiomas, cascata de idioma, SVG da tecla, defaults. Roda em ~1 s.
+- **TC39 decorators.** The SDK v2 `@action` requires TC39 decorators — do **not** enable
+  `experimentalDecorators` in the tsconfig.
+- **The `createRequire` banner in [build.mjs](build.mjs).** The SDK's `ws` library uses
+  `require()` on builtins; without the banner, the ESM bundle breaks at runtime.
+- **The plugin runs on the Stream Deck's Node 20**, not the system Node
+  (`%APPDATA%\Elgato\StreamDeck\NodeJS\20.x\node.exe`). `File`, `FormData`, `fetch` and
+  `AbortSignal.timeout` exist there — already verified — but a newer API may not.
+- **`streamDeck.ui.sendToPropertyInspector(...)`** is what talks to the panel, not the action
+  object.
+- **PowerShell and negative numbers:** `Mix-Channel $r -0.42` makes the parser read `-0.42` as a
+  parameter name. Always in parentheses: `(Mix-Channel $r (-0.42))`.
+- **Full Portuguese diacritics** in Portuguese prompts and interface strings. The prompts go to
+  the API in correct Portuguese — not in ASCII.
+- **The keyboard shortcut REPEATS while the key is held down.** Measured: PowerToys fires the
+  action on every keyboard auto-repeat, ~30 ms apart — a slightly long press turned into 28
+  messages and eight simultaneous recordings from the same microphone. That is why `onDeepLink`
+  has two **synchronous** locks (a 600 ms window per nickname and a reentrancy bolt) before any
+  `await`. Do not move those locks to after an `await`: the burst comes in precisely during the
+  wait.
+- **The key is slow to reflect a new build.** After `streamdeck restart`, the image on the
+  physical key may stay the old one for a few seconds. This has already cost one wrong
+  diagnosis: a clipped label looked like a layout bug and was just the old drawing still on
+  screen. Before going off to investigate, confirm by generating the SVG directly
+  (`keyImage(...)` in a script) and comparing it with what the key shows — if they differ, it is
+  cache, not code.
 
-**`npm run mic`** exercita o hardware: lista dispositivos, grava 3 s, e reporta latência de
-confirmação, taxa de amostras, pico em dBFS e se o MP3 saiu válido. É o teste que pega regressão
-no comando do ffmpeg.
+---
 
-**O painel dá para renderizar sem o Stream Deck**, e vale a pena antes de mexer no layout:
-copie `ui/i18n.js` e `ui/dictation.html` para uma pasta temporária, injete antes de `</body>`
-um `<script>` que chame `handlePlugin({event:"init", …})` com dados falsos, e rode
+## How to test
+
+**`npm run test`** covers what is pure: dictionary, token budget, anti-echo, prompt composition
+in all three languages, the language cascade, the key SVG, defaults. Runs in ~1 s.
+
+**`npm run mic`** exercises the hardware: lists devices, records 3 s, and reports confirmation
+latency, sample rate, peak in dBFS and whether the MP3 came out valid. It is the test that
+catches regressions in the ffmpeg command.
+
+**The panel can be rendered without the Stream Deck**, and it is worth doing before touching the
+layout: copy `ui/i18n.js` and `ui/dictation.html` into a temporary folder, inject a `<script>`
+before `</body>` that calls `handlePlugin({event:"init", …})` with fake data, and run
 
 ```bash
 chrome --headless --disable-gpu --force-device-scale-factor=2 \
@@ -309,51 +337,53 @@ chrome --headless --disable-gpu --force-device-scale-factor=2 \
   --screenshot=out.png "file:///…/preview.html"
 ```
 
-Para checar overflow na largura real do painel (340 px), injete
-`<style>html,body{width:340px}</style>` e leia `document.body.scrollWidth` via `--dump-dom` com
-o valor escrito em `document.title`. Foi assim que se descobriu que o painel morria inteiro
-quando o `i18n.js` faltava.
+To check overflow at the panel's real width (340 px), inject
+`<style>html,body{width:340px}</style>` and read `document.body.scrollWidth` via `--dump-dom`
+with the value written into `document.title`. That is how we found out the panel died entirely
+when `i18n.js` was missing.
 
-**Nada disso substitui o teste na tecla física.** Build passando não prova que a waveform mexe.
+**None of this replaces testing on the physical key.** A passing build does not prove the
+waveform moves.
 
 ---
 
-## Estado
+## State
 
-**O caminho principal funciona** — validado com voz real em 25/07/2026 (v1.0.1.1): gravar,
-transcrever e colar, de ponta a ponta.
+**The main path works** — validated with real speech on 25/07/2026 (v1.0.1.1): record,
+transcribe and paste, end to end.
 
-Em 26/07/2026 (v1.1.0.0) entraram quatro itens do roadmap: chave da OpenAI colável dentro do
-próprio modal de ajuda, 28 idiomas de destino (eram 12), confirmação em duas linhas com o
-número grande, e **prévia da tecla ao vivo no painel** — esta última encurta muito o ciclo de
-ajuste de aparência, porque tira o Stream Deck físico do caminho. Junto veio a tradução de
-todo o texto da tecla para os três idiomas (`key-text.ts`).
+On 26/07/2026 (v1.1.0.0) four roadmap items landed: an OpenAI key you can paste inside the help
+modal itself, 28 target languages (there were 12), a two-line confirmation with the big number,
+and a **live key preview in the panel** — that last one shortens the appearance-tuning cycle a
+lot, because it takes the physical Stream Deck out of the loop. Along with it came the
+translation of all the key's text into the three languages (`key-text.ts`).
 
-Na v1.2.0.0, no mesmo dia, a **virada visual** (roadmap 2.1 e 2.4): fundo quase-preto, cor só
-no que informa, **três direções escolhíveis por tecla** (`neon`, `aurora`, `ring`) e o conjunto
-de ícones de 5 para 18. Oito propostas foram desenhadas e comparadas antes de escrever o código
-definitivo — as folhas ficaram em [docs/estilos/](docs/estilos/), e vale abrir antes de propor
-uma nona. Escolher ícone e estilo agora é uma grade de miniaturas, não um `<select>`.
+In v1.2.0.0, the same day, the **visual turn** (roadmap 2.1 and 2.4): near-black background,
+colour only on what carries information, **three directions selectable per key** (`neon`,
+`aurora`, `ring`) and the icon set going from 5 to 18. Eight proposals were drawn and compared
+before the final code was written — the sheets are in [docs/estilos/](docs/estilos/), and they
+are worth opening before proposing a ninth. Choosing an icon and a style is now a grid of
+thumbnails, not a `<select>`.
 
-Na v1.3.0.0 (27/07/2026) entrou o **atalho de teclado**: um endereço
-`streamdeck://plugins/message/<uuid>/dictate?key=<apelido>&streamdeck=hidden` aciona a
-tecla mesmo que ela esteja em outra tela do deck. Medido nesta máquina: **434 ms** entre
-disparar o endereço e o plugin receber, e o modo passivo (`streamdeck=hidden`)
-**não rouba o foco** — verificado comparando a janela em foco antes e depois, o que é
-condição para o texto ser colado no lugar certo.
+In v1.3.0.0 (27/07/2026) the **keyboard shortcut** landed: a
+`streamdeck://plugins/message/<uuid>/dictate?key=<nickname>&streamdeck=hidden` URL triggers the
+key even when it sits on another page of the deck. Measured on this machine: **434 ms** between
+firing the URL and the plugin receiving it, and passive mode (`streamdeck=hidden`) **does not
+steal focus** — verified by comparing the focused window before and after, which is the
+condition for the text to be pasted in the right place.
 
-**Nada disso foi visto na tecla física ainda** — só no render headless.
+**None of this has been seen on the physical key yet** — only in the headless render.
 
-O que falta são os **casos de borda**, que não se exercitam no uso normal e falham em silêncio:
-trocar de janela durante o processamento, trocar de página no XL durante a gravação, e a
-blindagem anti-eco (apertar e parar sem falar). Lista completa em
-[docs/ROADMAP.md](docs/ROADMAP.md) item 0; roteiro detalhado em
-[docs/PLANO-ORIGINAL.md](docs/PLANO-ORIGINAL.md), seção *Verificação*.
+What is missing are the **edge cases**, which normal use does not exercise and which fail
+silently: switching windows during processing, switching pages on the XL during a recording, and
+the anti-echo shielding (press and stop without speaking). Full list in
+[docs/ROADMAP.md](docs/ROADMAP.md) item 0; detailed script in
+[docs/ORIGINAL-PLAN.md](docs/ORIGINAL-PLAN.md), section *Verification*.
 
-O que vem depois está em [docs/ROADMAP.md](docs/ROADMAP.md).
+What comes next is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## Fora de escopo (fase 2)
+## Out of scope (phase 2)
 
-Transcrever arquivo de áudio existente · capturar áudio do sistema para reuniões · streaming da
-transcrição · atalho global sem o Stream Deck · fila de reenvio de áudio que falhou ·
-rastreamento de custo.
+Transcribing an existing audio file · capturing system audio for meetings · streaming the
+transcription · a global shortcut without the Stream Deck · a resend queue for audio that failed
+· cost tracking.

@@ -1,11 +1,11 @@
-// Entrada do plugin.
+// Plugin entry point.
 //
-// O boot faz três coisas antes de conectar, e as três existem para tirar peso do
-// caminho quente do ditado:
-//   1. cria as pastas de trabalho;
-//   2. mata ffmpeg órfão de um encerramento abrupto anterior;
-//   3. aquece o cache da chave (a leitura do cofre DPAPI custa um powershell —
-//      pagar isso no boot é invisível; pagar no meio do ditado, não).
+// Boot does three things before connecting, and all three exist to take weight off
+// the hot path of dictation:
+//   1. creates the working folders;
+//   2. kills orphan ffmpeg processes left by a previous abrupt shutdown;
+//   3. warms the key cache (reading the DPAPI vault costs one powershell —
+//      paying that at boot is invisible; paying it mid-dictation is not).
 
 import streamDeck from "@elgato/streamdeck";
 
@@ -20,11 +20,11 @@ streamDeck.logger.setLevel("info");
 try {
   await ensureDirs();
   await cleanupOrphans();
-  // Apelidos dos atalhos de teclado: sem isto, um atalho para uma tecla que ainda não
-  // apareceu nesta sessão não teria a quem se referir.
+  // Keyboard shortcut nicknames: without this, a shortcut pointing at a key that has not
+  // shown up in this session would have nothing to refer to.
   await loadShortcuts();
 } catch (err) {
-  streamDeck.logger.warn("boot: preparo do ambiente falhou", err);
+  streamDeck.logger.warn("boot: environment setup failed", err);
 }
 
 void getApiKey().catch(() => {});
@@ -32,7 +32,7 @@ void getApiKey().catch(() => {});
 streamDeck.actions.registerAction(new Dictation());
 await streamDeck.connect();
 
-// Não deixar ffmpeg vivo se o processo do plugin for encerrado.
+// Do not leave ffmpeg alive if the plugin process is shut down.
 for (const sig of ["exit", "SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => killAll());
 }

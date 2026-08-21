@@ -1,12 +1,12 @@
-// Cofre da chave da OpenAI — DPAPI, o mesmo padrão da VPN (cred.xml).
+// Vault for the OpenAI key — DPAPI, the same pattern as the VPN plugin (cred.xml).
 //
-// POR QUE NÃO GUARDAR NAS SETTINGS DO STREAM DECK: elas viram um .json em texto
-// plano dentro de %APPDATA%\Elgato — qualquer processo do usuário le. O DPAPI
-// cifra com a chave da CONTA do Windows: o arquivo só abre nesta conta, nesta
-// máquina, e não serve para nada se vazar.
+// WHY NOT KEEP IT IN THE STREAM DECK SETTINGS: they become a plain-text .json inside
+// %APPDATA%\Elgato — any of the user's processes can read it. DPAPI encrypts with the
+// Windows ACCOUNT key: the file only opens on this account, on this machine, and is
+// worthless if it leaks.
 //
-// O custo (subir um powershell) só acontece ao salvar e uma vez no boot do
-// plugin — nunca no caminho quente do ditado, porque cacheamos em memória.
+// The cost (starting a powershell) only happens when saving and once at plugin boot —
+// never on the hot path of dictation, because we cache it in memory.
 
 import { execFile } from "node:child_process";
 import { join } from "node:path";
@@ -14,7 +14,7 @@ import { join } from "node:path";
 const DIR = join(process.env.LOCALAPPDATA ?? "", "transcritranslator");
 const KEY_FILE = join(DIR, "openai-key.xml");
 
-/** Aspas simples de PowerShell: o escape é dobrar a própria aspa. */
+/** PowerShell single quotes: escaping means doubling the quote itself. */
 function psQuote(s: string): string {
   return `'${s.replace(/'/g, "''")}'`;
 }
@@ -36,8 +36,8 @@ function powershell(script: string, stdin?: string): Promise<string> {
 let cached: string | null = null;
 
 /**
- * Chave em uso, na ordem: cache -> variavel de ambiente -> cofre DPAPI.
- * A env var ganha do cofre por ser explicita (útil para testar outra chave).
+ * The key in use, in order: cache -> environment variable -> DPAPI vault.
+ * The env var beats the vault because it is explicit (handy for testing another key).
  */
 export async function getApiKey(): Promise<string | null> {
   if (cached) return cached;
@@ -61,15 +61,19 @@ export async function getApiKey(): Promise<string | null> {
       return cached;
     }
   } catch {
-    /* cofre ausente ou ilegivel — trata como "sem chave" */
+    /* vault missing or unreadable — treated as "no key" */
   }
   return null;
 }
 
-/** Grava a chave no cofre. A chave vai por STDIN, nunca na linha de comando. */
+/** Writes the key into the vault. The key travels over STDIN, never on the command line. */
 export async function setApiKey(key: string): Promise<void> {
   const trimmed = key.trim();
-  if (!trimmed) throw new Error("chave vazia");
+  // NOTE: this message is echoed verbatim in the property inspector (see the "error"
+  // event in dictation.html), so it is user-facing text that does NOT go through i18n.
+  // English by decision — it is the one language every reader of this panel has a
+  // chance at. Same for the ones in presets.ts.
+  if (!trimmed) throw new Error("empty key");
 
   await powershell(
     `$k = [Console]::In.ReadToEnd().Trim();` +
@@ -85,7 +89,7 @@ export async function hasApiKey(): Promise<boolean> {
   return (await getApiKey()) !== null;
 }
 
-/** Apaga o cofre. A env var OPENAI_API_KEY, se existir, continua valendo. */
+/** Wipes the vault. The OPENAI_API_KEY env var, if set, still applies. */
 export async function clearApiKey(): Promise<void> {
   cached = null;
   await powershell(
@@ -93,7 +97,7 @@ export async function clearApiKey(): Promise<void> {
   ).catch(() => {});
 }
 
-/** Mostra só o suficiente para o usuário reconhecer a chave. */
+/** Shows just enough for the user to recognise the key. */
 export function maskKey(key: string): string {
   if (key.length <= 11) return "•".repeat(key.length);
   return `${key.slice(0, 7)}…${key.slice(-4)}`;

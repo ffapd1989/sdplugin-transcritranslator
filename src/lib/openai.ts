@@ -1,20 +1,20 @@
-// Cliente da OpenAI: transcrição (etapa 1) e texto (etapa 2).
+// OpenAI client: transcription (step 1) and text (step 2).
 //
-// Tres defesas que não são opcionais aqui:
+// Three defences that are not optional here:
 //
-//   ANTI-ECO — os modelos GPT-4o devolvem o próprio `prompt` como se fosse a
-//   transcrição quando o áudio é curto ou silencioso. E' um comportamento
-//   documentado por quem apanhou dele em producao (FALA TU). Como mandamos o
-//   dicionario no prompt, sem isto você apertaria a tecla sem querer e colaria a
-//   sua lista de siglas dentro do documento.
+//   ANTI-ECHO — the GPT-4o models return the `prompt` itself as if it were the
+//   transcription when the audio is short or silent. It is behaviour documented by
+//   people who got burned by it in production (FALA TU). Since we send the dictionary
+//   in the prompt, without this you would tap the key by accident and paste your list
+//   of acronyms into the document.
 //
-//   RECUSA — o modelo pode recusar em três formatos diferentes: erro HTTP com
-//   código de content filter, HTTP 200 com finish_reason=content_filter, e HTTP 200
-//   com um texto educado de recusa. Os três precisam ser reconhecidos, senão a
-//   frase "Desculpe, mas não posso ajudar com isso" seria colada no documento como
-//   se fosse o resultado.
+//   REFUSAL — the model can refuse in three different shapes: an HTTP error with a
+//   content-filter code, HTTP 200 with finish_reason=content_filter, and HTTP 200 with
+//   a polite refusal text. All three have to be recognised, otherwise the sentence
+//   "I'm sorry, but I can't help with that" would be pasted into the document as if it
+//   were the result.
 //
-//   RETRY — só em erro transitorio. Repetir um 401 é desperdicio de tempo.
+//   RETRY — only on transient errors. Repeating a 401 is a waste of time.
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -44,7 +44,7 @@ const FILTER_PHRASES = [
   "policy violation", "safety system", "violates our",
 ];
 
-/** Recusas que chegam como HTTP 200, em pt e en. */
+/** Refusals that arrive as HTTP 200, in pt and en. Detection patterns — do not translate. */
 const REFUSAL_PREFIXES = [
   "desculpe, mas não posso", "desculpe, mas não posso",
   "lamento, mas não posso", "lamento, mas não posso",
@@ -65,7 +65,7 @@ function isFilterError(body: any): boolean {
 
 function isRefusalText(text: string): boolean {
   if (!text) return false;
-  if (text.length > 500) return false; // recusa é curta; texto longo é resultado
+  if (text.length > 500) return false; // a refusal is short; long text is a result
   const lower = text.toLowerCase();
   return REFUSAL_PREFIXES.some((p) => lower.startsWith(p));
 }
@@ -82,10 +82,10 @@ function normalizeForCompare(s: string): string {
 }
 
 /**
- * A saída é só o prompt de volta?
+ * Is the output just the prompt handed back?
  *
- * Compara por conjunto de palavras em vez de igualdade literal, porque o modelo
- * costuma devolver a lista reordenada ou com pontuação diferente.
+ * Compares by word set rather than literal equality, because the model tends to return
+ * the list reordered or with different punctuation.
  */
 export function looksLikePromptEcho(text: string, prompt: string): boolean {
   const p = normalizeForCompare(prompt);
@@ -169,8 +169,8 @@ export async function runText(opts: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${opts.apiKey}`,
       },
-      // max_completion_tokens (não max_tokens) e sem temperature: compatível com
-      // toda a familia GPT-4x/5x.
+      // max_completion_tokens (not max_tokens) and no temperature: compatible with the
+      // whole GPT-4x/5x family.
       body: JSON.stringify({
         model: opts.model,
         messages: [
@@ -186,19 +186,19 @@ export async function runText(opts: {
 
     const data: any = await res.json();
     if (data?.choices?.[0]?.finish_reason === "content_filter") {
-      throw new ApiError("conteudo bloqueado pelas políticas do modelo", "filter", 200);
+      throw new ApiError("content blocked by the model's policies", "filter", 200);
     }
 
     const out = String(data?.choices?.[0]?.message?.content ?? "").trim();
     if (isRefusalText(out)) {
-      throw new ApiError("o modelo recusou processar este conteudo", "filter", 200);
+      throw new ApiError("the model refused to process this content", "filter", 200);
     }
-    if (!out) throw new ApiError("resposta vazia do modelo", "fatal", 200);
+    if (!out) throw new ApiError("empty response from the model", "fatal", 200);
     return out;
   });
 }
 
-/** Mensagem curta o bastante para caber na tecla, no idioma do painel. */
+/** A message short enough to fit on the key, in the panel's language. */
 export function shortError(err: unknown, locale: Locale = "pt"): string {
   const T = keyText(locale);
   if (err instanceof ApiError) {
