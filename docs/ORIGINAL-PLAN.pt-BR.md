@@ -61,11 +61,11 @@ Microfones: **FIFINE USB PnP**, CORSAIR HS80, iVCam.
 **Entra** — tudo genérico, nada de domínio:
 
 1. **Glossário determinístico.** A grafia canônica é forçada por **regex Unicode** no texto já
-   transcrito ([glossary.js:55-65](H:/sincronizados google drive/PROFISSIONAL ACADEMICO/DPERS/CODING/portalwithlasers-falatu/apps/extension/src/core/config/glossary.js#L55-L65)).
+   transcrito (`glossary.js:55-65`).
    Sem limite de tokens, sem custo, sem alucinação. Detalhe fino a copiar: `\b` não funciona
    com acentuadas em JS — usa-se lookahead/lookbehind `(?<![\p{L}\p{N}])…(?![\p{L}\p{N}])`.
 2. **A trava anti-eco.** Eles **testaram o glossário no prompt de transcrição e recuaram**
-   ([ai-client.js:353-355](H:/sincronizados google drive/PROFISSIONAL ACADEMICO/DPERS/CODING/portalwithlasers-falatu/apps/extension/src/core/services/ai-client.js#L353-L355)):
+   (`ai-client.js:353-355`):
    o modelo alucina a lista inteira quando o áudio é curto ou silencioso. Aqui o prompt de
    transcrição fica, mas com três blindagens que atacam exatamente essa causa (abaixo).
 3. **Regras genéricas de limpeza de ditado** — a base da camada A: comandos de pontuação

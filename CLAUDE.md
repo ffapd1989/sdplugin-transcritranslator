@@ -18,10 +18,11 @@ This file is the **development** guide. For usage and configuration, see [README
 
 ```powershell
 npm run check     # types (tsc --noEmit)
-npm run test      # 236 assertions over the pure parts — no Stream Deck, no network, no microphone
+npm run test      # 240 assertions over the pure parts — no Stream Deck, no network, no microphone
 npm run mic       # records 3 s from the real microphone and validates the core against the hardware
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # automatic rebuild
+npm run shots     # regenerates the README images from the real interface (needs Chrome)
 
 streamdeck restart com.felipe.transcritranslator   # reloads it in the app
 ```
@@ -60,10 +61,18 @@ Initial setup (once): `npm install`, `render-images.ps1`, `streamdeck dev`,
 
 ## RULE: documentation is bilingual — English and Portuguese
 
-Every document exists twice: the English file is canonical (`README.md`, `CLAUDE.md`,
-`docs/ROADMAP.md`, `docs/ORIGINAL-PLAN.md`), and the Portuguese one sits next to it with the
-`.pt-BR` suffix. **Both change in the same edit.** A `.pt-BR` file that lags behind is worse
-than no translation at all, because it looks current.
+Every document exists twice: the English file is canonical and the Portuguese one sits next to
+it with the `.pt-BR` suffix. **Both change in the same edit.** A `.pt-BR` file that lags behind
+is worse than no translation at all, because it looks current.
+
+The pairs are `README`, `CLAUDE`, `CONTRIBUTING`, `PRIVACY`, `SECURITY`, `CODE_OF_CONDUCT`,
+`docs/README`, `docs/ROADMAP` and `docs/ORIGINAL-PLAN`. Adding a document means adding two, plus
+a line in both `docs/README` files.
+
+The tab strip GitHub shows above the repository page (*Readme*, *MIT license*, *Code of
+conduct*, *Security*) only recognises fixed file names, so those tabs always open the English
+side. That is a GitHub limitation, not a decision — the switch at the top of each page is what
+carries a reader to the Portuguese one.
 
 Code comments, commit messages and identifiers are in **English**. User-facing strings are a
 different matter: they live in the i18n files and exist in all three languages (see the rule
@@ -109,6 +118,7 @@ press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
 | [src/lib/theme.ts](src/lib/theme.ts), [beep.ts](src/lib/beep.ts), [paths.ts](src/lib/paths.ts) | Derived colours, beeps via ffplay, paths |
 | [`…sdPlugin/ui/dictation.html`](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | The whole panel: hand-written HTML+CSS+JS, no external dependency |
 | [`…sdPlugin/ui/i18n.js`](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | **Interface** text in pt/en/es — this is what the user reads |
+| [tools/screenshots.ts](tools/screenshots.ts) | Draws `docs/img/*.png` from the real key and the real panel |
 
 ### The three language axes
 
@@ -155,6 +165,13 @@ console.log(l, m.length?('MISSING '+m):'complete')}"
 
 npm run test   # covers prompts and presets in all three languages
 ```
+
+That parity check compares `en` and `es` AGAINST `pt`, so a key missing from **all three**
+walks straight past it — `applyLang()` keeps whatever the HTML says and the panel shows
+Portuguese inside an English interface. That is how the `copy` key on the *Copy address* button
+went unnoticed until a screenshot caught it. `npm run test` now reads `dictation.html`, collects
+every `data-i18n`, `data-i18n-ph` and `data-i18n-title`, and fails if any of them is missing in
+any language.
 
 **Language names are not translated by hand.** `src/lib/languages.ts` uses `Intl.DisplayNames`
 — verified: the Stream Deck's Node has full ICU. There are two forms: `languageName()` returns
@@ -341,6 +358,17 @@ To check overflow at the panel's real width (340 px), inject
 `<style>html,body{width:340px}</style>` and read `document.body.scrollWidth` via `--dump-dom`
 with the value written into `document.title`. That is how we found out the panel died entirely
 when `i18n.js` was missing.
+
+**The README images are generated, never hand-made.** `npm run shots` runs
+[tools/screenshots.ts](tools/screenshots.ts): the key strip comes out of `keyImage()`, the same
+function the physical key uses, and the panel shots are the real `ui/dictation.html` fed the
+same payloads the plugin sends over `sendToPropertyInspector`. Change the interface, run it
+again. A screenshot taken by hand starts lying the next day, and nobody notices.
+
+Two traps in there, both already handled, both worth knowing if you touch that file: headless
+Chrome refuses to make a window narrower than ~500 px (so the width is pinned in the document
+and the height is read back from the page), and the panel wires its buttons on
+`DOMContentLoaded` (so the injected script has to wait for it, or every click is a no-op).
 
 **None of this replaces testing on the physical key.** A passing build does not prove the
 waveform moves.

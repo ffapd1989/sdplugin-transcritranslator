@@ -106,6 +106,7 @@ window.TT_I18N = {
     shortcutTaken: "Este apelido já é da tecla “{key}”. Vale a primeira; troque aqui para não ficarem duas.",
     shortcutCopied: "Endereço copiado.",
     shortcutCopyFail: "Não consegui copiar — selecione o texto e use Ctrl+C.",
+    copy: "Copiar",
 
     spokenLang: "Eu vou falar em",
     spokenHint: "Informar o idioma melhora a precisão e a velocidade — a própria OpenAI diz isso. Só deixe em Detectar se você realmente varia de idioma.",
@@ -377,6 +378,7 @@ window.TT_I18N = {
     shortcutTaken: "That nickname already belongs to the key “{key}”. First one wins; change it here so you don't keep two.",
     shortcutCopied: "Address copied.",
     shortcutCopyFail: "Could not copy — select the text and press Ctrl+C.",
+    copy: "Copy",
 
     spokenLang: "I will speak in",
     spokenHint: "Telling it the language improves accuracy and speed — OpenAI says so itself. Only leave it on Detect if you genuinely switch languages.",
@@ -641,6 +643,7 @@ window.TT_I18N = {
     shortcutTaken: "Ese apodo ya es de la tecla “{key}”. Vale la primera; cámbialo aquí para no tener dos.",
     shortcutCopied: "Dirección copiada.",
     shortcutCopyFail: "No pude copiar — selecciona el texto y pulsa Ctrl+C.",
+    copy: "Copiar",
 
     spokenLang: "Voy a hablar en",
     spokenHint: "Indicar el idioma mejora la precisión y la velocidad — lo dice la propia OpenAI. Deja Detectar solo si realmente cambias de idioma.",

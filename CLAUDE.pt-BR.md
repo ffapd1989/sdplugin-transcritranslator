@@ -17,10 +17,11 @@ Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [R
 
 ```powershell
 npm run check     # tipos (tsc --noEmit)
-npm run test      # 236 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
+npm run test      # 240 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
 npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # rebuild automático
+npm run shots     # regera as imagens do README a partir da interface real (precisa do Chrome)
 
 streamdeck restart com.felipe.transcritranslator   # recarrega no app
 ```
@@ -59,10 +60,18 @@ Instalação inicial (uma vez): `npm install`, `render-images.ps1`, `streamdeck 
 
 ## REGRA: a documentação é bilíngue — inglês e português
 
-Todo documento existe duas vezes: o arquivo em inglês é o canônico (`README.md`, `CLAUDE.md`,
-`docs/ROADMAP.md`, `docs/ORIGINAL-PLAN.md`), e o em português fica ao lado com o sufixo
-`.pt-BR`. **Os dois mudam na mesma alteração.** Um `.pt-BR` atrasado é pior que tradução
-nenhuma, porque parece atual.
+Todo documento existe duas vezes: o arquivo em inglês é o canônico e o em português fica ao lado
+com o sufixo `.pt-BR`. **Os dois mudam na mesma alteração.** Um `.pt-BR` atrasado é pior que
+tradução nenhuma, porque parece atual.
+
+Os pares são `README`, `CLAUDE`, `CONTRIBUTING`, `PRIVACY`, `SECURITY`, `CODE_OF_CONDUCT`,
+`docs/README`, `docs/ROADMAP` e `docs/ORIGINAL-PLAN`. Acrescentar um documento é acrescentar
+dois, mais uma linha nos dois `docs/README`.
+
+A faixa de abas que o GitHub mostra no topo da página do repositório (*Readme*, *MIT license*,
+*Code of conduct*, *Security*) só reconhece nomes de arquivo fixos, então essas abas sempre
+abrem o lado em inglês. Isso é limitação do GitHub, não decisão — quem leva o leitor para a
+versão em português é o link de troca no topo de cada página.
 
 Comentário de código, mensagem de commit e identificador vão em **inglês** — o projeto é
 colaborativo e publicável na loja. Texto que o usuário vê é outra história: vive nos arquivos
@@ -108,6 +117,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/lib/theme.ts](src/lib/theme.ts), [beep.ts](src/lib/beep.ts), [paths.ts](src/lib/paths.ts) | Cores derivadas, bipes por ffplay, caminhos |
 | [`…sdPlugin/ui/dictation.html`](com.felipe.transcritranslator.sdPlugin/ui/dictation.html) | Painel inteiro: HTML+CSS+JS à mão, sem dependência externa |
 | [`…sdPlugin/ui/i18n.js`](com.felipe.transcritranslator.sdPlugin/ui/i18n.js) | Textos da **interface** em pt/en/es — é o que o usuário lê |
+| [tools/screenshots.ts](tools/screenshots.ts) | Desenha `docs/img/*.png` a partir da tecla real e do painel real |
 
 ### Os três eixos de idioma
 
@@ -153,6 +163,13 @@ console.log(l, m.length?('FALTA '+m):'completo')}"
 
 npm run test   # cobre prompts e presets nos três idiomas
 ```
+
+Essa checagem de paridade compara `en` e `es` CONTRA o `pt`, então uma chave que falta nos
+**três** passa batido — o `applyLang()` mantém o que está escrito no HTML e o painel mostra
+português dentro de uma interface em inglês. Foi assim que a chave `copy`, do botão de copiar o
+endereço, passou despercebida até uma captura de tela flagrar. O `npm run test` agora lê o
+`dictation.html`, junta todo `data-i18n`, `data-i18n-ph` e `data-i18n-title`, e reprova se
+faltar alguma em algum idioma.
 
 **Nomes de idioma não são traduzidos à mão.** `src/lib/languages.ts` usa `Intl.DisplayNames` —
 verificado: o Node do Stream Deck tem ICU completo. São duas formas: `languageName()` devolve
@@ -328,6 +345,17 @@ Para checar overflow na largura real do painel (340 px), injete
 `<style>html,body{width:340px}</style>` e leia `document.body.scrollWidth` via `--dump-dom` com
 o valor escrito em `document.title`. Foi assim que se descobriu que o painel morria inteiro
 quando o `i18n.js` faltava.
+
+**As imagens do README são geradas, nunca feitas à mão.** O `npm run shots` roda o
+[tools/screenshots.ts](tools/screenshots.ts): a faixa de teclas sai do `keyImage()`, a mesma
+função que desenha a tecla física, e as telas do painel são o `ui/dictation.html` de verdade
+alimentado com os mesmos payloads que o plugin manda pelo `sendToPropertyInspector`. Mexeu na
+interface, rode de novo. Captura feita à mão começa a mentir no dia seguinte, e ninguém percebe.
+
+Duas armadilhas ali, as duas já resolvidas, mas boas de saber se for mexer: o Chrome headless
+recusa janela mais estreita que ~500 px (por isso a largura é travada no próprio documento e a
+altura é lida de volta da página), e o painel liga os botões no `DOMContentLoaded` (por isso o
+script injetado precisa esperar por ele, senão todo clique é inócuo).
 
 **Nada disso substitui o teste na tecla física.** Build passando não prova que a waveform mexe.
 

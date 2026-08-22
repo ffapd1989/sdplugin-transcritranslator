@@ -60,12 +60,12 @@ Microphones: **FIFINE USB PnP**, CORSAIR HS80, iVCam.
 **In** — everything generic, nothing domain-specific:
 
 1. **A deterministic glossary.** Canonical spelling is enforced by **Unicode regex** on the
-   already-transcribed text ([glossary.js:55-65](H:/sincronizados google drive/PROFISSIONAL ACADEMICO/DPERS/CODING/portalwithlasers-falatu/apps/extension/src/core/config/glossary.js#L55-L65)).
+   already-transcribed text (`glossary.js:55-65`).
    No token limit, no cost, no hallucination. A fine detail to copy: `\b` does not work with
    accented characters in JS — you use lookahead/lookbehind
    `(?<![\p{L}\p{N}])…(?![\p{L}\p{N}])`.
 2. **The anti-echo lock.** They **tried the glossary in the transcription prompt and backed off**
-   ([ai-client.js:353-355](H:/sincronizados google drive/PROFISSIONAL ACADEMICO/DPERS/CODING/portalwithlasers-falatu/apps/extension/src/core/services/ai-client.js#L353-L355)):
+   (`ai-client.js:353-355`):
    the model hallucinates the whole list when the audio is short or silent. Here the transcription
    prompt stays, but with three shields that attack exactly that cause (below).
 3. **Generic dictation clean-up rules** — the basis of layer A: spoken punctuation commands,

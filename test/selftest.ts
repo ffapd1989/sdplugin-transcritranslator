@@ -1,4 +1,5 @@
 // Tests of the pure parts, with no Stream Deck and no network.
+import { readFileSync } from "node:fs";
 import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget, estimateTokens } from "../src/lib/canon.js";
 import { looksLikePromptEcho, shortError, ApiError } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
@@ -432,6 +433,31 @@ ok("an invalid value falls back to the default, not to NaN",
   withDefaults({ silenceSeconds: NaN }).silenceSeconds === DEFAULTS.silenceSeconds);
 ok("the default sits inside its own range",
   DEFAULTS.silenceSeconds >= SILENCE_MIN && DEFAULTS.silenceSeconds <= SILENCE_MAX);
+
+// --- every key the panel asks for exists ---
+//
+// The parity check in CLAUDE.md compares en/es AGAINST pt, so a key missing from all
+// three slips through: `applyLang()` then keeps whatever is written in the HTML, and the
+// panel shows Portuguese inside an English interface. That is exactly how the "Copiar"
+// button survived until a screenshot caught it — and a screenshot is not a method.
+{
+  const html = readFileSync("com.felipe.transcritranslator.sdPlugin/ui/dictation.html", "utf8");
+  const source = readFileSync("com.felipe.transcritranslator.sdPlugin/ui/i18n.js", "utf8");
+  const win: Record<string, any> = {};
+  new Function("window", source)(win);
+  const TABLE = win.TT_I18N as Record<string, Record<string, string>>;
+
+  const asked = new Set<string>();
+  for (const attr of ["data-i18n", "data-i18n-ph", "data-i18n-title"]) {
+    for (const m of html.matchAll(new RegExp(attr + '="([^"]+)"', "g"))) asked.add(m[1]);
+  }
+
+  ok("the panel asks for a plausible number of keys", asked.size > 50, String(asked.size));
+  for (const locale of LOCALES) {
+    const missing = [...asked].filter((k) => !TABLE[locale]?.[k]);
+    ok("every data-i18n key exists in " + locale, missing.length === 0, missing.join(", "));
+  }
+}
 
 console.log(`\n${pass} ok, ${fail} failures\n`);
 process.exit(fail ? 1 : 0);
