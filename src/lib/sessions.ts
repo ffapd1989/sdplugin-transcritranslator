@@ -43,6 +43,8 @@ export type KeyState = {
   downAt?: number;
   /** Timer that switches the key to "RELEASE TO CANCEL" while you hold it. */
   holdTimer?: NodeJS.Timeout;
+  /** Set between "this key asked to record" and "the recorder exists". See `claimStart`. */
+  starting?: boolean;
   resetTimer?: NodeJS.Timeout;
 };
 
@@ -60,6 +62,32 @@ export function getState(actionId: string): KeyState {
 
 export function allStates(): Map<string, KeyState> {
   return states;
+}
+
+/**
+ * Reserves the right to START a recording on this key. SYNCHRONOUS by contract.
+ *
+ * The machine-wide lock below answers "is another key recording?", and it deliberately
+ * says yes to the key that already owns it — a key must be able to recover the lock after
+ * a start that failed halfway. That leaves the question it does NOT answer: whether THIS
+ * key is already recording. `startRecording` awaits four times before the recorder exists,
+ * so two triggers on the same key both used to walk through, and the second overwrote
+ * `state.recorder` — the first ffmpeg then had no reference, no timer and no way to be
+ * stopped. That is what multiplied one abandoned dictation into several.
+ *
+ * Nothing here may become async: the burst from a held-down keyboard shortcut arrives
+ * precisely during an await.
+ */
+export function claimStart(actionId: string): boolean {
+  const s = getState(actionId);
+  if (s.starting || s.recorder) return false;
+  s.starting = true;
+  return true;
+}
+
+/** Releases the reservation. The recorder, if it exists by now, takes over the guard. */
+export function finishStart(actionId: string): void {
+  getState(actionId).starting = false;
 }
 
 /** true if the lock was acquired. */

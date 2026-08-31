@@ -39,6 +39,9 @@ import {
   trackPid,
   untrackPid,
   type Phase,
+  claimStart,
+  finishStart,
+  type KeyState,
 } from "../lib/sessions.js";
 import { AUDIO_DIR, FAILED_DIR, stamp } from "../lib/paths.js";
 import { applyCanon, parseTerms, buildTranscribePrompt, buildKeywords, promptBudget } from "../lib/canon.js";
@@ -341,7 +344,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
   private async onDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
     // Both locks are SYNCHRONOUS on purpose: any `await` before them would open the
     // window in which the keyboard's repeat burst turns into N recordings.
-    if (linkRunning) return;
+    //
+    // The ORDER between them is a decision, not an accident. The burst is checked first
+    // and stays MUTE: a held-down shortcut fires ~30 ms apart, and answering it would be
+    // 28 beeps. What is left after that filter is a deliberate press, and a deliberate
+    // press that gets swallowed while the previous dictation is still being processed
+    // must not look like a plugin that died — it gets the same short beep the
+    // "you came late" branch in `runDeepLink` gives.
     const path0 = ev.url.path.replace(/^\/+|\/+$/g, "");
     const alias0 = normalizeAlias(ev.url.queryParameters.get("key") ?? path0.split("/")[1] ?? "");
     const now = Date.now();
@@ -349,12 +358,23 @@ export class Dictation extends SingletonAction<ActionSettings> {
     lastLink.set(alias0, now);
     if (now - prev < LINK_DEBOUNCE_MS) return;
 
+    if (linkRunning) {
+      void this.beepLate();
+      return;
+    }
+
     linkRunning = true;
     try {
       await this.runDeepLink(ev);
     } finally {
       linkRunning = false;
     }
+  }
+
+  /** "Heard you, but the previous dictation is still going." Never delays the caller. */
+  private async beepLate(): Promise<void> {
+    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    beep(ffmpegOf(global), "cancel");
   }
 
   private async runDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
@@ -615,8 +635,23 @@ export class Dictation extends SingletonAction<ActionSettings> {
   // ---------- pipeline ----------
 
   private async startRecording(a: Surface, raw: ActionSettings): Promise<void> {
-    const s = withDefaults(raw);
     const st = getState(a.id);
+    // Before the first await, always: everything below this line runs while a second
+    // trigger on the same key could be arriving.
+    if (!claimStart(a.id)) return;
+    try {
+      await this.startRecordingInner(a, raw, st);
+    } finally {
+      finishStart(a.id);
+    }
+  }
+
+  private async startRecordingInner(
+    a: Surface,
+    raw: ActionSettings,
+    st: KeyState,
+  ): Promise<void> {
+    const s = withDefaults(raw);
     const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
     const T = keyText(await refreshUiLocale(global));
 

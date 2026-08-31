@@ -1,5 +1,6 @@
 // Tests of the pure parts, with no Stream Deck and no network.
 import { readFileSync } from "node:fs";
+import { claimStart, finishStart, getState } from "../src/lib/sessions.js";
 import { applyCanon, parseTerms, buildTranscribePrompt, buildKeywords, KEYWORDS_LIMIT, promptBudget, estimateTokens } from "../src/lib/canon.js";
 import { looksLikePromptEcho, supportsKeywords, shortError, ApiError } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
@@ -433,6 +434,25 @@ ok("changing the nickname does not leave the old one behind", (() => {
   return lookup("email") === undefined && lookup("e-mail-formal")?.actionId === "ctx-3";
 })());
 ok("the nickname starts out empty in the defaults", withDefaults(undefined).shortcutAlias === "");
+
+console.log("\n— one recording per key —");
+// The machine-wide lock answers "is ANOTHER key recording?" and says yes to the key that
+// already owns it, on purpose. `claimStart` answers the other half — whether THIS key is
+// already on its way — and it is what stops one abandoned dictation from becoming several.
+ok("the first trigger claims the key", claimStart("k1"));
+ok("a second trigger during the same start is refused", !claimStart("k1"));
+ok("another key is unaffected", claimStart("k2"));
+finishStart("k1");
+ok("released, the key can start again", claimStart("k1"));
+finishStart("k1");
+// A live recorder keeps the guard shut on its own: the reservation ends when the recorder
+// exists, and from there it is the recorder that says the key is busy.
+getState("k1").recorder = {} as never;
+ok("a key that is already recording is refused", !claimStart("k1"));
+getState("k1").recorder = undefined;
+ok("and free again once it stops", claimStart("k1"));
+finishStart("k1");
+finishStart("k2");
 resetShortcuts();
 
 // --- the pause that ends a recording ---

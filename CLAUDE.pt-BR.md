@@ -302,13 +302,35 @@ antes de ele disparar — apertar a tecla duas vezes seguidas basta — deixava 
 cima da gravação NOVA. Daí em diante: o `ready` via uma fase que não era "arming" e voltava, o
 `stopAndProcess` batia na guarda de fase e voltava em toda tentativa seguinte, e o
 `maxReached`, que é de disparo único, virava no-op. O ffmpeg gravava até o processo do plugin
-morrer. Pior: a tecla parecia ociosa, então o próximo aperto iniciava OUTRA gravação imortal —
-o lock não barra um segundo início do MESMO id.
+morrer. Pior: a tecla parecia ociosa, então o próximo aperto iniciava OUTRA gravação imortal.
 
 Foi daí que vieram os dois MP3 sobrepostos de 19 horas, e o `npm run leak` reproduz isso em uns
-20 s. Duas linhas seguram o caso, e nenhuma é enfeite: o `clearTimeout` no `startRecording`
-remove a causa, e o `rec.cancel()` no `ready` garante que qualquer descompasso de fase futuro
-custe uma ditada perdida em vez de um arquivo que cresce até o plugin morrer.
+20 s. São três guardas, e cada uma responde a uma pergunta diferente:
+
+| guarda | remove |
+|---|---|
+| `clearTimeout(st.resetTimer)` no `startRecording` | a causa — um timer velho caindo em cima de uma gravação viva |
+| `rec.cancel()` no `ready` | a consequência — descompasso de fase agora custa uma ditada perdida, não um arquivo que cresce |
+| `claimStart()` no `startRecording` | o multiplicador — ver decisão 20 |
+
+**20. O `claimStart` guarda a tecla; o `acquireLock` guarda a máquina. Não é a mesma
+pergunta.** O `acquireLock` responde "outra tecla está gravando?", e diz sim de propósito para
+a tecla que já é dona do lock — uma tecla precisa poder recuperá-lo depois de um início que
+falhou no meio, senão um único início ruim mata aquela tecla até o plugin reiniciar. O que ele
+não responde é se ESTA tecla já está a caminho, e o `startRecording` dá quatro `await` antes de
+o gravador existir. Dois disparos na mesma tecla passavam os dois, e o segundo sobrescrevia
+`state.recorder`: o primeiro ffmpeg ficava sem referência, sem timer e sem quem o parasse. O
+`claimStart` é síncrono por contrato pelo mesmo motivo das travas do deep link — a rajada de um
+atalho segurado chega justamente durante um await. Não "simplifique" isso deixando o
+`acquireLock` estrito: troca um vazamento por uma tecla morta.
+
+**21. No `onDeepLink` o filtro de rajada roda ANTES da trava de reentrância, e só a trava
+responde.** Um atalho segurado dispara a cada ~30 ms, então o debounce tem de ficar MUDO — 28
+bipes seriam piores que a rajada que ele suprime. O que sobrevive a esse filtro é aperto
+deliberado, e aperto deliberado engolido porque a ditada anterior ainda está sendo processada
+não produzia nada: sem som, sem mudança na tecla, indistinguível de um plugin morto. Agora
+recebe o mesmo bipe curto do ramo "você chegou tarde" do `runDeepLink`. Trocar a ordem das duas
+verificações põe os bipes dentro da rajada.
 
 ## Decisões de produto (definidas com o usuário)
 

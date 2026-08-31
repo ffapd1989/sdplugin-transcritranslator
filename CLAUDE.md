@@ -313,13 +313,35 @@ dictation before it fires — pressing the key twice in a row is enough — let 
 on top of the NEW recording. From there: `ready` saw a phase that was not "arming" and
 returned, `stopAndProcess` hit its phase guard and returned on every later attempt, and the
 one-shot `maxReached` was a no-op. ffmpeg recorded until the plugin process died. Worse, the
-key looked idle, so the next press started ANOTHER immortal recording — the lock does not
-block a second start from the SAME id.
+key looked idle, so the next press started ANOTHER immortal recording.
 
 That is where the two overlapping 19-hour MP3s came from, and `npm run leak` reproduces it in
-about 20 s. Two lines guard it, and neither is decoration: the `clearTimeout` in
-`startRecording` removes the cause, and the `rec.cancel()` in `ready` makes sure that any
-future phase glitch costs a lost dictation instead of a file that grows until the plugin dies.
+about 20 s. Three guards, and each answers a different question:
+
+| guard | removes |
+|---|---|
+| `clearTimeout(st.resetTimer)` in `startRecording` | the cause — a stale timer landing on a live recording |
+| `rec.cancel()` in `ready` | the consequence — a phase glitch now costs a lost dictation, not a growing file |
+| `claimStart()` in `startRecording` | the multiplier — see decision 20 |
+
+**20. `claimStart` guards the key; `acquireLock` guards the machine. They are not the same
+question.** `acquireLock` answers "is ANOTHER key recording?", and it deliberately says yes to
+the key that already owns the lock — a key has to be able to recover it after a start that
+failed halfway, otherwise one bad start bricks that key until the plugin restarts. What it
+leaves unanswered is whether THIS key is already on its way, and `startRecording` awaits four
+times before the recorder exists. Two triggers on the same key both walked through, and the
+second overwrote `state.recorder`: the first ffmpeg was then unreferenced, untimed and
+unstoppable. `claimStart` is synchronous by contract for the same reason the deep-link bolts
+are — the burst from a held-down shortcut arrives precisely during an await. Do not "simplify"
+this by making `acquireLock` strict: that trades a leak for a dead key.
+
+**21. In `onDeepLink` the burst filter runs BEFORE the reentrancy bolt, and only the bolt
+answers.** A held-down shortcut fires ~30 ms apart, so the debounce has to stay MUTE — 28 beeps
+would be worse than the burst it is suppressing. Everything that survives that filter is a
+deliberate press, and a deliberate press swallowed because the previous dictation is still
+being processed used to produce nothing at all: no sound, no key change, indistinguishable from
+a plugin that had died. It now gets the same short beep the "you came late" branch in
+`runDeepLink` gives. Swapping the two checks back puts the beeps inside the burst.
 
 ## Product decisions (settled with the user)
 

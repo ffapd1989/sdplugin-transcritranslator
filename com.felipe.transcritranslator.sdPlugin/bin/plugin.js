@@ -17871,6 +17871,15 @@ function getState(actionId) {
   }
   return s;
 }
+function claimStart(actionId) {
+  const s = getState(actionId);
+  if (s.starting || s.recorder) return false;
+  s.starting = true;
+  return true;
+}
+function finishStart(actionId) {
+  getState(actionId).starting = false;
+}
 function acquireLock(actionId) {
   if (lockOwner && lockOwner !== actionId) return false;
   lockOwner = actionId;
@@ -19463,19 +19472,27 @@ var Dictation = class extends (_a = SingletonAction) {
    * pulse and there is no "key released" for hold mode.
    */
   async onDeepLink(ev) {
-    if (linkRunning) return;
     const path0 = ev.url.path.replace(/^\/+|\/+$/g, "");
     const alias0 = normalizeAlias(ev.url.queryParameters.get("key") ?? path0.split("/")[1] ?? "");
     const now = Date.now();
     const prev = lastLink.get(alias0) ?? 0;
     lastLink.set(alias0, now);
     if (now - prev < LINK_DEBOUNCE_MS) return;
+    if (linkRunning) {
+      void this.beepLate();
+      return;
+    }
     linkRunning = true;
     try {
       await this.runDeepLink(ev);
     } finally {
       linkRunning = false;
     }
+  }
+  /** "Heard you, but the previous dictation is still going." Never delays the caller. */
+  async beepLate() {
+    const global = await plugin_default.settings.getGlobalSettings();
+    beep(ffmpegOf(global), "cancel");
   }
   async runDeepLink(ev) {
     const global = await plugin_default.settings.getGlobalSettings();
@@ -19670,8 +19687,16 @@ var Dictation = class extends (_a = SingletonAction) {
   }
   // ---------- pipeline ----------
   async startRecording(a, raw) {
-    const s = withDefaults(raw);
     const st = getState(a.id);
+    if (!claimStart(a.id)) return;
+    try {
+      await this.startRecordingInner(a, raw, st);
+    } finally {
+      finishStart(a.id);
+    }
+  }
+  async startRecordingInner(a, raw, st) {
+    const s = withDefaults(raw);
     const global = await plugin_default.settings.getGlobalSettings();
     const T = keyText(await refreshUiLocale(global));
     if (!s.transcribeOn) {
@@ -19945,7 +19970,7 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.4.1.0",
+            version: "1.4.2.0",
             versionDate: "2026-08-31",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
