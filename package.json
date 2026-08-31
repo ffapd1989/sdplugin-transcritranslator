@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "test": "esbuild test/selftest.ts --bundle --platform=node --format=esm --target=node20 --outfile=node_modules/.cache/selftest.mjs --log-level=error && node node_modules/.cache/selftest.mjs",
     "mic": "esbuild test/mic-check.ts --bundle --platform=node --format=esm --target=node20 --outfile=node_modules/.cache/mic.mjs --log-level=error --banner:js=\"import{createRequire as ___cr}from'node:module';const require=___cr(import.meta.url);\" && node node_modules/.cache/mic.mjs",
+    "leak": "esbuild test/leak-check.ts --bundle --platform=node --format=esm --target=node20 --outfile=node_modules/.cache/leak.mjs --log-level=error && node node_modules/.cache/leak.mjs",
     "shots": "esbuild tools/screenshots.ts --bundle --platform=node --format=esm --target=node20 --outfile=node_modules/.cache/shots.mjs --log-level=error && node node_modules/.cache/shots.mjs"
   },
   "dependencies": {

@@ -641,6 +641,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const ffmpeg = ffmpegOf(global);
     const audioPath = join(AUDIO_DIR, `${stamp()}.mp3`);
 
+    // The previous dictation's flash left a timer scheduled that sets the phase back to
+    // "idle". Starting again before it fires — which is what pressing twice in a row
+    // does — let that timer land on top of THIS recording: the phase went to "idle", the
+    // `ready` below abandoned the recorder, and ffmpeg carried on with nobody left able
+    // to stop it. That is where the 19-hour MP3s came from.
+    clearTimeout(st.resetTimer);
+    st.resetTimer = undefined;
+
     st.phase = "arming";
     st.levels = [];
     st.message = undefined;
@@ -663,7 +671,19 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     rec.on("ready", () => {
       const cur = getState(a.id);
-      if (cur.phase !== "arming") return;
+      // Something moved the phase out from under this recording while it was opening.
+      // Returning would leave ffmpeg running with no reference and no timer able to
+      // reach it: an abandoned recording is not a silent one, it is a file that grows
+      // until the plugin dies. Give up the recording instead of leaking the process.
+      if (cur.phase !== "arming") {
+        streamDeck.logger.warn(`recording abandoned while opening (phase=${cur.phase}) — closing ffmpeg`);
+        rec.cancel();
+        void untrackPid(rec.pid);
+        releaseLock(a.id);
+        cur.recorder = undefined;
+        void unlink(audioPath).catch(() => {});
+        return;
+      }
       cur.phase = "recording";
       cur.startedAt = Date.now();
       if (s.beep) beep(ffmpeg, "start");

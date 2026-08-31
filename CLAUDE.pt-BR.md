@@ -19,6 +19,7 @@ Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [R
 npm run check     # tipos (tsc --noEmit)
 npm run test      # 240 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
 npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
+npm run leak      # dispara o atalho na sequência que deixava o ffmpeg gravando para sempre
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # rebuild automático
 npm run shots     # regera as imagens do README a partir da interface real (precisa do Chrome)
@@ -295,6 +296,20 @@ devolver. Reproduzido com 1,5 s de silêncio digital — o `gpt-4o-mini-transcri
 lista inteira, o `gpt-transcribe` devolveu string vazia. A blindagem anti-eco fica assim
 mesmo, porque os modelos antigos continuam na lista e o modelo é escolha do usuário.
 
+**19. O `startRecording` limpa o timer de reset pendente, e o `ready` se recusa a abandonar um
+gravador.** O `flash()` agenda um timer que devolve a fase para "idle". Começar uma ditada
+antes de ele disparar — apertar a tecla duas vezes seguidas basta — deixava esse timer cair em
+cima da gravação NOVA. Daí em diante: o `ready` via uma fase que não era "arming" e voltava, o
+`stopAndProcess` batia na guarda de fase e voltava em toda tentativa seguinte, e o
+`maxReached`, que é de disparo único, virava no-op. O ffmpeg gravava até o processo do plugin
+morrer. Pior: a tecla parecia ociosa, então o próximo aperto iniciava OUTRA gravação imortal —
+o lock não barra um segundo início do MESMO id.
+
+Foi daí que vieram os dois MP3 sobrepostos de 19 horas, e o `npm run leak` reproduz isso em uns
+20 s. Duas linhas seguram o caso, e nenhuma é enfeite: o `clearTimeout` no `startRecording`
+remove a causa, e o `rec.cancel()` no `ready` garante que qualquer descompasso de fase futuro
+custe uma ditada perdida em vez de um arquivo que cresce até o plugin morrer.
+
 ## Decisões de produto (definidas com o usuário)
 
 Não são acidentes de implementação — foram escolhidas explicitamente:
@@ -351,6 +366,15 @@ prompt nos três idiomas, cascata de idioma, SVG da tecla, defaults. Roda em ~1 
 **`npm run mic`** exercita o hardware: lista dispositivos, grava 3 s, e reporta latência de
 confirmação, taxa de amostras, pico em dBFS e se o MP3 saiu válido. É o teste que pega regressão
 no comando do ffmpeg.
+
+**O `npm run leak`** é a única verificação capaz de enxergar uma gravação que ninguém consegue
+parar. Ele dispara o endereço do atalho quatro vezes — a terceira dentro da janela do flash da
+segunda, que é o gatilho — e exige que a quarta, um stop comum, seja obedecida. Precisa do
+Stream Deck rodando e de uma tecla com apelido; o apelido vem do bloco de notas do próprio
+plugin, então nada pessoal fica chumbado. Ele se sincroniza pelo arquivo de áudio aparecendo e
+sumindo, e não por cronômetro, porque o `onDeepLink` mantém uma tranca de reentrância enquanto
+processa uma ditada e um endereço disparado em atraso fixo é engolido — a rodada então acusa um
+vazamento que é só a sequência escorregando um passo.
 
 **O painel dá para renderizar sem o Stream Deck**, e vale a pena antes de mexer no layout:
 copie `ui/i18n.js` e `ui/dictation.html` para uma pasta temporária, injete antes de `</body>`

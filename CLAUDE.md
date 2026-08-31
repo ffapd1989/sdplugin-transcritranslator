@@ -20,6 +20,7 @@ This file is the **development** guide. For usage and configuration, see [README
 npm run check     # types (tsc --noEmit)
 npm run test      # 240 assertions over the pure parts — no Stream Deck, no network, no microphone
 npm run mic       # records 3 s from the real microphone and validates the core against the hardware
+npm run leak      # fires the shortcut in the sequence that used to leave ffmpeg recording forever
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # automatic rebuild
 npm run shots     # regenerates the README images from the real interface (needs Chrome)
@@ -306,6 +307,20 @@ returned the whole list, `gpt-transcribe` returned an empty string. The anti-ech
 stays anyway, because the old models are still on the list and the model is the user's
 choice.
 
+**19. `startRecording` clears the pending reset timer, and `ready` refuses to abandon a
+recorder.** `flash()` schedules a timer that puts the phase back to "idle". Starting a
+dictation before it fires — pressing the key twice in a row is enough — let that timer land
+on top of the NEW recording. From there: `ready` saw a phase that was not "arming" and
+returned, `stopAndProcess` hit its phase guard and returned on every later attempt, and the
+one-shot `maxReached` was a no-op. ffmpeg recorded until the plugin process died. Worse, the
+key looked idle, so the next press started ANOTHER immortal recording — the lock does not
+block a second start from the SAME id.
+
+That is where the two overlapping 19-hour MP3s came from, and `npm run leak` reproduces it in
+about 20 s. Two lines guard it, and neither is decoration: the `clearTimeout` in
+`startRecording` removes the cause, and the `rec.cancel()` in `ready` makes sure that any
+future phase glitch costs a lost dictation instead of a file that grows until the plugin dies.
+
 ## Product decisions (settled with the user)
 
 These are not implementation accidents — they were chosen explicitly:
@@ -365,6 +380,15 @@ in all three languages, the language cascade, the key SVG, defaults. Runs in ~1 
 **`npm run mic`** exercises the hardware: lists devices, records 3 s, and reports confirmation
 latency, sample rate, peak in dBFS and whether the MP3 came out valid. It is the test that
 catches regressions in the ffmpeg command.
+
+**`npm run leak`** is the only check that can see a recording nobody can stop. It fires the
+shortcut address four times — the third one inside the flash window of the second, which is
+the trigger — and asserts that the fourth, an ordinary stop, is obeyed. It needs the Stream
+Deck running and a key with a nickname; the nickname comes from the plugin's own notebook, so
+nothing personal is hardcoded. It synchronises on the audio file appearing and disappearing
+rather than on a stopwatch, because `onDeepLink` holds a reentrancy bolt while it processes a
+dictation and an address fired on a fixed delay gets swallowed — the run then reports a leak
+that is really just the sequence sliding one step out of place.
 
 **The panel can be rendered without the Stream Deck**, and it is worth doing before touching the
 layout: copy `ui/i18n.js` and `ui/dictation.html` into a temporary folder, inject a `<script>`

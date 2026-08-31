@@ -19690,6 +19690,8 @@ var Dictation = class extends (_a = SingletonAction) {
     }
     const ffmpeg = ffmpegOf(global);
     const audioPath = join7(AUDIO_DIR, `${stamp()}.mp3`);
+    clearTimeout(st.resetTimer);
+    st.resetTimer = void 0;
     st.phase = "arming";
     st.levels = [];
     st.message = void 0;
@@ -19710,7 +19712,16 @@ var Dictation = class extends (_a = SingletonAction) {
     st.recorder = rec;
     rec.on("ready", () => {
       const cur = getState(a.id);
-      if (cur.phase !== "arming") return;
+      if (cur.phase !== "arming") {
+        plugin_default.logger.warn(`recording abandoned while opening (phase=${cur.phase}) \u2014 closing ffmpeg`);
+        rec.cancel();
+        void untrackPid(rec.pid);
+        releaseLock(a.id);
+        cur.recorder = void 0;
+        void unlink2(audioPath).catch(() => {
+        });
+        return;
+      }
       cur.phase = "recording";
       cur.startedAt = Date.now();
       if (s.beep) beep(ffmpeg, "start");
@@ -19934,8 +19945,8 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.4.0.0",
-            versionDate: "2026-08-30",
+            version: "1.4.1.0",
+            versionDate: "2026-08-31",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
