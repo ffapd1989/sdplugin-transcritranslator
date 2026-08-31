@@ -41,14 +41,14 @@ import {
   type Phase,
 } from "../lib/sessions.js";
 import { AUDIO_DIR, FAILED_DIR, stamp } from "../lib/paths.js";
-import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget } from "../lib/canon.js";
+import { applyCanon, parseTerms, buildTranscribePrompt, buildKeywords, promptBudget } from "../lib/canon.js";
 import {
   buildTextSystemPrompt,
   hasTextWork,
   textPromptParts,
   type TextPromptOptions,
 } from "../lib/prompts.js";
-import { transcribe, runText, ApiError, shortError } from "../lib/openai.js";
+import { transcribe, runText, supportsKeywords, ApiError, shortError } from "../lib/openai.js";
 import {
   deliver,
   readSelectionOrClipboard,
@@ -809,10 +809,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
         st.phase = "transcribing";
         await this.render(a, await a.getSettings());
 
+        // On a model that takes `keywords[]`, the dictionary goes there and the prompt is
+        // left to the key's free context alone — which is what removes the echo risk at
+        // its source, instead of only shielding against it downstream.
+        const asKeywords = supportsKeywords(s.transcribeModel);
         const { prompt } = buildTranscribePrompt({
           terms,
           context: s.transcribeContext,
-          useCanon: s.useCanonPrompt,
+          useCanon: s.useCanonPrompt && !asKeywords,
         });
 
         const result = await transcribe({
@@ -821,6 +825,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
           model: s.transcribeModel,
           language: s.language,
           prompt,
+          keywords: asKeywords ? buildKeywords({ terms, useCanon: s.useCanonPrompt }).keywords : undefined,
         });
         models.push(s.transcribeModel);
 
@@ -950,11 +955,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
         case "preview": {
           const s = withDefaults(await a.getSettings());
           const terms = parseTerms(global.canonTerms);
+          const asKeywords = supportsKeywords(s.transcribeModel);
           const built = buildTranscribePrompt({
             terms,
             context: s.transcribeContext,
-            useCanon: s.useCanonPrompt,
+            useCanon: s.useCanonPrompt && !asKeywords,
           });
+          const kw = buildKeywords({ terms, useCanon: s.useCanonPrompt });
           reply({
             event: "preview",
             transcribe: {
@@ -962,7 +969,8 @@ export class Dictation extends SingletonAction<ActionSettings> {
               model: s.transcribeModel,
               language: s.language,
               prompt: built.prompt,
-              dropped: built.droppedTerms,
+              dropped: asKeywords ? kw.droppedTerms : built.droppedTerms,
+              keywords: asKeywords ? kw.keywords : undefined,
             },
             text: {
               enabled: s.textOn && hasTextWork(textOptions(s, terms, contentLocale(global, s.language))),
@@ -1093,12 +1101,14 @@ export class Dictation extends SingletonAction<ActionSettings> {
           break;
         }
 
-        case "budget":
-          reply({
-            event: "budget",
-            ...promptBudget(parseTerms(global.canonTerms), msg.context ?? ""),
-          });
+        // With `keywords[]` the dictionary no longer travels in the prompt, so it does
+        // not spend the 224-token budget — the panel would warn about an overflow that
+        // does not exist.
+        case "budget": {
+          const terms = supportsKeywords(msg.model ?? "") ? [] : parseTerms(global.canonTerms);
+          reply({ event: "budget", ...promptBudget(terms, msg.context ?? "") });
           break;
+        }
 
         // The panel sends what was typed and gets back the normalised form, the address
         // ready to copy and the warning about a nickname already in use. Normalisation
@@ -1134,7 +1144,7 @@ type PiMessage =
   | { cmd: "savePreset"; name: string }
   | { cmd: "deletePreset"; id: string }
   | { cmd: "testMic"; device: string }
-  | { cmd: "budget"; context: string }
+  | { cmd: "budget"; context: string; model?: string }
   | { cmd: "shortcutCheck"; alias?: string };
 
 /** Used by the Property Inspector for the microphone's "Test" button. */

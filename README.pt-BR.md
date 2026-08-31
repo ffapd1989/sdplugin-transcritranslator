@@ -235,12 +235,21 @@ duas frentes:
 
 <img src="docs/img/panel-dictionary.png" width="340" alt="O dicionário de palavras canônicas em janela própria">
 
-1. **No prompt de transcrição** — ajuda o modelo a *ouvir* certo. Tem teto de **224 tokens**
-   (~75 siglas); o que passar disso a API descarta em silêncio, e descarta o *começo*, por
-   isso o dicionário é cortado antes do seu contexto. O painel mostra um medidor.
+1. **Na entrada** — ajuda o modelo a *ouvir* certo, e o caminho depende do modelo de áudio:
+   - o `gpt-transcribe` (o padrão) recebe o dicionário em `keywords[]`, um campo feito
+     exatamente para isso. Até **32 termos**; daí para cima a acurácia começa a cair em vez
+     de subir.
+   - os modelos anteriores recebem dentro do `prompt`, com teto de **224 tokens** (~75
+     siglas); o que passar disso a API descarta em silêncio, e descarta o *começo*, por isso
+     o dicionário é cortado antes do seu contexto. O painel mostra um medidor — que some no
+     `gpt-transcribe`, onde o dicionário não gasta mais esse orçamento.
 2. **Na correção final** — uma comparação exata força a grafia canônica no texto pronto.
    Sem limite de quantidade, sem custo e sem chance de alucinação. É esta que garante o
    resultado; a primeira só melhora as chances.
+
+Medido com um áudio sintético contendo seis termos: 4 de 6 ouvidos corretamente com o
+dicionário no prompt (em qualquer uma das duas gerações de modelo), **6 de 6** com ele em
+`keywords[]`.
 
 ## O prompt de transcrição vai vazio até você preencher
 

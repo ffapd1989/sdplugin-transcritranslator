@@ -86,6 +86,27 @@ export function buildTranscribePrompt(opts: {
   return { prompt: parts.join("\n"), droppedTerms: opts.terms.length - kept.length };
 }
 
+/**
+ * How many terms go into `keywords[]`.
+ *
+ * There is no documented ceiling, but the field is not free: measured with 66 keywords
+ * (60 decoys plus the 6 real ones) the model dropped from 6/6 to 4/6 on the same clip.
+ * The cut is by count, and the terms that fall off still have the regex in
+ * post-processing behind them — the same safety net as the prompt path.
+ */
+export const KEYWORDS_LIMIT = 32;
+
+export function buildKeywords(opts: {
+  terms: string[];
+  useCanon: boolean;
+}): { keywords: string[]; droppedTerms: number } {
+  if (!opts.useCanon) return { keywords: [], droppedTerms: opts.terms.length };
+  return {
+    keywords: opts.terms.slice(0, KEYWORDS_LIMIT),
+    droppedTerms: Math.max(0, opts.terms.length - KEYWORDS_LIMIT),
+  };
+}
+
 /** How much of the 224-token budget the current configuration consumes (for the panel). */
 export function promptBudget(terms: string[], context: string): { used: number; limit: number } {
   const list = terms.join(", ");

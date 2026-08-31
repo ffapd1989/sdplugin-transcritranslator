@@ -21,7 +21,8 @@ import { spokenLanguages, targetLanguages } from "../src/lib/languages.js";
 import { SWATCHES } from "../src/lib/theme.js";
 import { TRANSCRIBE_MODELS, TEXT_MODELS, withDefaults, type ActionSettings } from "../src/lib/settings.js";
 import { textPromptParts } from "../src/lib/prompts.js";
-import { buildTranscribePrompt, parseTerms } from "../src/lib/canon.js";
+import { buildTranscribePrompt, buildKeywords, parseTerms } from "../src/lib/canon.js";
+import { supportsKeywords } from "../src/lib/openai.js";
 import { keyText } from "../src/lib/key-text.js";
 
 const ROOT = process.cwd();
@@ -274,14 +275,19 @@ const TEXT_OPTS = {
   locale: "en" as const,
 };
 
+// The same branch the plugin takes, so the screenshot cannot show a prompt the default
+// model no longer receives.
+const AS_KEYWORDS = supportsKeywords(FULL.transcribeModel);
+
 const PREVIEW = {
   event: "preview",
   transcribe: {
     enabled: true,
     model: FULL.transcribeModel,
     language: FULL.language,
-    prompt: buildTranscribePrompt({ terms: TERMS, context: "", useCanon: true }).prompt,
+    prompt: buildTranscribePrompt({ terms: TERMS, context: "", useCanon: !AS_KEYWORDS }).prompt,
     dropped: 0,
+    keywords: AS_KEYWORDS ? buildKeywords({ terms: TERMS, useCanon: true }).keywords : undefined,
   },
   text: {
     enabled: true,

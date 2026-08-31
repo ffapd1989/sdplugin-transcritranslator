@@ -17776,7 +17776,7 @@ var DEFAULTS = {
   maxMinutes: 10,
   beep: true,
   transcribeOn: true,
-  transcribeModel: "gpt-4o-mini-transcribe",
+  transcribeModel: "gpt-transcribe",
   language: "pt",
   transcribeContext: "",
   useCanonPrompt: true,
@@ -17822,8 +17822,9 @@ function clampSilence(out) {
   return out;
 }
 var TRANSCRIBE_MODELS = [
-  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (default)" },
-  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (better)" },
+  { id: "gpt-transcribe", label: "GPT Transcribe (default, keyword hints)" },
+  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (previous)" },
+  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (previous, cheapest)" },
   { id: "whisper-1", label: "Whisper-1 (legacy)" }
 ];
 var TEXT_MODELS = [
@@ -17976,6 +17977,14 @@ function buildTranscribePrompt(opts) {
   }
   const parts = [kept.join(", "), context].filter(Boolean);
   return { prompt: parts.join("\n"), droppedTerms: opts.terms.length - kept.length };
+}
+var KEYWORDS_LIMIT = 32;
+function buildKeywords(opts) {
+  if (!opts.useCanon) return { keywords: [], droppedTerms: opts.terms.length };
+  return {
+    keywords: opts.terms.slice(0, KEYWORDS_LIMIT),
+    droppedTerms: Math.max(0, opts.terms.length - KEYWORDS_LIMIT)
+  };
 }
 function promptBudget(terms, context) {
   const list = terms.join(", ");
@@ -18318,6 +18327,10 @@ async function parseError(res) {
   const msg = body2?.error?.message || res.statusText || `HTTP ${res.status}`;
   return new ApiError(msg, kind, res.status);
 }
+var KEYWORDS_MODELS = /* @__PURE__ */ new Set(["gpt-transcribe"]);
+function supportsKeywords(model) {
+  return KEYWORDS_MODELS.has(model.trim());
+}
 async function transcribe(opts) {
   const buf = await readFile2(opts.audioPath);
   return withRetries(async () => {
@@ -18327,6 +18340,9 @@ async function transcribe(opts) {
     form.append("response_format", "json");
     if (opts.language) form.append("language", opts.language);
     if (opts.prompt) form.append("prompt", opts.prompt);
+    if (supportsKeywords(opts.model)) {
+      for (const word of opts.keywords ?? []) form.append("keywords[]", word);
+    }
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${opts.apiKey}` },
@@ -19809,17 +19825,19 @@ var Dictation = class extends (_a = SingletonAction) {
       if (src.audioPath) {
         st.phase = "transcribing";
         await this.render(a, await a.getSettings());
+        const asKeywords = supportsKeywords(s.transcribeModel);
         const { prompt } = buildTranscribePrompt({
           terms,
           context: s.transcribeContext,
-          useCanon: s.useCanonPrompt
+          useCanon: s.useCanonPrompt && !asKeywords
         });
         const result = await transcribe({
           apiKey,
           audioPath: src.audioPath,
           model: s.transcribeModel,
           language: s.language,
-          prompt
+          prompt,
+          keywords: asKeywords ? buildKeywords({ terms, useCanon: s.useCanonPrompt }).keywords : void 0
         });
         models.push(s.transcribeModel);
         if (result.echoed || !result.text) {
@@ -19916,8 +19934,8 @@ var Dictation = class extends (_a = SingletonAction) {
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
             uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.3.3.0",
-            versionDate: "2026-08-21",
+            version: "1.4.0.0",
+            versionDate: "2026-08-30",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -19932,11 +19950,13 @@ var Dictation = class extends (_a = SingletonAction) {
         case "preview": {
           const s = withDefaults(await a.getSettings());
           const terms = parseTerms(global.canonTerms);
+          const asKeywords = supportsKeywords(s.transcribeModel);
           const built = buildTranscribePrompt({
             terms,
             context: s.transcribeContext,
-            useCanon: s.useCanonPrompt
+            useCanon: s.useCanonPrompt && !asKeywords
           });
+          const kw = buildKeywords({ terms, useCanon: s.useCanonPrompt });
           reply({
             event: "preview",
             transcribe: {
@@ -19944,7 +19964,8 @@ var Dictation = class extends (_a = SingletonAction) {
               model: s.transcribeModel,
               language: s.language,
               prompt: built.prompt,
-              dropped: built.droppedTerms
+              dropped: asKeywords ? kw.droppedTerms : built.droppedTerms,
+              keywords: asKeywords ? kw.keywords : void 0
             },
             text: {
               enabled: s.textOn && hasTextWork(textOptions(s, terms, contentLocale(global, s.language))),
@@ -20055,12 +20076,14 @@ var Dictation = class extends (_a = SingletonAction) {
           });
           break;
         }
-        case "budget":
-          reply({
-            event: "budget",
-            ...promptBudget(parseTerms(global.canonTerms), msg.context ?? "")
-          });
+        // With `keywords[]` the dictionary no longer travels in the prompt, so it does
+        // not spend the 224-token budget — the panel would warn about an overflow that
+        // does not exist.
+        case "budget": {
+          const terms = supportsKeywords(msg.model ?? "") ? [] : parseTerms(global.canonTerms);
+          reply({ event: "budget", ...promptBudget(terms, msg.context ?? "") });
           break;
+        }
         // The panel sends what was typed and gets back the normalised form, the address
         // ready to copy and the warning about a nickname already in use. Normalisation
         // lives in the plugin, not in the panel, so there are not two rules for flattening

@@ -174,7 +174,7 @@ export const DEFAULTS: Required<ActionSettings> = {
   beep: true,
 
   transcribeOn: true,
-  transcribeModel: "gpt-4o-mini-transcribe",
+  transcribeModel: "gpt-transcribe",
   language: "pt",
   transcribeContext: "",
   useCanonPrompt: true,
@@ -239,10 +239,18 @@ function clampSilence(out: Required<ActionSettings>): Required<ActionSettings> {
   return out;
 }
 
-/** Models suggested in the panel. The field accepts any id typed by hand. */
+/**
+ * Models suggested in the panel. The field accepts any id typed by hand.
+ *
+ * The previous generation stays on the list on purpose: `gpt-transcribe` is the only one
+ * that takes the dictionary in `keywords[]` (see `supportsKeywords` in openai.ts), and
+ * anyone who has a key tuned to the old behaviour should be able to go back to it without
+ * editing code.
+ */
 export const TRANSCRIBE_MODELS = [
-  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (default)" },
-  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (better)" },
+  { id: "gpt-transcribe", label: "GPT Transcribe (default, keyword hints)" },
+  { id: "gpt-4o-transcribe", label: "GPT-4o Transcribe (previous)" },
+  { id: "gpt-4o-mini-transcribe", label: "GPT-4o mini Transcribe (previous, cheapest)" },
   { id: "whisper-1", label: "Whisper-1 (legacy)" },
 ];
 

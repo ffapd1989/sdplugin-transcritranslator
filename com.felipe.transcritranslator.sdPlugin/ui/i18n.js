@@ -82,6 +82,8 @@ window.TT_I18N = {
     promptEmpty: "(vazio — nada é enviado neste campo)",
     promptOff: "(etapa desligada)",
     promptDropped: "termos cortados pelo limite de 224 tokens:",
+    promptKeywords: "dicionário enviado em keywords[]:",
+    promptDroppedKw: "termos cortados pelo limite de 32 palavras-chave:",
 
     captureMode: "Modo",
     modeToggle: "Toggle — aperta grava, aperta para",
@@ -354,6 +356,8 @@ window.TT_I18N = {
     promptEmpty: "(empty — nothing is sent in this field)",
     promptOff: "(step disabled)",
     promptDropped: "terms cut by the 224-token limit:",
+    promptKeywords: "dictionary sent in keywords[]:",
+    promptDroppedKw: "terms cut by the 32-keyword limit:",
 
     captureMode: "Mode",
     modeToggle: "Toggle — press to start, press to stop",
@@ -619,6 +623,8 @@ window.TT_I18N = {
     promptEmpty: "(vacío — no se envía nada en este campo)",
     promptOff: "(paso desactivado)",
     promptDropped: "términos cortados por el límite de 224 tokens:",
+    promptKeywords: "diccionario enviado en keywords[]:",
+    promptDroppedKw: "términos cortados por el límite de 32 palabras clave:",
 
     captureMode: "Modo",
     modeToggle: "Toggle — pulsa para grabar, pulsa para parar",

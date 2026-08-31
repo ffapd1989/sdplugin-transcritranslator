@@ -108,7 +108,7 @@ press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
 | [src/lib/key-text.ts](src/lib/key-text.ts) | The **key's text** in pt/en/es — "sending", "no speech", "words" |
 | [src/lib/preset-text.ts](src/lib/preset-text.ts) | Preset names and instructions in pt/en/es |
 | [src/lib/presets.ts](src/lib/presets.ts) | Built-in moulds + saving/applying the user's own |
-| [src/lib/canon.ts](src/lib/canon.ts) | Dictionary: 224-token budget + regex correction |
+| [src/lib/canon.ts](src/lib/canon.ts) | Dictionary: `keywords[]` / 224-token budget + regex correction |
 | [src/lib/deliver.ts](src/lib/deliver.ts) | Focus, clipboard, pasting, history |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | Global key state, single-recording lock, orphan PIDs |
 | [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Nickname → key, so the keyboard shortcut can reach an off-screen key |
@@ -284,6 +284,28 @@ end up lying.
 from the keyboard, instead of refusing — refusing would punish the person for a limitation of
 the transport.
 
+**18. The dictionary goes into `keywords[]` when the model has that field, and into the
+`prompt` when it does not.** Measured on a synthetic pt-BR clip carrying six terms:
+
+| request | terms heard right |
+|---|---|
+| `gpt-4o-mini-transcribe` + dictionary in `prompt` | 4/6 |
+| `gpt-transcribe` + dictionary in `prompt` | 4/6 |
+| **`gpt-transcribe` + dictionary in `keywords[]`** | **6/6** |
+| `gpt-transcribe` with nothing | 2/6 |
+
+The branch is not an optimisation: the earlier models answer **HTTP 400** to a `keywords[]`
+field, so it cannot be sent unconditionally. `language` stays singular even on
+`gpt-transcribe`, which also documents a plural `languages[]` — sending both is another HTTP
+400, and the key dictates one spoken language. And the cap of 32 keywords is there because
+the field is not free: with 66 keywords the same clip fell back to 4/6.
+
+The side effect is the important one: with the dictionary out of the prompt, the ECHO has
+nothing to hand back. Reproduced with 1.5 s of digital silence — `gpt-4o-mini-transcribe`
+returned the whole list, `gpt-transcribe` returned an empty string. The anti-echo shield
+stays anyway, because the old models are still on the list and the model is the user's
+choice.
+
 ## Product decisions (settled with the user)
 
 These are not implementation accidents — they were chosen explicitly:
@@ -399,6 +421,13 @@ key even when it sits on another page of the deck. Measured on this machine: **4
 firing the URL and the plugin receiving it, and passive mode (`streamdeck=hidden`) **does not
 steal focus** — verified by comparing the focused window before and after, which is the
 condition for the text to be pasted in the right place.
+
+In v1.4.0.0 (30/08/2026) the audio model became `gpt-transcribe`, and with it the dictionary
+moved to `keywords[]` — the numbers are in decision 18 and in [docs/ROADMAP.md](docs/ROADMAP.md)
+item 1.1. The earlier models stay on the list and keep the old path unchanged. Verified against
+the real API through the plugin's own `transcribe()`, on a synthetic clip: 6/6 terms with
+`gpt-transcribe`, 4/6 with `gpt-4o-mini-transcribe`, and the anti-echo shield still catching the
+old model's echo on silence.
 
 **None of this has been seen on the physical key yet** — only in the headless render.
 

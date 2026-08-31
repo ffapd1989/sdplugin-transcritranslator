@@ -1,7 +1,7 @@
 // Tests of the pure parts, with no Stream Deck and no network.
 import { readFileSync } from "node:fs";
-import { applyCanon, parseTerms, buildTranscribePrompt, promptBudget, estimateTokens } from "../src/lib/canon.js";
-import { looksLikePromptEcho, shortError, ApiError } from "../src/lib/openai.js";
+import { applyCanon, parseTerms, buildTranscribePrompt, buildKeywords, KEYWORDS_LIMIT, promptBudget, estimateTokens } from "../src/lib/canon.js";
+import { looksLikePromptEcho, supportsKeywords, shortError, ApiError } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
 import { builtinPresets } from "../src/lib/presets.js";
 import { promptText, LOCALES } from "../src/lib/prompt-text.js";
@@ -51,6 +51,22 @@ ok("no terms and no context, empty prompt",
   buildTranscribePrompt({ terms: [], context: "", useCanon: true }).prompt === "");
 const budget = promptBudget(terms, "abc");
 ok("budget reports the limit", budget.limit === 224 && budget.used > 0);
+
+console.log("\n— keywords[] —");
+ok("gpt-transcribe takes keywords", supportsKeywords("gpt-transcribe"));
+ok("tolerates whitespace around the id", supportsKeywords("  gpt-transcribe  "));
+// The old models answer HTTP 400 to a keywords[] field — this is not an optimisation.
+ok("gpt-4o-transcribe does not", !supportsKeywords("gpt-4o-transcribe"));
+ok("gpt-4o-mini-transcribe does not", !supportsKeywords("gpt-4o-mini-transcribe"));
+ok("whisper-1 does not", !supportsKeywords("whisper-1"));
+const kw = buildKeywords({ terms: many, useCanon: true });
+ok("caps the keyword list", kw.keywords.length === KEYWORDS_LIMIT, `sent=${kw.keywords.length}`);
+ok("reports what fell off", kw.droppedTerms === many.length - KEYWORDS_LIMIT);
+ok("keeps the order of the dictionary", kw.keywords[0] === many[0]);
+ok("useCanon=false sends no keyword", buildKeywords({ terms: many, useCanon: false }).keywords.length === 0);
+// On a keywords model the dictionary leaves the prompt: what is left is the free context.
+ok("the prompt keeps only the context",
+  buildTranscribePrompt({ terms: many, context: "Reunião técnica.", useCanon: false }).prompt === "Reunião técnica.");
 
 console.log("\n— anti-echo —");
 const promptList = "CPC, acórdão, SRVDRU, WireGuard, Grafana";
@@ -176,7 +192,7 @@ ok("counts words", wordCount("  uma  duas   três ") === 3);
 
 console.log("\n— defaults —");
 const d = withDefaults(undefined);
-ok("default audio model", d.transcribeModel === "gpt-4o-mini-transcribe");
+ok("default audio model", d.transcribeModel === "gpt-transcribe");
 ok("default text model", d.textModel === "gpt-4.1-mini");
 const cleared = withDefaults({ style: "", label: "", cleanup: false });
 ok("an empty string does not become the default", cleared.style === "" && cleared.label === "");

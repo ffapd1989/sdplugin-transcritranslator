@@ -832,7 +832,7 @@ function buildLangPickers(prefs) {
 // ---------------------------------------------------------------------------
 const DEFAULTS = {
   label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 10,
-  maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-4o-mini-transcribe",
+  maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-transcribe",
   shortcutAlias: "",
   language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
   textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
@@ -905,7 +905,7 @@ function bind() {
       saveSettings();
       if (key === "labelSize" || key === "labelGap") showSliderValues();
       if (key === "transcribeOn" || key === "textOn" || key === "language") syncVisibility();
-      if (key === "transcribeContext") refreshBudget();
+      if (key === "transcribeContext" || key === "transcribeModel") refreshBudget();
       refreshPromptIfOpen();
       // The thumbnails are drawn in the key's colour and style: touch either one, and
       // both grids have to be redrawn together.
@@ -1270,7 +1270,9 @@ function buildSwatches(swatches) {
 
 function refreshBudget() {
   if (!ready) return;
-  toPlugin({ cmd: "budget", context: settings.transcribeContext ?? "" });
+  // The model goes along because it decides whether the dictionary spends the budget:
+  // in keywords[] it does not travel in the prompt.
+  toPlugin({ cmd: "budget", context: settings.transcribeContext ?? "", model: settings.transcribeModel ?? "" });
 }
 
 // ---------------------------------------------------------------------------
@@ -1290,9 +1292,13 @@ function renderPreview(p) {
   const box = document.getElementById("promptBox");
   const blocks = [];
 
+  const kw = p.transcribe.keywords;
   blocks.push(`<div class="pblock"><h5>${esc(t("promptStep1"))} · ${esc(p.transcribe.model)}</h5>` +
     `<pre>${p.transcribe.enabled ? esc(p.transcribe.prompt || t("promptEmpty")) : esc(t("promptOff"))}</pre>` +
-    (p.transcribe.dropped ? `<div class="meta">${esc(t("promptDropped"))} ${p.transcribe.dropped}</div>` : "") +
+    (kw && kw.length ? `<div class="meta">${esc(t("promptKeywords"))} ${esc(kw.join(", "))}</div>` : "") +
+    (p.transcribe.dropped
+      ? `<div class="meta">${esc(kw ? t("promptDroppedKw") : t("promptDropped"))} ${p.transcribe.dropped}</div>`
+      : "") +
     `</div>`);
 
   if (!p.text.enabled) {

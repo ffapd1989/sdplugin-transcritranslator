@@ -107,7 +107,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/lib/key-text.ts](src/lib/key-text.ts) | **Texto da tecla** em pt/en/es — "enviando", "sem fala", "palavras" |
 | [src/lib/preset-text.ts](src/lib/preset-text.ts) | Nomes e instruções dos presets em pt/en/es |
 | [src/lib/presets.ts](src/lib/presets.ts) | Moldes de fábrica + salvar/aplicar os do usuário |
-| [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: orçamento de 224 tokens + correção por regex |
+| [src/lib/canon.ts](src/lib/canon.ts) | Dicionário: `keywords[]` / orçamento de 224 tokens + correção por regex |
 | [src/lib/deliver.ts](src/lib/deliver.ts) | Foco, clipboard, colagem, histórico |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | Estado global das teclas, trava de gravação única, PIDs órfãos |
 | [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Apelido → tecla, para o atalho de teclado alcançar tecla fora da tela |
@@ -274,6 +274,27 @@ existe "soltou o atalho". Tecla configurada como *segurar para falar* roda como
 alternada quando vem do teclado, em vez de recusar — recusar puniria a pessoa por uma
 limitação do transporte.
 
+**18. O dicionário vai em `keywords[]` quando o modelo tem esse campo, e no `prompt` quando
+não tem.** Medido com um áudio sintético em pt-BR contendo seis termos:
+
+| requisição | termos ouvidos certo |
+|---|---|
+| `gpt-4o-mini-transcribe` + dicionário no `prompt` | 4/6 |
+| `gpt-transcribe` + dicionário no `prompt` | 4/6 |
+| **`gpt-transcribe` + dicionário em `keywords[]`** | **6/6** |
+| `gpt-transcribe` sem nada | 2/6 |
+
+A ramificação não é otimização: os modelos anteriores respondem **HTTP 400** a um campo
+`keywords[]`, então não dá para mandar sempre. O `language` continua no singular mesmo no
+`gpt-transcribe`, que também documenta um `languages[]` plural — mandar os dois é outro HTTP
+400, e a tecla dita um idioma falado só. E o teto de 32 keywords existe porque o campo não é
+de graça: com 66 keywords o mesmo áudio caiu para 4/6.
+
+O efeito colateral é o que mais importa: com o dicionário fora do prompt, o ECO não tem o que
+devolver. Reproduzido com 1,5 s de silêncio digital — o `gpt-4o-mini-transcribe` devolveu a
+lista inteira, o `gpt-transcribe` devolveu string vazia. A blindagem anti-eco fica assim
+mesmo, porque os modelos antigos continuam na lista e o modelo é escolha do usuário.
+
 ## Decisões de produto (definidas com o usuário)
 
 Não são acidentes de implementação — foram escolhidas explicitamente:
@@ -384,6 +405,14 @@ tecla mesmo que ela esteja em outra tela do deck. Medido nesta máquina: **434 m
 disparar o endereço e o plugin receber, e o modo passivo (`streamdeck=hidden`)
 **não rouba o foco** — verificado comparando a janela em foco antes e depois, o que é
 condição para o texto ser colado no lugar certo.
+
+Na v1.4.0.0 (30/08/2026) o modelo de áudio passou a ser o `gpt-transcribe`, e com ele o
+dicionário mudou para `keywords[]` — os números estão na decisão 18 e no
+[docs/ROADMAP.pt-BR.md](docs/ROADMAP.pt-BR.md) item 1.1. Os modelos anteriores continuam na
+lista e mantêm o caminho antigo intacto. Verificado contra a API real pelo próprio
+`transcribe()` do plugin, num áudio sintético: 6/6 termos com o `gpt-transcribe`, 4/6 com o
+`gpt-4o-mini-transcribe`, e a blindagem anti-eco ainda pegando o eco do modelo antigo no
+silêncio.
 
 **Nada disso foi visto na tecla física ainda** — só no render headless.
 

@@ -94,6 +94,30 @@ What we know today:
 > Write the result here, with the numbers. The current decision is a **bet**; what settles a bet
 > is measurement, not more discussion.
 
+#### First partial answer — one clip, not the ten of the protocol
+
+A single synthetic pt-BR clip (Windows SAPI, `Microsoft Maria`), six target terms, the same
+audio for every condition:
+
+| condition | terms heard right | latency |
+|---|---|---|
+| `gpt-transcribe`, nothing sent | 2/6 | 1257 ms |
+| `gpt-transcribe`, dictionary in the `prompt` | 4/6 | 1734 ms |
+| `gpt-transcribe`, dictionary in `keywords[]` | **6/6** | 2185 ms |
+| `gpt-4o-mini-transcribe`, dictionary in the `prompt` | 4/6 | 3997 ms |
+| `whisper-1`, dictionary in the `prompt` | 5/6 | 2181 ms |
+
+So the prompt **does** earn something the regex cannot: `DPE-RS` and `Krzyzanowski` came out of
+the audio wrong (`DPRS`, `Krizanowski`), and a regex over the wrong spelling does not put them
+right. `keywords[]` is what actually closes the gap.
+
+The echo test is settled for these two models: with 1.5 s of digital silence and the dictionary
+in the prompt, `gpt-4o-mini-transcribe` handed the whole list back, twice out of two.
+`gpt-transcribe` returned an empty string in every arrangement.
+
+What this does **not** answer: ten varied clips, real voices, acronyms spelled out loud, WER,
+input token cost. The protocol above stands.
+
 ### 1.2 Show the translation in a popup, without pasting
 
 **Idea:** instead of delivering the text into the focused field, show it in a little window on

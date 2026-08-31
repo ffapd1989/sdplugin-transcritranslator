@@ -233,13 +233,21 @@ fronts:
 
 <img src="docs/img/panel-dictionary.png" width="340" alt="The canonical word dictionary in its own window">
 
-1. **In the transcription prompt** — it helps the model *hear* correctly. It has a ceiling of
-   **224 tokens** (~75 acronyms); anything past that is silently dropped by the API, and it
-   drops the *beginning*, which is why the dictionary is trimmed before your context. The panel
-   shows a meter.
+1. **On the way in** — it helps the model *hear* correctly, and how it travels depends on the
+   audio model:
+   - `gpt-transcribe` (the default) takes it in `keywords[]`, a field made for exactly this.
+     Up to **32 terms**; past that the accuracy starts to drop rather than rise.
+   - the earlier models take it inside the `prompt`, with a ceiling of **224 tokens**
+     (~75 acronyms); anything past that is silently dropped by the API, and it drops the
+     *beginning*, which is why the dictionary is trimmed before your context. The panel shows
+     a meter — which disappears on `gpt-transcribe`, where the dictionary no longer spends
+     that budget.
 2. **In the final correction** — an exact comparison forces the canonical spelling on the
    finished text. No quantity limit, no cost and no chance of hallucination. This is the one
    that guarantees the result; the first only improves the odds.
+
+Measured with a synthetic clip carrying six terms: 4 of 6 heard right with the dictionary in
+the prompt (on either generation of model), **6 of 6** with it in `keywords[]`.
 
 ## The transcription prompt goes out empty until you fill it in
 

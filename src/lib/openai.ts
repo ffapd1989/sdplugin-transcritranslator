@@ -8,6 +8,12 @@
 //   in the prompt, without this you would tap the key by accident and paste your list
 //   of acronyms into the document.
 //
+//   Reproduced here, twice in a row, with 1.5 s of digital silence and the dictionary in
+//   the prompt: `gpt-4o-mini-transcribe` handed back the whole list plus the context
+//   sentence. Under the same conditions `gpt-transcribe` returned an empty string — with
+//   the dictionary in `prompt` and with it in `keywords[]`. The shield stays: it is the
+//   old models that need it, and the model is the user's choice.
+//
 //   REFUSAL — the model can refuse in three different shapes: an HTTP error with a
 //   content-filter code, HTTP 200 with finish_reason=content_filter, and HTTP 200 with
 //   a polite refusal text. All three have to be recognised, otherwise the sentence
@@ -122,6 +128,30 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(msg, kind, res.status);
 }
 
+/**
+ * Models that accept the dictionary in the dedicated `keywords[]` field instead of
+ * smuggled inside `prompt`.
+ *
+ * The distinction is NOT cosmetic and it is NOT optional. Measured on this machine with a
+ * synthetic pt-BR clip containing six terms (`DPE-RS`, `CPC`, `CEJUSC`, `TJRS`,
+ * `Aldevando`, `Krzyzanowski`):
+ *
+ * | request                                         | terms heard right |
+ * |-------------------------------------------------|-------------------|
+ * | `gpt-4o-mini-transcribe` + dictionary in `prompt` | 4/6 |
+ * | `gpt-transcribe` + dictionary in `prompt`         | 4/6 |
+ * | `gpt-transcribe` + dictionary in `keywords[]`     | 6/6 |
+ * | `gpt-transcribe` with nothing                     | 2/6 |
+ *
+ * And the older models answer **HTTP 400 "Invalid request"** to a `keywords[]` field, so
+ * the branch cannot be replaced by "send it always and let the API ignore it".
+ */
+const KEYWORDS_MODELS = new Set(["gpt-transcribe"]);
+
+export function supportsKeywords(model: string): boolean {
+  return KEYWORDS_MODELS.has(model.trim());
+}
+
 export type TranscribeResult = { text: string; echoed: boolean };
 
 export async function transcribe(opts: {
@@ -130,6 +160,8 @@ export async function transcribe(opts: {
   model: string;
   language: string;
   prompt: string;
+  /** Only for models in `KEYWORDS_MODELS`; sending it to the others is an HTTP 400. */
+  keywords?: string[];
 }): Promise<TranscribeResult> {
   const buf = await readFile(opts.audioPath);
 
@@ -138,8 +170,14 @@ export async function transcribe(opts: {
     form.append("file", new File([buf], basename(opts.audioPath), { type: "audio/mpeg" }));
     form.append("model", opts.model);
     form.append("response_format", "json");
+    // `language` stays singular even on gpt-transcribe, which also documents a plural
+    // `languages[]`: the key dictates ONE spoken language, and sending both fields is an
+    // HTTP 400 ("cannot be used together"). Verified — the singular form is accepted.
     if (opts.language) form.append("language", opts.language);
     if (opts.prompt) form.append("prompt", opts.prompt);
+    if (supportsKeywords(opts.model)) {
+      for (const word of opts.keywords ?? []) form.append("keywords[]", word);
+    }
 
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",

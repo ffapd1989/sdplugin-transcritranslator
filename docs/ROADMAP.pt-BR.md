@@ -93,6 +93,30 @@ O que se sabe hoje:
 > Escrever o resultado aqui, com os números. A decisão atual é uma **aposta**; o que fixa uma
 > aposta é medição, não mais discussão.
 
+#### Primeira resposta parcial — um áudio, não os dez do protocolo
+
+Um único áudio sintético em pt-BR (SAPI do Windows, `Microsoft Maria`), seis termos-alvo, o
+mesmo áudio em todas as condições:
+
+| condição | termos ouvidos certo | latência |
+|---|---|---|
+| `gpt-transcribe`, sem nada | 2/6 | 1257 ms |
+| `gpt-transcribe`, dicionário no `prompt` | 4/6 | 1734 ms |
+| `gpt-transcribe`, dicionário em `keywords[]` | **6/6** | 2185 ms |
+| `gpt-4o-mini-transcribe`, dicionário no `prompt` | 4/6 | 3997 ms |
+| `whisper-1`, dicionário no `prompt` | 5/6 | 2181 ms |
+
+Ou seja: o prompt **rende** algo que a regex não alcança — `DPE-RS` e `Krzyzanowski` saíram
+errados do áudio (`DPRS`, `Krizanowski`), e regex sobre grafia errada não conserta. Quem fecha
+a conta de verdade é o `keywords[]`.
+
+O teste de eco está resolvido para estes dois modelos: com 1,5 s de silêncio digital e o
+dicionário no prompt, o `gpt-4o-mini-transcribe` devolveu a lista inteira, duas de duas vezes.
+O `gpt-transcribe` devolveu string vazia em todos os arranjos.
+
+O que isto **não** responde: dez áudios variados, vozes reais, siglas ditas por extenso, WER,
+custo em tokens de entrada. O protocolo acima continua de pé.
+
 ### 1.2 Mostrar a tradução num popup, sem colar
 
 **Ideia:** em vez de entregar o texto no campo em foco, exibir numa janelinha na tela. Serve
