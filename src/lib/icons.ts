@@ -33,6 +33,12 @@ const BG = "#0C0C10";
 const EDGE = "#26262E";
 /** A slightly cool white. Pure white on a dark background "vibrates". */
 const INK = "#EFF2F7";
+/**
+ * ONE family, no quotes. The Stream Deck rasterises with QtSvg (SVG Tiny), which ignores a
+ * list or quotes in `font-family` and silently falls back to its default font. Chrome
+ * reads the list fine — which is why a browser render will never show the bug.
+ */
+const FONT = "Segoe UI";
 /** Height the central artwork occupies — used to compute the shrinking. */
 const NATURAL = 42;
 
@@ -426,7 +432,7 @@ function textEl(s: string, y: number, size: number): string {
   const width = s.length * size * CHAR_RATIO;
   const fitted = width > TEXT_WIDTH ? Math.max(7, (size * TEXT_WIDTH) / width) : size;
   return (
-    `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
+    `<text x="36" y="${f(y)}" text-anchor="middle" font-family="${FONT}" ` +
     `font-size="${f(fitted)}" font-weight="600" fill="${INK}">${t}</text>`
   );
 }
@@ -596,7 +602,7 @@ function badgeSvg(text: string): string {
   const w = t.length <= 2 ? 22 : 27;
   return (
     `<rect x="${68 - w}" y="4" width="${w}" height="16" rx="5" fill="#1A1A22" stroke="${EDGE}" stroke-width="1"/>` +
-    `<text x="${68 - w / 2}" y="16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" ` +
+    `<text x="${68 - w / 2}" y="16" text-anchor="middle" font-family="${FONT}" ` +
     `font-size="11" font-weight="700" fill="${INK}">${t}</text>`
   );
 }

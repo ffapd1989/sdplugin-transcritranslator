@@ -24,13 +24,16 @@ import {
   withDefaults,
   resolveContentLocale,
   resolveUiLocale,
+  osLanguage,
   TRANSCRIBE_MODELS,
   TEXT_MODELS,
+  TEXT_FALLBACK_MODEL,
   type ActionSettings,
   type GlobalSettings,
   type LangPref,
 } from "../lib/settings.js";
-import { Recorder } from "../lib/recorder.js";
+import { Recorder, listAudioDevices } from "../lib/recorder.js";
+import { findFfmpeg, ffmpegInfo, hasWinget, installFfmpeg, isInstalling } from "../lib/ffmpeg.js";
 import {
   getState,
   acquireLock,
@@ -85,7 +88,23 @@ declare const __TT_VERSION__: string;
 declare const __TT_DATE__: string;
 
 function ffmpegOf(g: GlobalSettings | undefined): string {
-  return g?.ffmpegPath?.trim() || "ffmpeg";
+  return ffmpegInfo()?.path || g?.ffmpegPath?.trim() || "ffmpeg";
+}
+
+/** What the panel needs to guide someone through getting ffmpeg. */
+async function ffmpegState(g: GlobalSettings) {
+  const info = ffmpegInfo() === undefined ? await findFfmpeg(g.ffmpegPath) : ffmpegInfo();
+  return {
+    found: !!info,
+    path: info?.path ?? "",
+    version: info?.version ?? "",
+    winget: await hasWinget(),
+    installing: isInstalling(),
+  };
+}
+
+async function deviceNames(g: GlobalSettings): Promise<string[]> {
+  return (await listAudioDevices(ffmpegOf(g))).map((d) => d.name);
 }
 
 /**
@@ -117,11 +136,11 @@ function appLanguage(): string | undefined {
  * frame would be absurd. Since the language only changes when the person moves the
  * selector, the cache is refreshed on `willAppear` and after every `setGlobal`.
  */
-let uiLocaleCache: Locale = "pt";
+let uiLocaleCache: Locale = resolveUiLocale(undefined, undefined, osLanguage());
 
 async function refreshUiLocale(g?: GlobalSettings): Promise<Locale> {
   const global = g ?? (await streamDeck.settings.getGlobalSettings<GlobalSettings>());
-  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage());
+  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage(), osLanguage());
   return uiLocaleCache;
 }
 
@@ -131,6 +150,7 @@ function contentLocale(g: GlobalSettings | undefined, spoken?: string): Locale {
     contentLang: g?.contentLang,
     spokenLanguage: spoken,
     uiLang: g?.uiLang,
+    osLanguage: osLanguage(),
     appLanguage: appLanguage(),
   });
 }
@@ -174,6 +194,8 @@ type Surface = {
   readonly preferId?: string;
   /** Called when the dictation returns to idle — gives the borrowed key back. */
   onIdle?(): Promise<void>;
+  /** The Stream Deck's own failure mark, which the store guidelines require on errors. */
+  showAlert?(): Promise<void>;
 };
 
 /**
@@ -318,6 +340,9 @@ export class Dictation extends SingletonAction<ActionSettings> {
       getSettings: async () => snapshot,
       setImage: async (image) => {
         await this.lender()?.setImage(image);
+      },
+      showAlert: async () => {
+        await this.lender()?.showAlert();
       },
       onIdle: async () => {
         const back = this.lender();
@@ -511,6 +536,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.phase = phase;
     st.message = lines;
     await this.render(a, await a.getSettings());
+    if (phase === "error") void a.showAlert?.().catch(() => {});
     st.resetTimer = setTimeout(() => {
       const cur = getState(a.id);
       cur.phase = "idle";
@@ -673,6 +699,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
       return;
     }
 
+    // Not found at boot? Search again before giving up: the person may have just
+    // installed it from the panel, or by hand with the app still open.
+    if (!ffmpegInfo() && !(await findFfmpeg(global.ffmpegPath))) {
+      releaseLock(a.id);
+      await this.flash(a, "error", [T.noFfmpeg], 4000);
+      return;
+    }
     const ffmpeg = ffmpegOf(global);
     const audioPath = join(AUDIO_DIR, `${stamp()}.mp3`);
 
@@ -734,11 +767,29 @@ export class Dictation extends SingletonAction<ActionSettings> {
     rec.on("silence", () => { void this.stopAndProcess(a, raw); });
     rec.on("maxReached", () => { void this.stopAndProcess(a, raw); });
 
+    // ffmpeg started but closed before capturing — the microphone is unplugged, renamed
+    // or held by another program. Without this the phase stayed "arming" with the lock
+    // held: the key ignored every press and the others said "recording on another key"
+    // until the plugin restarted.
+    rec.on("done", ({ stderr }) => {
+      const cur = getState(a.id);
+      if (cur.phase !== "arming" || cur.recorder !== rec) return;
+      streamDeck.logger.warn(`microphone did not open: ${stderr.split(/\r?\n/).slice(-2).join(" | ")}`);
+      void untrackPid(rec.pid);
+      releaseLock(a.id);
+      cur.recorder = undefined;
+      void unlink(audioPath).catch(() => {});
+      void this.flash(a, "error", [...keyText(uiLocaleCache).noMic], 4000);
+    });
+
     rec.on("error", (err) => {
       streamDeck.logger.error("ffmpeg failed", err);
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = undefined;
+      // The executable went away since it was found: forget it, so the next press
+      // searches again instead of trusting a dead path.
+      void findFfmpeg(global.ffmpegPath);
       void this.flash(a, "error", [keyText(uiLocaleCache).noFfmpeg], 4000);
     });
 
@@ -903,11 +954,15 @@ export class Dictation extends SingletonAction<ActionSettings> {
           const out = await runText({
             apiKey,
             model: s.textModel,
+            fallbackModel: TEXT_FALLBACK_MODEL,
             systemPrompt: buildTextSystemPrompt(textOpts),
             userText: raw,
           });
-          final = applyCanon(out, terms);
-          models.push(s.textModel);
+          final = applyCanon(out.text, terms);
+          models.push(out.model);
+          if (out.model !== s.textModel) {
+            streamDeck.logger.warn(`text model ${s.textModel} unavailable — fell back to ${out.model}`);
+          }
         } catch (err) {
           // A model refusal must NOT cost you the speech: deliver the raw text.
           if (err instanceof ApiError && err.kind === "filter" && raw) {
@@ -971,7 +1026,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     const a = ev.action;
     const global = (await streamDeck.settings.getGlobalSettings<GlobalSettings>()) ?? {};
     const ffmpeg = ffmpegOf(global);
-    // In SDK v2 the one that talks to the panel is streamDeck.ui, not the action object.
+    // In the SDK the one that talks to the panel is streamDeck.ui, not the action object.
     // The message only goes out if there is a visible PI — the SDK itself guarantees that.
     const reply = (data: object) => {
       void streamDeck.ui.sendToPropertyInspector(data as never);
@@ -980,19 +1035,23 @@ export class Dictation extends SingletonAction<ActionSettings> {
     try {
       switch (msg?.cmd) {
         case "init": {
-          const { listAudioDevices } = await import("../lib/recorder.js");
           const uiLocale = await refreshUiLocale(global);
+          const ff = await ffmpegState(global);
           reply({
             event: "init",
-            devices: (await listAudioDevices(ffmpeg)).map((d) => d.name),
+            devices: await deviceNames(global),
             presets: await presetSummaries(contentLocale(global)),
             hasKey: !!(await getApiKey()),
+            ffmpeg: ff,
             canonTerms: global.canonTerms ?? "",
             ffmpegPath: global.ffmpegPath ?? "",
             uiLang: global.uiLang ?? "auto",
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
-            uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
+            uiLocale,
+            // What "auto" means on this machine, so the panel's selector does not have to
+            // guess it with less information than the plugin has.
+            autoUiLocale: resolveUiLocale("auto", appLanguage(), osLanguage()),
             version: __TT_VERSION__,
             versionDate: __TT_DATE__,
             swatches: SWATCHES,
@@ -1089,7 +1148,32 @@ export class Dictation extends SingletonAction<ActionSettings> {
           reply({
             event: "globalSaved",
             presets: await presetSummaries(contentLocale(next)),
-            uiLocale: resolveUiLocale(next.uiLang, appLanguage()),
+            uiLocale: uiLocaleCache,
+          });
+          if ((next.ffmpegPath ?? "") !== (global.ffmpegPath ?? "")) {
+            await findFfmpeg(next.ffmpegPath);
+            reply({ event: "ffmpegState", ...(await ffmpegState(next)), devices: await deviceNames(next) });
+          }
+          break;
+        }
+
+        case "ffmpegCheck":
+          await findFfmpeg(global.ffmpegPath);
+          reply({ event: "ffmpegState", ...(await ffmpegState(global)), devices: await deviceNames(global) });
+          break;
+
+        // Takes minutes. The panel may close meanwhile; the next `init` reports
+        // `installing`, and the final answer goes to whichever panel is open by then.
+        case "ffmpegInstall": {
+          if (!(await hasWinget())) break;
+          const done = installFfmpeg(global.ffmpegPath);
+          reply({ event: "ffmpegState", ...(await ffmpegState(global)) });
+          const info = await done;
+          reply({
+            event: "ffmpegState",
+            ...(await ffmpegState(global)),
+            devices: await deviceNames(global),
+            installed: !!info,
           });
           break;
         }
@@ -1110,6 +1194,10 @@ export class Dictation extends SingletonAction<ActionSettings> {
           // the old drawing — and the preset only "took" on the next click, when some
           // other event ended up forcing the redraw.
           if (a.isKey()) await this.render(a, next);
+          // Same reason for the shortcut notebook: SDK 3 no longer fires
+          // `didReceiveSettings` on a later `getSettings()`, which used to refresh it by
+          // accident — a keyboard-triggered dictation would run on the old preset.
+          rememberKey(a.id, next);
           reply({ event: "presetApplied", settings: next });
           break;
         }
@@ -1138,6 +1226,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
           break;
 
         case "testMic": {
+          if (ffmpegInfo() === null) { reply({ event: "micResult", ok: false, message: "ffmpeg not found" }); break; }
           const device = msg.device || (await this.defaultDevice(ffmpeg));
           if (!device) { reply({ event: "micResult", ok: false, message: "no microphone" }); break; }
           const r = await probeMic(ffmpeg, device, 3);
@@ -1200,7 +1289,9 @@ type PiMessage =
   | { cmd: "deletePreset"; id: string }
   | { cmd: "testMic"; device: string }
   | { cmd: "budget"; context: string; model?: string }
-  | { cmd: "shortcutCheck"; alias?: string };
+  | { cmd: "shortcutCheck"; alias?: string }
+  | { cmd: "ffmpegCheck" }
+  | { cmd: "ffmpegInstall" };
 
 /** Used by the Property Inspector for the microphone's "Test" button. */
 export async function probeMic(ffmpeg: string, device: string, seconds: number): Promise<{ peakDb: number; ok: boolean }> {

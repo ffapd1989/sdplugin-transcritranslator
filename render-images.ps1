@@ -94,15 +94,41 @@ function Save-Key([int]$size, [string]$hex, [string]$path) {
     Write-Host "  $path"
 }
 
+# List icons (action and category): only the microphone, white on transparent, filling the
+# box. The store guidelines require exactly that here — colour or a solid background is a
+# reason for rejection. The mic spans x 25..47, y 12..45 on the 72 grid, centred on
+# (36, 28.5); it is scaled to fill 88% of the height.
+function Save-Glyph([int]$size, [string]$path) {
+    $bmp = New-Object System.Drawing.Bitmap $size, $size
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode   = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+    $g.Clear([System.Drawing.Color]::Transparent)
+
+    $k = $size / 72.0
+    $scale = ($size * 0.88 / 33.0) / $k
+    $g.TranslateTransform([single]($size / 2), [single]($size / 2))
+    $g.ScaleTransform([single]$scale, [single]$scale)
+    $g.TranslateTransform([single](-36 * $k), [single](-28.5 * $k))
+    Add-Mic $g $size
+
+    $g.Dispose()
+    $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+    $bmp.Dispose()
+    Write-Host "  $path"
+}
+
 # The key's initial state (graphite grey, the same as the "idle" default).
 Save-Key 72  '#404650' (Join-Path $root "states\idle.png")
 Save-Key 144 '#404650' (Join-Path $root "states\idle@2x.png")
 
-# Identity in the catalogue (blue, to stand out in the action list).
-Save-Key 20  '#3B6FD4' (Join-Path $root "action\mic.png")
-Save-Key 40  '#3B6FD4' (Join-Path $root "action\mic@2x.png")
-Save-Key 28  '#3B6FD4' (Join-Path $root "plugin\category.png")
-Save-Key 56  '#3B6FD4' (Join-Path $root "plugin\category@2x.png")
+# The action list and the category: monochrome white, as the store requires.
+Save-Glyph 20 (Join-Path $root "action\mic.png")
+Save-Glyph 40 (Join-Path $root "action\mic@2x.png")
+Save-Glyph 28 (Join-Path $root "plugin\category.png")
+Save-Glyph 56 (Join-Path $root "plugin\category@2x.png")
+
+# Identity in the catalogue (blue). Colour is allowed on the plugin icon.
 Save-Key 256 '#3B6FD4' (Join-Path $root "plugin\plugin.png")
 Save-Key 512 '#3B6FD4' (Join-Path $root "plugin\plugin@2x.png")
 

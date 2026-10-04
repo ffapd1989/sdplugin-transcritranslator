@@ -3,7 +3,8 @@
 # Privacy
 
 This plugin has no backend. There is no account, no telemetry, no analytics and no server
-belonging to this project. The only thing it talks to is **OpenAI, with your own API key**.
+belonging to this project. The only thing it talks to is **OpenAI, with your own API key** —
+and, only if you press *Install now*, winget, to fetch ffmpeg.
 
 ## What is sent, and when
 
@@ -25,6 +26,15 @@ usage.
 What OpenAI does with what it receives is between you and OpenAI, under the terms of the account
 whose key you configured. At the time of writing, API traffic is not used to train their models
 by default, but that is their policy to state and change, not ours — read it yourself.
+
+## Installing ffmpeg
+
+The plugin records through ffmpeg, which it does not bundle. If ffmpeg is missing, the panel's
+**Install now** button runs winget — the installer that ships with Windows — for one fixed
+package, `Gyan.FFmpeg.Essentials`. winget downloads it from its own source, under its own terms
+and Microsoft's; nothing of yours goes into that request. It happens only when you press the
+button. Finding an ffmpeg that is already installed reads your PATH and runs nothing over the
+network.
 
 ## What stays on your machine
 

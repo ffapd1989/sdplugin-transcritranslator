@@ -322,12 +322,9 @@ blocks. Rewrite pt first and then translate; do not translate bad text.
       on *Detect*, it falls back to the panel language. It exists because the clean-up uses
       examples from the spoken language ("comma", "um"). Something like **"Automatic — follows
       what I speak"** would already say more
-- [ ] **The canonical dictionary placeholder.** Today: `SRVDRU, EdgeRouter, WireGuard, Grafana,
-      n8n, PostgreSQL, Kubernetes`. `SRVDRU` is **one** person's server — it means nothing to
-      anyone else, and the plugin is going to the store. Replace it with examples anyone
-      recognises that illustrate the *kind* of term (a product name with particular spelling, an
-      acronym, jargon): `GitHub, JavaScript, PostgreSQL, PDF, API, e-mail`. Adapt per language,
-      since common acronyms vary
+- [x] **The canonical dictionary placeholder — done (v1.6.0.0).** It named one person's server,
+      which means nothing to anyone else. Now `GitHub, JavaScript, PostgreSQL, PDF, API, e-mail`
+      (`OAuth` in place of `e-mail` in English)
 - [ ] Review **all** the other placeholders by the same criterion: an example illustrates, it does
       not give instructions and does not assume anyone's context
 - [ ] **"Prompt" is jargon.** It shows up in *Presets and prompts*, *See what will be sent*,
@@ -435,8 +432,13 @@ Already discussed and deliberately outside the initial scope:
       see section 7. It still depends on Elgato's **app** running, because that is where the
       plugin lives; what stopped being necessary is having the key within reach
 - [ ] Cost tracking (it was decided **not** to do it; revisit only if there is demand)
-- [ ] Publish on the Elgato store: `streamdeck validate`, `streamdeck pack`, icons in every
-      required resolution and a review of the catalogue copy
+- [ ] Publish on the Elgato store. The code side is done (v1.6.0.0): SDK 3 with the DRM
+      manifest (`SDKVersion: 3`, Stream Deck 7.1+), white monochrome list icons, `showAlert` on
+      errors, ffmpeg found or installed from the panel, `THIRD-PARTY-NOTICES.txt`, and
+      `streamdeck validate`/`pack` passing on CLI 1.10.1. Left: the listing — a 288×288 app
+      icon, a 1920×960 thumbnail, at least three gallery items, the demo video Elgato requires
+      for plugins that use a paid service, the English description listing the requirements —
+      and testing the protected build downloaded from Maker Console after the first upload
 
 ---
 

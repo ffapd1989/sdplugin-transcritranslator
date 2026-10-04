@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-MIT-3B6FD4)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%2F%2011-0078D4)
-![Stream Deck](https://img.shields.io/badge/Stream%20Deck-6.5%2B-101014)
+![Stream Deck](https://img.shields.io/badge/Stream%20Deck-7.1%2B-101014)
 ![Node](https://img.shields.io/badge/Node-24%2B-2E8C3C)
 ![Interface](https://img.shields.io/badge/interface-pt%20%C2%B7%20en%20%C2%B7%20es-2E7D74)
 ![Marketplace](https://img.shields.io/badge/Elgato%20Marketplace-not%20there%20yet-8a8a90)
@@ -52,8 +52,8 @@ Spanish**, chosen independently of one another.
 | | |
 |---|---|
 | Windows | 10 or 11 |
-| Stream Deck app | 6.5+ (any hardware; developed on the XL) |
-| ffmpeg | on the PATH — the `full build` also brings `ffplay`, used for the beeps |
+| Stream Deck app | 7.1+ (any hardware; developed on the XL) |
+| ffmpeg | the panel finds it, or installs it with one click (winget, no administrator) |
 | OpenAI API key | pay-as-you-go; roughly US$0.003 per minute of audio |
 | Node | 24+, only to build from source |
 
@@ -77,6 +77,14 @@ In the Stream Deck app, drag **Dictate** (category *TranscriTranslator*) onto a 
 **Machine settings** section in the property inspector and paste your OpenAI key — this is done
 **once** and applies to every key. If you do not have a key yet, the panel walks you through
 getting one, with the direct links and the cost.
+
+**ffmpeg** is the free program that records the microphone. The panel looks for it on its
+own — including one installed a minute ago with the Stream Deck app still open. If it is not
+there, a warning at the top offers **Install now**, which gets it through winget, the installer
+that ships with Windows, with no administrator password; **How to install** walks through doing
+it by hand.
+
+<img src="docs/img/panel-ffmpeg.png" width="340" alt="The ffmpeg guide: install with one click, or by hand in three steps">
 
 ## How to use it
 
@@ -203,16 +211,18 @@ Portuguese, English and Spanish, in three places that **do not have to agree**:
 
 | Axis | What it controls | Default |
 |---|---|---|
-| 🌐 **Panel** | what **you** read | follows the Stream Deck app |
+| 🌐 **Panel** | what **you** read | follows Windows, then the Stream Deck app |
 | 📝 **Presets and prompts** | what the **AI** reads | follows the key's spoken language |
-| 🎙 **Spoken language** (per key) | what the transcription expects to hear | Portuguese |
+| 🎙 **Spoken language** (per key) | what the transcription expects to hear | Detect |
 
 This exists because they are different questions. Someone running the Stream Deck in English
-while working in Portuguese needs exactly this — and the app only reports one language.
+while working in Portuguese needs exactly this — and the app only reports one language. Windows
+comes first because the Stream Deck app has no Portuguese: on a Brazilian machine the app says
+English and Windows tells the truth.
 
-**It is worth declaring the spoken language.** OpenAI's documentation is explicit: supplying it
-*"will improve accuracy and latency"*. That is why it sits in the essential section rather than
-buried in Advanced. Leave it on *Detect* only if you genuinely switch languages.
+**It is worth declaring the spoken language.** *Detect* is the default and works for any
+language, but OpenAI's documentation is explicit: supplying it *"will improve accuracy and
+latency"*. That is why it sits in the essential section rather than buried in Advanced.
 
 **What if I mix languages?** `language` is a **hint, not a filter**: isolated words from another
 language (*deploy*, *commit*, *workshop*) come out right even with a fixed language. What breaks
@@ -331,7 +341,7 @@ the plugin copies and tells you, instead of pasting in the wrong place.
 
 ```powershell
 npm run check     # types
-npm run test      # 240 assertions over the pure parts (dictionary, prompts, languages, SVG, defaults)
+npm run test      # 279 assertions over the pure parts (dictionary, prompts, languages, SVG, defaults)
 npm run mic       # records 3 s from the microphone and validates the core against the hardware
 npm run shots     # regenerates docs/img/*.png from the real interface
 npm run watch     # automatic rebuild
@@ -343,7 +353,7 @@ streamdeck restart com.felipe.transcritranslator
 sample rate, peak in dBFS and whether the MP3 came out valid — it is the test that catches
 regressions in the ffmpeg command.
 
-The SDK v2 `@action` decorator uses **TC39 decorators** — do not enable
+The SDK 3 `@action` decorator uses **TC39 decorators** — do not enable
 `experimentalDecorators`. The bundle needs the `createRequire` banner in
 [`build.mjs`](build.mjs), because the SDK's `ws` library uses `require()` on builtins.
 
@@ -355,6 +365,7 @@ Plugin log: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (look for
 | File | Role |
 |---|---|
 | [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lists microphones, records, measures level, detects silence |
+| [src/lib/ffmpeg.ts](src/lib/ffmpeg.ts) | finds ffmpeg (registry PATH included) and installs it through winget |
 | [src/lib/openai.ts](src/lib/openai.ts) | the two calls, retries, refusals, anti-echo |
 | [src/lib/prompts.ts](src/lib/prompts.ts) | layered prompt composition |
 | [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | the text of the prompts in pt/en/es — what the AI reads |
@@ -374,7 +385,8 @@ Plugin log: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (look for
 | Symptom | Likely cause |
 |---|---|
 | "no key" | key not saved in the vault — panel → Machine settings |
-| "no ffmpeg" | ffmpeg not on the PATH; set the path in the panel |
+| "no ffmpeg" | ffmpeg not found — **Install now** in the warning at the top of the panel, or **How to install** |
+| "mic unavailable" | the microphone was unplugged, renamed or taken by another program — pick it again in the panel |
 | always "no speech" | microphone muted or wrong — run `npm run mic` and use **Test** in the panel |
 | "copied, Ctrl+V" | you switched windows during processing; the text is on the clipboard |
 | "raw — blocked" | the text step was refused; the transcription was pasted untreated |
@@ -399,6 +411,19 @@ Plugin log: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (look for
 **Every one of these exists in Portuguese too**, next to it with the `.pt-BR` suffix, with a
 switch at the top of each page. [docs/README.md](docs/README.md) is the index of both sets.
 
+## Acknowledgements
+
+| Project | Author | Licence | How it is used |
+|---|---|---|---|
+| [Stream Deck SDK](https://github.com/elgatosf/streamdeck) (`@elgato/streamdeck`, `@elgato/schemas`, `@elgato/utils`) | Corsair Memory Inc. | MIT | bundled |
+| [ws](https://github.com/websockets/ws) | Einar Otto Stangvik, Arnout Kazemier, Luigi Pinca and contributors | MIT | bundled, through the SDK |
+| [zod](https://github.com/colinhacks/zod) | Colin McDonnell | MIT | bundled, through the SDK |
+| [FFmpeg](https://ffmpeg.org) — [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) build | the FFmpeg developers; build by Gyan Doshi | GPL-3.0 | **not bundled** — installed by you, called as a separate program |
+| [OpenAI API](https://platform.openai.com) | OpenAI | service terms | the transcription and the text step, on your own key |
+
+The bundled licences travel with the plugin in `THIRD-PARTY-NOTICES.txt`, generated by the
+build from what was actually bundled.
+
 ## License
 
-[MIT](LICENSE) — Felipe Drummond.
+[MIT](LICENSE) — Felipe Drummond ([@ffapd1989](https://github.com/ffapd1989)).

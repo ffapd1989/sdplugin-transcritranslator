@@ -1,7 +1,7 @@
 // Language names, translated into the language of whoever is reading.
 //
 // Uses Intl.DisplayNames instead of three hand-written tables. Verified: the Node
-// embedded in the Stream Deck (20.x) has **full** ICU, so "en" becomes "inglês",
+// embedded in the Stream Deck (24.x) has **full** ICU, so "en" becomes "inglês",
 // "English" or "inglés" as the case may be, with no maintenance — and with no chance of
 // forgetting to translate a new language when it is added to the list.
 //

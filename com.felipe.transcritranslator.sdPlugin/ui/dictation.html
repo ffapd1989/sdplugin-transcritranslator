@@ -206,15 +206,24 @@
   /* simple mode hides whatever is advanced */
   body.simple .adv { display: none !important; }
 
-  /* missing-key warning — the first thing that shows up */
+  /* setup warnings — missing key, missing ffmpeg — the first thing that shows up. Each
+     one has its own body class: a bare `.alert` hook would show them all together. */
   .alert {
     display: none; margin-bottom: 8px; padding: 9px 11px; border-radius: 5px;
     background: #4a3520; border: 1px solid #7a5a2a;
   }
-  body.nokey .alert { display: block; }
+  body.nokey .keyAlert, body.noffmpeg .ffAlert { display: block; }
   .alert b { color: #f0c674; display: block; margin-bottom: 2px; }
   .alert span { color: #d8c9b0; font-size: 8.5pt; }
   .alert button { margin-top: 7px; }
+  .alert .status { margin-top: 6px; }
+  /* winget is not on every Windows 10; without it the guide is the manual path only */
+  body.nowinget .ffInstall, body.nowinget .ffAuto { display: none; }
+  /* a path with no spaces would otherwise push the panel sideways */
+  [data-ffstatus] { overflow-wrap: anywhere; }
+  /* right after an install, the banner stays a few seconds to say it worked */
+  body.ffdone .ffAlert { display: block; background: #20402a; border-color: #2f6b3f; }
+  body.ffdone .ffAlert > :not(.status) { display: none; }
 
   /* modals (the PI is a webview: an overlay is more reliable than window.open) */
   .modal {
@@ -285,7 +294,17 @@
   <select id="uiLangTop" data-i18n-title="langUiTitle"></select>
 </div>
 
-<div class="alert">
+<div class="alert ffAlert">
+  <b data-i18n="noFfTitle">Falta o ffmpeg</b>
+  <span data-i18n="noFfBody"></span>
+  <div>
+    <button class="primary ffInstall" data-i18n="ffInstall">Instalar agora</button>
+    <button class="ffHelp" data-i18n="ffHow">Como instalar</button>
+  </div>
+  <div class="status" data-ffstatus></div>
+</div>
+
+<div class="alert keyAlert">
   <b data-i18n="noKeyTitle">Falta a chave da OpenAI</b>
   <span data-i18n="noKeyBody"></span>
   <button id="btnHelpKey" class="primary" data-i18n="noKeyHow">Como consigo uma chave?</button>
@@ -646,10 +665,14 @@
     </div>
     <div class="hint full" data-i18n="langHint"></div>
 
-    <div class="row adv">
+    <div class="row">
       <label data-i18n="ffmpeg">ffmpeg</label>
-      <div class="ctl"><input type="text" id="ffmpegPath" data-i18n-ph="ffmpegPh"></div>
+      <div class="ctl">
+        <input type="text" id="ffmpegPath" data-i18n-ph="ffmpegPh">
+        <button class="ffCheck" data-i18n="ffCheck">Verificar</button>
+      </div>
     </div>
+    <div class="status" data-ffstatus></div>
     <div class="status" id="globalStatus"></div>
   </div>
 </details>
@@ -702,6 +725,38 @@
   </div>
 </div>
 
+<!-- How to get ffmpeg: the button does it all; the steps are the way by hand, for a
+     Windows without winget or an install that failed. -->
+<div class="modal" id="ffModal">
+  <div class="sheet">
+    <h3 data-i18n="ffHelpTitle">Como instalar o ffmpeg</h3>
+    <p data-i18n="ffHelpIntro"></p>
+    <div class="ffAuto">
+      <button class="primary ffInstall" data-i18n="ffInstall">Instalar agora</button>
+      <p class="hint full" data-i18n="ffAutoHint"></p>
+    </div>
+    <p data-i18n="ffManualTitle"></p>
+    <ol>
+      <li data-i18n="ffStep1"></li>
+      <li data-i18n="ffStep2"></li>
+      <li data-i18n="ffStep3"></li>
+    </ol>
+    <div class="links">
+      <button data-url="https://www.gyan.dev/ffmpeg/builds/" data-i18n="ffOpenSite"></button>
+    </div>
+    <div class="row">
+      <label data-i18n="ffmpeg">ffmpeg</label>
+      <div class="ctl">
+        <input type="text" id="modalFfmpegPath" data-i18n-ph="ffPathPh">
+        <button id="modalFfmpegCheck" class="primary" data-i18n="ffCheck">Verificar</button>
+      </div>
+    </div>
+    <div class="status" data-ffstatus></div>
+    <div class="note" data-i18n="ffNote"></div>
+    <div class="foot"><button data-close data-i18n="close">Fechar</button></div>
+  </div>
+</div>
+
 <footer id="about">
   <span id="version"></span>
   <em data-i18n="aboutMe"></em>
@@ -712,7 +767,7 @@
 // ---------------------------------------------------------------------------
 // The Property Inspector protocol (the Stream Deck calls this function on open).
 // ---------------------------------------------------------------------------
-let ws, uuid, settings = {}, ready = false, appLang = "pt";
+let ws, uuid, settings = {}, ready = false, appLang = "en";
 
 function send(event, payload) {
   if (!ws || ws.readyState !== 1) return;
@@ -732,7 +787,7 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
   uuid = inUUID;
   try {
     settings = JSON.parse(inActionInfo)?.payload?.settings ?? {};
-    appLang = (JSON.parse(inInfo)?.application?.language || "pt").slice(0, 2);
+    appLang = (JSON.parse(inInfo)?.application?.language || "en").slice(0, 2);
   } catch { /* carry on with the defaults */ }
 
   ws = new WebSocket("ws://127.0.0.1:" + port);
@@ -760,7 +815,10 @@ window.connectElgatoStreamDeckSocket = function (port, inUUID, registerEvent, in
 // not even the settings fields would respond.
 const I18N = window.TT_I18N || { pt: {} };
 const HAS_I18N = !!window.TT_I18N;
-let lang = "pt";
+// A first guess until `init` brings the real answer; English when there is nothing better.
+let lang = !HAS_I18N ? "pt" : I18N[(navigator.language || "").slice(0, 2)] ? navigator.language.slice(0, 2) : "en";
+/** What "Default" resolves to on this machine — the plugin knows Windows' language. */
+let autoLang = "";
 
 function t(key) {
   return (I18N[lang] && I18N[lang][key]) || (I18N.pt && I18N.pt[key]) || "";
@@ -787,7 +845,11 @@ function applyLang() {
   }
   document.getElementById("promptToggle").textContent =
     document.getElementById("promptBox").classList.contains("on") ? t("hidePrompt") : t("seePrompt");
+  // Built before the language is known, so it would keep the first guess's wording.
+  const contentAuto = document.querySelector('#contentLang option[value="auto"]');
+  if (contentAuto) contentAuto.textContent = t("langContentAuto");
   refreshKeyStatus();
+  refreshFfmpeg();
   renderPresetInfo();
   showVersion();
 }
@@ -819,7 +881,8 @@ function buildLangPickers(prefs) {
           const el = document.getElementById(other);
           if (el && el !== sel) el.value = value;
         }
-        lang = value === "auto" ? (I18N[appLang] ? appLang : "en") : value;
+        const auto = autoLang || appLang;
+        lang = value === "auto" ? (I18N[auto] ? auto : "en") : value;
         applyLang();
       }
       toPlugin({ cmd: "setGlobal", [key]: value });
@@ -834,8 +897,8 @@ const DEFAULTS = {
   label: "", micDevice: "", mode: "toggle", silenceStop: true, silenceSeconds: 10,
   maxMinutes: 10, beep: true, transcribeOn: true, transcribeModel: "gpt-transcribe",
   shortcutAlias: "",
-  language: "pt", transcribeContext: "", useCanonPrompt: true, textOn: true,
-  textModel: "gpt-4.1-mini", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
+  language: "", transcribeContext: "", useCanonPrompt: true, textOn: true,
+  textModel: "gpt-5.6-luna", cleanup: true, styleMode: "none", targetLanguage: "en", style: "",
   autoPaste: true, history: true, historyDir: "", keepAudio: false,
   colorIdle: "#404650", colorRec: "#C44040", colorDone: "#2E8C3C",
   keyStyle: "neon", icon: "mic",
@@ -964,9 +1027,7 @@ let hasKeyCached = false;
 function handlePlugin(p) {
   switch (p.event) {
     case "init": {
-      fill(document.getElementById("micList"),
-        [{ value: "", label: t("micDefault") }, ...(p.devices || []).map((d) => ({ value: d, label: d }))],
-        settings.micDevice ?? "");
+      fillMics(p.devices);
 
       fill(document.getElementById("langList"),
         (p.languages || []).map((l) => ({ value: l.code, label: l.label })),
@@ -989,6 +1050,7 @@ function handlePlugin(p) {
       // The panel's language comes from the plugin's global settings, so the selectors
       // are built before the interface is translated.
       if (p.appLanguage) appLang = String(p.appLanguage).slice(0, 2);
+      if (p.autoUiLocale) autoLang = p.autoUiLocale;
       buildLangPickers({ uiLang: p.uiLang, contentLang: p.contentLang });
       if (p.uiLocale && I18N[p.uiLocale]) { lang = p.uiLocale; applyLang(); }
 
@@ -1000,6 +1062,8 @@ function handlePlugin(p) {
       if (p.version) showVersion(p.version, p.versionDate);
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
+      ffState = p.ffmpeg || null;
+      refreshFfmpeg();
       ready = true;
       applyToForm();
       // Shows the ready-made address when the key has a nickname; as a bonus, it is what
@@ -1033,6 +1097,21 @@ function handlePlugin(p) {
       if (p.presets) renderPresets(p.presets);
       break;
     case "micResult": status(document.getElementById("micStatus"), p.message, p.ok ? "ok" : "err"); break;
+    case "ffmpegState":
+      ffState = p;
+      if (p.installed !== undefined) {
+        ffMessage = p.found ? [t("ffInstalled"), "ok"] : [t("ffInstallFailed"), "err"];
+        if (p.found) {
+          document.body.classList.add("ffdone");
+          setTimeout(() => document.body.classList.remove("ffdone"), 6000);
+        }
+      } else if (!p.installing) {
+        ffMessage = null;
+      }
+      // Found just now: the microphone list was empty for lack of ffmpeg, not of microphones.
+      if (p.devices) fillMics(p.devices);
+      refreshFfmpeg();
+      break;
     case "shortcutState": {
       document.getElementById("shortcutUrl").value = p.url || "";
       document.getElementById("shortcutUrlRow").style.display = p.url ? "" : "none";
@@ -1061,6 +1140,35 @@ function handlePlugin(p) {
       break;
     case "error": status(document.getElementById("globalStatus"), p.message, "err"); break;
   }
+}
+
+function fillMics(devices) {
+  fill(document.getElementById("micList"),
+    [{ value: "", label: t("micDefault") }, ...(devices || []).map((d) => ({ value: d, label: d }))],
+    settings.micDevice ?? "");
+}
+
+/**
+ * Every ffmpeg indicator — the banner, the guide and Machine settings — says the same
+ * thing, from the last state the plugin sent. Without ffmpeg nothing records, which is
+ * why its banner sits above the key's.
+ */
+let ffState = null;
+/** The outcome of the last check or install, [text, class]; null = describe the state. */
+let ffMessage = null;
+function refreshFfmpeg() {
+  if (!ffState) return;
+  const { found, version, path, winget, installing } = ffState;
+  document.body.classList.toggle("noffmpeg", !found);
+  document.body.classList.toggle("nowinget", !winget);
+  for (const b of document.querySelectorAll(".ffInstall")) b.disabled = !!installing;
+  const [text, cls] = installing
+    ? [t("ffInstalling"), "warn"]
+    : ffMessage || (found
+      // A bare "ffmpeg" means "on the PATH" — no folder worth showing.
+      ? [t("ffFound").replace("{v}", version) + (/[\\/]/.test(path) ? " — " + path : ""), "ok"]
+      : [t("ffMissing"), "warn"]);
+  for (const el of document.querySelectorAll("[data-ffstatus]")) status(el, text, cls);
 }
 
 /** BOTH indicators say the same thing — it is the same key, in the same vault. */
@@ -1412,6 +1520,33 @@ document.addEventListener("DOMContentLoaded", () => {
     saveGlobal();
   });
   document.getElementById("ffmpegPath").addEventListener("input", saveGlobal);
+
+  // --- ffmpeg: install, check, guide ---
+  //
+  // A changed path is checked by the plugin as it saves; an unchanged one is asked for.
+  const checkFfmpeg = (path) => {
+    const field = document.getElementById("ffmpegPath");
+    ffMessage = [t("ffChecking"), ""];
+    refreshFfmpeg();
+    if (path !== undefined && path.trim() !== field.value.trim()) {
+      field.value = path.trim();
+      saveGlobal();
+    } else {
+      toPlugin({ cmd: "ffmpegCheck" });
+    }
+  };
+  for (const b of document.querySelectorAll(".ffInstall")) {
+    b.onclick = () => { ffMessage = null; toPlugin({ cmd: "ffmpegInstall" }); };
+  }
+  for (const b of document.querySelectorAll(".ffHelp")) {
+    b.onclick = () => {
+      document.getElementById("modalFfmpegPath").value = document.getElementById("ffmpegPath").value;
+      openModal("ffModal");
+    };
+  }
+  for (const b of document.querySelectorAll(".ffCheck")) b.onclick = () => checkFfmpeg();
+  document.getElementById("modalFfmpegCheck").onclick = () =>
+    checkFfmpeg(document.getElementById("modalFfmpegPath").value);
 
   // --- keyboard shortcut ---
   //

@@ -4193,13 +4193,15 @@ var EventEmitter = class {
   }
 };
 
-// node_modules/@elgato/utils/dist/objects.js
+// node_modules/@elgato/utils/dist/objects/freeze.js
 function freeze(value) {
   if (value !== void 0 && value !== null && typeof value === "object" && !Object.isFrozen(value)) {
     Object.freeze(value);
     Object.values(value).forEach(freeze);
   }
 }
+
+// node_modules/@elgato/utils/dist/objects/get.js
 function get(source, path5) {
   const props = path5.split(".");
   return props.reduce((obj, prop) => obj && obj[prop], source);
@@ -5236,10 +5238,10 @@ function jsonStringifyReplacer(_, value) {
   return value;
 }
 function cached(getter) {
-  const set2 = false;
+  const set3 = false;
   return {
     get value() {
-      if (!set2) {
+      if (!set3) {
         const value = getter();
         Object.defineProperty(this, "value", { value });
         return value;
@@ -5265,10 +5267,10 @@ function floatSafeRemainder(val, step) {
   return valInt % stepInt / 10 ** decCount;
 }
 function defineLazy(object2, key, getter) {
-  const set2 = false;
+  const set3 = false;
   Object.defineProperty(object2, key, {
     get() {
-      if (!set2) {
+      if (!set3) {
         const value = getter();
         object2[key] = value;
         return value;
@@ -15853,12 +15855,15 @@ var FileTarget = class {
     });
   }
   /**
-   * Re-indexes the existing log files associated with this file target, removing old log files whose index exceeds the {@link FileTargetOptions.maxFileCount}, and renaming the
-   * remaining log files, leaving index "0" free for a new log file.
+   * Re-indexes the existing log files associated with this file target, removing old log files whose
+   * index exceeds the `maxFileCount`, and renaming the remaining log files, leaving index "0" free
+   * for a new log file.
    */
   reIndex() {
     if (!fs.existsSync(this.#options.dest)) {
-      fs.mkdirSync(this.#options.dest);
+      fs.mkdirSync(this.#options.dest, {
+        recursive: true
+      });
       return;
     }
     const logFiles = this.getLogFiles();
@@ -16124,9 +16129,6 @@ var softwareMinimumVersion = new Lazy(() => {
   }
   return new Version(manifest.value.Software.MinimumVersion);
 });
-function getSDKVersion() {
-  return manifest.value?.SDKVersion ?? null;
-}
 function getSoftwareMinimumVersion() {
   return softwareMinimumVersion.value;
 }
@@ -16137,12 +16139,59 @@ function getManifest() {
 // node_modules/@elgato/streamdeck/dist/plugin/settings.js
 import { randomUUID } from "node:crypto";
 
+// node_modules/@elgato/streamdeck/dist/plugin/actions/cache.js
+var SettingsCache = class {
+  /**
+   * Underlying map of action ID to cached settings.
+   */
+  #entries = /* @__PURE__ */ new Map();
+  /**
+   * Clears the cached settings.
+   */
+  clear() {
+    this.#entries.clear();
+  }
+  /**
+   * Removes the cached settings for the specified action.
+   * @param id Action instance identifier.
+   */
+  delete(id) {
+    this.#entries.delete(id);
+  }
+  /**
+   * Gets the cached settings for the specified action.
+   * @param id Action instance identifier.
+   * @returns The cached settings when present; otherwise `undefined`.
+   */
+  get(id) {
+    const settings2 = this.#entries.get(id);
+    return settings2 !== void 0 ? structuredClone(settings2) : void 0;
+  }
+  /**
+   * Sets the cached settings for the specified action.
+   * @param id Action instance identifier.
+   * @param settings The settings to cache.
+   */
+  set(id, settings2) {
+    this.#entries.set(id, structuredClone(settings2));
+  }
+};
+var settingsCache = new SettingsCache();
+
 // node_modules/@elgato/streamdeck/dist/plugin/actions/config.js
 var actionConfig = {
   /**
-   * Determines whether settings requests should use message identifiers and action settings cache behavior.
+   * Determines the behavior of when `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired.
+   *
+   * - `false` (default) — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are only fired
+   * after the settings are updated within the property inspector.
+   * - `true` — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired after the settings
+   * are updated within the property inspector, and after calling `action.getSettings()` and
+   * `streamDeck.settings.getGlobalSettings()` respectively.
+   *
+   * This option replaces `useExperimentalMessageIdentifiers`, with inverted behavior.
    */
-  useExperimentalMessageIdentifiers: false
+  useLegacySettingsBehavior: false
 };
 
 // node_modules/@elgato/streamdeck/dist/plugin/actions/store.js
@@ -16311,12 +16360,6 @@ var SendToPluginEvent = class extends Event {
 };
 
 // node_modules/@elgato/streamdeck/dist/plugin/validation.js
-function requiresSDKVersion(minimumVersion, feature) {
-  const sdkVersion = getSDKVersion();
-  if (sdkVersion !== null && minimumVersion > sdkVersion) {
-    throw new Error(`[ERR_NOT_SUPPORTED]: ${feature} requires manifest SDK version ${minimumVersion} or higher, but found version ${sdkVersion}; please update the "SDKVersion" in the plugin's manifest to ${minimumVersion} or higher.`);
-  }
-}
 function requiresVersion(minimumVersion, streamDeckVersion, feature) {
   const required3 = {
     major: Math.floor(minimumVersion),
@@ -16337,26 +16380,43 @@ function requiresVersion(minimumVersion, streamDeckVersion, feature) {
 // node_modules/@elgato/streamdeck/dist/plugin/settings.js
 var settings = {
   /**
-   * Available from Stream Deck 7.1; determines whether message identifiers should be sent when getting
-   * action-instance or global settings.
+   * Determines the behavior of when `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired.
    *
-   * When `true`, the did-receive events associated with settings are only emitted when the action-instance
-   * or global settings are changed in the property inspector.
-   * @returns The value.
+   * - `false` (default) — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are only fired
+   * after the settings are updated within the property inspector.
+   * - `true` — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired after the settings
+   * are updated within the property inspector, and after calling `action.getSettings()` and
+   * `streamDeck.settings.getGlobalSettings()` respectively.
+   *
+   * This option replaces `useExperimentalMessageIdentifiers`, with inverted behavior.
    */
-  get useExperimentalMessageIdentifiers() {
-    return actionConfig.useExperimentalMessageIdentifiers;
+  get useLegacySettingsBehavior() {
+    return actionConfig.useLegacySettingsBehavior;
   },
   /**
-   * Available from Stream Deck 7.1; determines whether message identifiers should be sent when getting
-   * action-instance or global settings.
+   * Determines the behavior of when `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired.
    *
-   * When `true`, the did-receive events associated with settings are only emitted when the action-instance
-   * or global settings are changed in the property inspector.
+   * - `false` (default) — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are only fired
+   * after the settings are updated within the property inspector.
+   * - `true` — `onDidReceiveSettings` and `onDidReceiveGlobalSettings` are fired after the settings
+   * are updated within the property inspector, and after calling `action.getSettings()` and
+   * `streamDeck.settings.getGlobalSettings()` respectively.
+   *
+   * This option replaces `useExperimentalMessageIdentifiers`, with inverted behavior.
    */
-  set useExperimentalMessageIdentifiers(value) {
-    requiresVersion(7.1, connection.version, "Message identifiers");
-    actionConfig.useExperimentalMessageIdentifiers = value;
+  set useLegacySettingsBehavior(value) {
+    const prev = actionConfig.useLegacySettingsBehavior;
+    if (prev === value) {
+      return;
+    }
+    try {
+      actionConfig.useLegacySettingsBehavior = value;
+      validateSettingsBehavior();
+      settingsCache.clear();
+    } catch (err) {
+      actionConfig.useLegacySettingsBehavior = prev;
+      throw err;
+    }
   },
   /**
    * Gets the global settings associated with the plugin.
@@ -16374,30 +16434,34 @@ var settings = {
     });
   },
   /**
-   * Occurs when the global settings are requested, or when the the global settings were updated in
-   * the property inspector.
+   * Occurs when the global settings are updated within the property inspector.
+   *
+   * When `streamDeck.settings.useLegacySettingsBehavior` is set to `true`, this event will also
+   * occur when calling `getGlobalSettings()`.
    * @template T The type of settings associated with the action.
    * @param listener Function to be invoked when the event occurs.
    * @returns A disposable that removes the listener.
    */
   onDidReceiveGlobalSettings: (listener) => {
     return connection.disposableOn("didReceiveGlobalSettings", (ev) => {
-      if (settings.useExperimentalMessageIdentifiers && ev.id) {
+      if (!settings.useLegacySettingsBehavior && ev.id) {
         return;
       }
       listener(new DidReceiveGlobalSettingsEvent(ev));
     });
   },
   /**
-   * Occurs when the settings associated with an action instance are requested, or when the the settings
-   * were updated in the property inspector.
+   * Occurs when the settings, associated with an action, are updated within the property inspector.
+   *
+   * When `streamDeck.settings.useLegacySettingsBehavior` is set to `true`, this event will also
+   * occur when calling `getSettings()` on an action.
    * @template T The type of settings associated with the action.
    * @param listener Function to be invoked when the event occurs.
    * @returns A disposable that removes the listener.
    */
   onDidReceiveSettings: (listener) => {
     return connection.disposableOn("didReceiveSettings", (ev) => {
-      if (settings.useExperimentalMessageIdentifiers && ev.id) {
+      if (!settings.useLegacySettingsBehavior && ev.id) {
         return;
       }
       const action2 = actionStore.getActionById(ev.context);
@@ -16424,6 +16488,11 @@ var settings = {
     });
   }
 };
+function validateSettingsBehavior() {
+  if (!settings.useLegacySettingsBehavior) {
+    requiresVersion(7.1, connection.version, "Default onDidReceiveSettings/onDidReceiveGlobalSettings behavior");
+  }
+}
 
 // node_modules/@elgato/streamdeck/dist/plugin/ui.js
 var UIController = class {
@@ -16534,42 +16603,6 @@ var UIController = class {
 };
 var ui = new UIController();
 
-// node_modules/@elgato/streamdeck/dist/plugin/actions/action.js
-import { randomUUID as randomUUID2 } from "node:crypto";
-
-// node_modules/@elgato/streamdeck/dist/plugin/actions/cache.js
-var SettingsCache = class {
-  /**
-   * Underlying map of action ID to cached settings.
-   */
-  #entries = /* @__PURE__ */ new Map();
-  /**
-   * Removes the cached settings for the specified action.
-   * @param id Action instance identifier.
-   */
-  delete(id) {
-    this.#entries.delete(id);
-  }
-  /**
-   * Gets the cached settings for the specified action.
-   * @param id Action instance identifier.
-   * @returns The cached settings when present; otherwise `undefined`.
-   */
-  get(id) {
-    const settings2 = this.#entries.get(id);
-    return settings2 !== void 0 ? structuredClone(settings2) : void 0;
-  }
-  /**
-   * Sets the cached settings for the specified action.
-   * @param id Action instance identifier.
-   * @param settings The settings to cache.
-   */
-  set(id, settings2) {
-    this.#entries.set(id, structuredClone(settings2));
-  }
-};
-var settingsCache = new SettingsCache();
-
 // node_modules/@elgato/streamdeck/dist/plugin/devices/store.js
 var __items2 = /* @__PURE__ */ new Map();
 var ReadOnlyDeviceStore = class extends Enumerable {
@@ -16665,12 +16698,13 @@ var ActionContext = class {
   }
 };
 
-// node_modules/@elgato/streamdeck/dist/plugin/actions/action.js
+// node_modules/@elgato/streamdeck/dist/plugin/actions/action-base.js
+import { randomUUID as randomUUID2 } from "node:crypto";
 var REQUEST_TIMEOUT = 15 * 1e3;
-var Action = class extends ActionContext {
+var ActionBase = class extends ActionContext {
   /**
-   * Gets the resources (files) associated with this action; these resources are embedded into the
-   * action when it is exported, either individually, or as part of a profile.
+   * Gets the resources (files) associated with this action; these resources are embedded into the action when it is
+   * exported, either individually, or as part of a profile.
    *
    * Available from Stream Deck 7.1.
    * @returns The resources.
@@ -16682,11 +16716,10 @@ var Action = class extends ActionContext {
   }
   /**
    * Gets the settings associated this action instance.
-   * @template U The type of settings associated with the action.D
    * @returns Promise containing the action instance's settings.
    */
   async getSettings() {
-    if (actionConfig.useExperimentalMessageIdentifiers) {
+    if (!actionConfig.useLegacySettingsBehavior) {
       const cached3 = settingsCache.get(this.id);
       if (cached3 !== void 0) {
         logger.trace(JSON.stringify({
@@ -16716,8 +16749,15 @@ var Action = class extends ActionContext {
     return this.controllerType === "Keypad";
   }
   /**
-   * Sets the resources (files) associated with this action; these resources are embedded into the
-   * action when it is exported, either individually, or as part of a profile.
+   * Determines whether this instance is an Infobar.
+   * @returns `true` when this instance is an Infobar; otherwise `false`.
+   */
+  isNeoInfobar() {
+    return this.controllerType === "Neo";
+  }
+  /**
+   * Sets the resources (files) associated with this action; these resources are embedded into the action when it is
+   * exported, either individually, or as part of a profile.
    *
    * Available from Stream Deck 7.1.
    * @example
@@ -16737,7 +16777,7 @@ var Action = class extends ActionContext {
     });
   }
   /**
-   * Sets the settings associated with this action instance. Use in conjunction with {@link Action.getSettings}.
+   * Sets the settings associated with this action instance.
    * @param value Settings to persist.
    * @returns `Promise` resolved when the settings are sent to Stream Deck.
    */
@@ -16747,16 +16787,6 @@ var Action = class extends ActionContext {
       event: "setSettings",
       context: this.id,
       payload: value
-    });
-  }
-  /**
-   * Temporarily shows an alert (i.e. warning), in the form of an exclamation mark in a yellow triangle, on this action instance. Used to provide visual feedback when an action failed.
-   * @returns `Promise` resolved when the request to show an alert has been sent to Stream Deck.
-   */
-  showAlert() {
-    return connection.send({
-      event: "showAlert",
-      context: this.id
     });
   }
   /**
@@ -16788,9 +16818,9 @@ var Action = class extends ActionContext {
 };
 
 // node_modules/@elgato/streamdeck/dist/plugin/actions/dial.js
-var DialAction = class extends Action {
+var DialAction = class extends ActionBase {
   /**
-   * Private backing field for {@link DialAction.coordinates}.
+   * Private backing field for the coordinates.
    */
   #coordinates;
   /**
@@ -16813,7 +16843,7 @@ var DialAction = class extends Action {
   }
   /**
    * Sets the feedback for the current layout associated with this action instance, allowing for the visual items to be updated. Layouts are a powerful way to provide dynamic information
-   * to users, and can be assigned in the manifest, or dynamically via {@link Action.setFeedbackLayout}.
+   * to users, and can be assigned in the manifest, or dynamically via {@link DialAction.setFeedbackLayout}.
    *
    * The {@link feedback} payload defines which items within the layout will be updated, and are identified by their property name (defined as the `key` in the layout's definition).
    * The values can either by a complete new definition, a `string` for layout item types of `text` and `pixmap`, or a `number` for layout item types of `bar` and `gbar`.
@@ -16829,7 +16859,7 @@ var DialAction = class extends Action {
   }
   /**
    * Sets the layout associated with this action instance. The layout must be either a built-in layout identifier, or path to a local layout JSON file within the plugin's folder.
-   * Use in conjunction with {@link Action.setFeedback} to update the layout's current items' settings.
+   * Use in conjunction with {@link DialAction.setFeedback} to update the layout's current items' settings.
    * @param layout Name of a pre-defined layout, or relative path to a custom one.
    * @returns `Promise` resolved when the new layout has been sent to Stream Deck.
    */
@@ -16886,6 +16916,16 @@ var DialAction = class extends Action {
     });
   }
   /**
+   * Shows a temporary alert (i.e. warning) indicator on the touch strip associated with the action.
+   * @returns `Promise` resolved when the request to show an alert has been sent to Stream Deck.
+   */
+  showAlert() {
+    return connection.send({
+      event: "showAlert",
+      context: this.id
+    });
+  }
+  /**
    * @inheritdoc
    */
   toJSON() {
@@ -16897,9 +16937,9 @@ var DialAction = class extends Action {
 };
 
 // node_modules/@elgato/streamdeck/dist/plugin/actions/key.js
-var KeyAction = class extends Action {
+var KeyAction = class extends ActionBase {
   /**
-   * Private backing field for {@link KeyAction.coordinates}.
+   * Private backing field for the coordinates.
    */
   #coordinates;
   /**
@@ -16984,7 +17024,18 @@ var KeyAction = class extends Action {
     });
   }
   /**
-   * Temporarily shows an "OK" (i.e. success), in the form of a check-mark in a green circle, on this action instance. Used to provide visual feedback when an action successfully
+   * Shows a temporary alert (i.e. warning), in the form of an exclamation mark in a yellow triangle, on the key.
+   * @returns `Promise` resolved when the request to show an alert has been sent to Stream Deck.
+   */
+  showAlert() {
+    return connection.send({
+      event: "showAlert",
+      context: this.id
+    });
+  }
+  /**
+   * Temporarily shows an "OK" (i.e. success), in the form of a check-mark in a green circle, on this action instance.
+   * Used to provide visual feedback when an action successfully
    * executed.
    * @returns `Promise` resolved when the request to show an "OK" has been sent to Stream Deck.
    */
@@ -17006,6 +17057,74 @@ var KeyAction = class extends Action {
   }
 };
 
+// node_modules/@elgato/streamdeck/dist/plugin/actions/neo-infobar.js
+var NeoInfobarAction = class extends ActionBase {
+  /**
+   * Private backing field for the coordinates.
+   */
+  #coordinates;
+  /**
+   * Initializes a new instance of the {@see NeoInfobarAction} class.
+   * @param source Source of the action.
+   */
+  constructor(source) {
+    super(source);
+    if (source.payload.controller !== "Neo") {
+      throw new Error("Unable to create NeoInfobarAction; source event controller is not 'Neo'");
+    }
+    this.#coordinates = Object.freeze(source.payload.coordinates);
+  }
+  /**
+   * Coordinates of the Infobar.
+   * @returns The coordinates.
+   */
+  get coordinates() {
+    return this.#coordinates;
+  }
+  /**
+   * Sets the feedback for the current layout associated with this action instance, allowing for the visual items to be
+   * updated. Layouts are a powerful way to provide dynamic information to users, and can be assigned in the manifest,
+   * or dynamically via `setFeedbackLayout`.
+   *
+   * The `feedback` payload defines which items within the layout will be updated, and are identified by their property
+   * name (defined as the `key` in the layout's definition). The values can either be a complete new definition, a `string`
+   * for layout item types of `text` and `pixmap`, or a `number` for layout item types of `bar` and `gbar`.
+   * @param feedback Object containing information about the layout items to be updated.
+   * @returns `Promise` resolved when the request to set the `feedback` has been sent to Stream Deck.
+   */
+  setFeedback(feedback) {
+    return connection.send({
+      event: "setFeedback",
+      context: this.id,
+      payload: feedback
+    });
+  }
+  /**
+   * Sets the layout associated with this action instance. The layout must be a path to a local layout JSON file within
+   * the plugin's folder. Use in conjunction with `setFeedback` to update the layout's current items' settings.
+   * @param layout Relative path to the layout file.
+   * @returns `Promise` resolved when the new layout has been sent to Stream Deck.
+   */
+  setFeedbackLayout(layout) {
+    return connection.send({
+      event: "setFeedbackLayout",
+      context: this.id,
+      payload: {
+        layout
+      }
+    });
+  }
+  /**
+   * @inheritdoc
+   */
+  toJSON() {
+    return {
+      ...super.toJSON(),
+      coordinates: this.coordinates
+    };
+  }
+};
+
 // node_modules/@elgato/streamdeck/dist/plugin/actions/service.js
 var manifest2 = new Lazy(() => getManifest());
 var ActionService = class extends ReadOnlyActionStore {
@@ -17015,14 +17134,14 @@ var ActionService = class extends ReadOnlyActionStore {
   constructor() {
     super();
     connection.prependListener("willAppear", (ev) => {
-      const action2 = ev.payload.controller === "Encoder" ? new DialAction(ev) : new KeyAction(ev);
+      const action2 = this.#createAction(ev);
       actionStore.set(action2);
-      if (actionConfig.useExperimentalMessageIdentifiers) {
+      if (!actionConfig.useLegacySettingsBehavior) {
         settingsCache.set(ev.context, ev.payload.settings);
       }
     });
     connection.prependListener("didReceiveSettings", (ev) => {
-      if (actionConfig.useExperimentalMessageIdentifiers) {
+      if (!actionConfig.useLegacySettingsBehavior) {
         settingsCache.set(ev.context, ev.payload.settings);
       }
     });
@@ -17074,7 +17193,7 @@ var ActionService = class extends ReadOnlyActionStore {
     });
   }
   /**
-   * Occurs when the resources were updated within the property inspector.
+   * Occurs when the resources are updated within the property inspector.
    * @param listener Function to be invoked when the event occurs.
    * @returns A disposable that, when disposed, removes the listener.
    */
@@ -17118,7 +17237,7 @@ var ActionService = class extends ReadOnlyActionStore {
     });
   }
   /**
-   * Occurs when the user updates an action's title settings in the Stream Deck application. See also {@link Action.setTitle}.
+   * Occurs when the user updates an action's title settings in the Stream Deck application.
    * @template T The type of settings associated with the action.
    * @param listener Function to be invoked when the event occurs.
    * @returns A disposable that, when disposed, removes the listener.
@@ -17216,6 +17335,21 @@ var ActionService = class extends ReadOnlyActionStore {
     route(this.onTouchTap, action2.onTouchTap);
     route(this.onWillAppear, action2.onWillAppear);
     route(this.onWillDisappear, action2.onWillDisappear);
+  }
+  /**
+   * Creates an instance of an action from its associated controller.
+   * @param ev Event that contains the controller.
+   * @returns The action instance.
+   */
+  #createAction(ev) {
+    switch (ev.payload.controller) {
+      case "Encoder":
+        return new DialAction(ev);
+      case "Neo":
+        return new NeoInfobarAction(ev);
+      default:
+        return new KeyAction(ev);
+    }
   }
 };
 var actionService = new ActionService();
@@ -17396,7 +17530,6 @@ function switchToProfile(deviceId, profile, page) {
 // node_modules/@elgato/streamdeck/dist/plugin/system.js
 var system_exports = {};
 __export(system_exports, {
-  getSecrets: () => getSecrets,
   onApplicationDidLaunch: () => onApplicationDidLaunch,
   onApplicationDidTerminate: () => onApplicationDidTerminate,
   onDidReceiveDeepLink: () => onDidReceiveDeepLink,
@@ -17422,17 +17555,6 @@ function openUrl(url2) {
     payload: {
       url: url2
     }
-  });
-}
-function getSecrets() {
-  requiresVersion(6.9, connection.version, "Secrets");
-  requiresSDKVersion(3, "Secrets");
-  return new Promise((resolve) => {
-    connection.once("didReceiveSecrets", (ev) => resolve(ev.payload.secrets));
-    connection.send({
-      event: "getSecrets",
-      context: connection.registrationParameters.pluginUUID
-    });
   });
 }
 
@@ -17532,17 +17654,17 @@ var streamDeck = {
   },
   /**
    * Connects the plugin to the Stream Deck.
-   * @returns A promise resolved when a connection has been established.
    */
-  connect() {
-    return connection.connect();
+  async connect() {
+    validateSettingsBehavior();
+    await connection.connect();
   }
 };
 var plugin_default = streamDeck;
 
 // src/actions/dictation.ts
 import { rename, unlink as unlink2, stat } from "node:fs/promises";
-import { join as join7 } from "node:path";
+import { join as join8 } from "node:path";
 
 // src/lib/prompt-text.ts
 var LOCALES = ["pt", "en", "es"];
@@ -17757,13 +17879,20 @@ function promptText(locale) {
 }
 
 // src/lib/settings.ts
+function osLanguage() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale;
+  } catch {
+    return void 0;
+  }
+}
 function resolveContentLocale(opts) {
   if (opts.contentLang && opts.contentLang !== "auto") return opts.contentLang;
-  return asLocale(opts.spokenLanguage) ?? asLocale(opts.uiLang === "auto" ? void 0 : opts.uiLang) ?? asLocale(opts.appLanguage) ?? "en";
+  return asLocale(opts.spokenLanguage) ?? asLocale(opts.uiLang === "auto" ? void 0 : opts.uiLang) ?? asLocale(opts.osLanguage) ?? asLocale(opts.appLanguage) ?? "en";
 }
-function resolveUiLocale(uiLang, appLanguage2) {
+function resolveUiLocale(uiLang, appLanguage2, osLang) {
   if (uiLang && uiLang !== "auto") return uiLang;
-  return asLocale(appLanguage2) ?? "en";
+  return asLocale(osLang) ?? asLocale(appLanguage2) ?? "en";
 }
 var DEFAULTS = {
   presetId: "clean",
@@ -17777,11 +17906,11 @@ var DEFAULTS = {
   beep: true,
   transcribeOn: true,
   transcribeModel: "gpt-transcribe",
-  language: "pt",
+  language: "",
   transcribeContext: "",
   useCanonPrompt: true,
   textOn: true,
-  textModel: "gpt-4.1-mini",
+  textModel: "gpt-5.6-luna",
   cleanup: true,
   styleMode: "none",
   targetLanguage: "en",
@@ -17828,28 +17957,131 @@ var TRANSCRIBE_MODELS = [
   { id: "whisper-1", label: "Whisper-1 (legacy)" }
 ];
 var TEXT_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (default)" },
+  { id: "gpt-5.6-luna", label: "GPT-5.6 Luna (default)" },
+  { id: "gpt-5.6-terra", label: "GPT-5.6 Terra (stronger, dearer)" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (fallback)" },
   { id: "gpt-4.1-nano", label: "GPT-4.1 nano (cheapest)" },
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" }
 ];
+var TEXT_FALLBACK_MODEL = "gpt-4.1-mini";
 
 // src/actions/dictation.ts
 init_recorder();
 
+// src/lib/ffmpeg.ts
+import { execFile as execFile2, spawn as spawn2 } from "node:child_process";
+import { existsSync as existsSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+var WINGET_PACKAGE = "Gyan.FFmpeg.Essentials";
+var INSTALL_TIMEOUT_MS = 10 * 6e4;
+function run(file2, args, timeout) {
+  return new Promise((resolve) => {
+    execFile2(
+      file2,
+      args,
+      { windowsHide: true, timeout, maxBuffer: 1 << 20 },
+      (err, stdout) => resolve(err ? null : String(stdout))
+    );
+  });
+}
+async function probe(path5) {
+  const out = await run(path5, ["-hide_banner", "-version"], 5e3);
+  return /^ffmpeg version (\S+)/m.exec(out ?? "")?.[1] ?? null;
+}
+function pathDirs(raw, env) {
+  const seen = /* @__PURE__ */ new Set();
+  const dirs = [];
+  for (const part of raw.split(";")) {
+    const dir = part.replace(/%([^%]+)%/g, (whole, name) => env[name] ?? whole).replace(/"/g, "").trim();
+    if (!dir || seen.has(dir.toLowerCase())) continue;
+    seen.add(dir.toLowerCase());
+    dirs.push(dir);
+  }
+  return dirs;
+}
+async function registryPath(key) {
+  const out = await run("reg", ["query", key, "/v", "Path"], 5e3);
+  return /REG_(?:EXPAND_)?SZ\s+(.*)$/m.exec(out ?? "")?.[1] ?? "";
+}
+async function freshPathDirs() {
+  const [user, machine] = await Promise.all([
+    registryPath("HKCU\\Environment"),
+    registryPath("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment")
+  ]);
+  return pathDirs(`${user};${machine}`, process.env);
+}
+var found;
+function ffmpegInfo() {
+  return found;
+}
+async function findFfmpeg(configured) {
+  const candidates = [configured?.trim() ?? "", "ffmpeg"];
+  for (const dir of await freshPathDirs()) candidates.push(join2(dir, "ffmpeg.exe"));
+  candidates.push(join2(process.env.LOCALAPPDATA ?? "", "Microsoft", "WinGet", "Links", "ffmpeg.exe"));
+  let result = null;
+  for (const path5 of candidates) {
+    if (!path5 || path5 !== "ffmpeg" && !existsSync2(path5)) continue;
+    const version2 = await probe(path5);
+    if (version2) {
+      result = { path: path5, version: version2 };
+      break;
+    }
+  }
+  found = result;
+  return result;
+}
+var wingetCache;
+async function hasWinget() {
+  wingetCache ??= await run("winget", ["--version"], 1e4) !== null;
+  return wingetCache;
+}
+var installing;
+function isInstalling() {
+  return installing !== void 0;
+}
+function installFfmpeg(configured) {
+  installing ??= new Promise((resolve) => {
+    const child = spawn2(
+      "winget",
+      [
+        "install",
+        "--id",
+        WINGET_PACKAGE,
+        "-e",
+        "--source",
+        "winget",
+        "--accept-source-agreements",
+        "--accept-package-agreements",
+        "--disable-interactivity"
+      ],
+      { windowsHide: true, stdio: "ignore" }
+    );
+    const timer = setTimeout(() => child.kill(), INSTALL_TIMEOUT_MS);
+    child.on("error", () => resolve());
+    child.on("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  }).then(() => findFfmpeg(configured)).finally(() => {
+    installing = void 0;
+  });
+  return installing;
+}
+
 // src/lib/sessions.ts
-import { execFile as execFile2 } from "node:child_process";
+import { execFile as execFile3 } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
 
 // src/lib/paths.ts
 import { mkdir } from "node:fs/promises";
-import { join as join2 } from "node:path";
-var ROOT = join2(process.env.LOCALAPPDATA ?? "", "transcritranslator");
-var AUDIO_DIR = join2(ROOT, "audio");
-var FAILED_DIR = join2(AUDIO_DIR, "falhou");
-var HISTORY_DIR = join2(ROOT, "historico");
-var PIDS_FILE = join2(ROOT, "ffmpeg-pids.json");
-var SHORTCUTS_FILE = join2(ROOT, "atalhos.json");
+import { join as join3 } from "node:path";
+var ROOT = join3(process.env.LOCALAPPDATA ?? "", "transcritranslator");
+var AUDIO_DIR = join3(ROOT, "audio");
+var FAILED_DIR = join3(AUDIO_DIR, "falhou");
+var HISTORY_DIR = join3(ROOT, "historico");
+var PIDS_FILE = join3(ROOT, "ffmpeg-pids.json");
+var SHORTCUTS_FILE = join3(ROOT, "atalhos.json");
 async function ensureDirs() {
   for (const d of [ROOT, AUDIO_DIR, FAILED_DIR, HISTORY_DIR]) {
     await mkdir(d, { recursive: true });
@@ -17919,13 +18151,13 @@ async function cleanupOrphans() {
   await Promise.all(
     pids.map(
       (pid) => new Promise((resolve) => {
-        execFile2(
+        execFile3(
           "tasklist",
           ["/fi", `PID eq ${pid}`, "/nh"],
           { windowsHide: true },
           (err, stdout) => {
             if (!err && /ffmpeg\.exe/i.test(stdout || "")) {
-              execFile2("taskkill", ["/PID", String(pid), "/F"], { windowsHide: true }, () => resolve());
+              execFile3("taskkill", ["/PID", String(pid), "/F"], { windowsHide: true }, () => resolve());
             } else {
               resolve();
             }
@@ -18173,6 +18405,7 @@ var TEXT = {
     busy: ["gravando em", "outra tecla"],
     noKey: "sem chave",
     noFfmpeg: "sem ffmpeg",
+    noMic: ["microfone", "indispon\xEDvel"],
     noSpeech: "sem fala",
     nothingToDo: ["nada a", "fazer"],
     noText: "sem texto",
@@ -18197,6 +18430,7 @@ var TEXT = {
     busy: ["recording on", "another key"],
     noKey: "no key",
     noFfmpeg: "no ffmpeg",
+    noMic: ["mic", "unavailable"],
     noSpeech: "no speech",
     nothingToDo: ["nothing", "to do"],
     noText: "no text",
@@ -18221,6 +18455,7 @@ var TEXT = {
     busy: ["grabando en", "otra tecla"],
     noKey: "sin clave",
     noFfmpeg: "sin ffmpeg",
+    noMic: ["micr\xF3fono", "no disponible"],
     noSpeech: "sin voz",
     nothingToDo: ["nada que", "hacer"],
     noText: "sin texto",
@@ -18296,8 +18531,24 @@ function isRefusalText(text) {
   const lower = text.toLowerCase();
   return REFUSAL_PREFIXES.some((p) => lower.startsWith(p));
 }
+var MODEL_CODES = /* @__PURE__ */ new Set(["model_not_found", "unsupported_model", "unknown_model"]);
+var MODEL_PHRASES = [
+  "does not exist or you do not have access",
+  "do not have access to model",
+  "does not have access to model",
+  "model not found",
+  "unsupported model",
+  "is not supported with this model"
+];
+function isModelError(body2) {
+  const code = body2?.error?.code || body2?.code || "";
+  if (MODEL_CODES.has(code)) return true;
+  const msg = String(body2?.error?.message || body2?.message || "").toLowerCase();
+  return MODEL_PHRASES.some((p) => msg.includes(p));
+}
 function classify(status, body2) {
   if (isFilterError(body2)) return "filter";
+  if (isModelError(body2)) return "model";
   if (status === 401 || status === 403) return "auth";
   if (status === 429 || status >= 500) return "transient";
   return "fatal";
@@ -18364,7 +18615,20 @@ async function transcribe(opts) {
     return { text, echoed: !!opts.prompt && looksLikePromptEcho(text, opts.prompt) };
   });
 }
+function supportsReasoningEffort(model) {
+  return /^gpt-5\.\d+-(sol|terra|luna)\b/.test(model.trim());
+}
 async function runText(opts) {
+  try {
+    return { text: await callText(opts, opts.model), model: opts.model };
+  } catch (err) {
+    const fallback = opts.fallbackModel?.trim();
+    const recoverable = err instanceof ApiError && err.kind === "model";
+    if (!recoverable || !fallback || fallback === opts.model.trim()) throw err;
+    return { text: await callText(opts, fallback), model: fallback };
+  }
+}
+async function callText(opts, model) {
   return withRetries(async () => {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -18375,12 +18639,13 @@ async function runText(opts) {
       // max_completion_tokens (not max_tokens) and no temperature: compatible with the
       // whole GPT-4x/5x family.
       body: JSON.stringify({
-        model: opts.model,
+        model,
         messages: [
           { role: "system", content: opts.systemPrompt },
           { role: "user", content: opts.userText }
         ],
-        max_completion_tokens: 4096
+        max_completion_tokens: 4096,
+        ...supportsReasoningEffort(model) ? { reasoning_effort: "none" } : {}
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS)
     });
@@ -18416,16 +18681,16 @@ function shortError(err, locale = "pt") {
 }
 
 // src/lib/deliver.ts
-import { execFile as execFile3 } from "node:child_process";
+import { execFile as execFile4 } from "node:child_process";
 import { readFile as readFile3, writeFile as writeFile2, appendFile, mkdir as mkdir2, unlink } from "node:fs/promises";
-import { join as join3 } from "node:path";
+import { join as join4 } from "node:path";
 import { tmpdir } from "node:os";
 function psQuote(s) {
   return `'${s.replace(/'/g, "''")}'`;
 }
 function powershell(script, timeout) {
   return new Promise((resolve, reject) => {
-    execFile3(
+    execFile4(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script],
       { windowsHide: true, maxBuffer: 1 << 20, timeout },
@@ -18434,7 +18699,7 @@ function powershell(script, timeout) {
   });
 }
 async function tempFile(prefix) {
-  return join3(tmpdir(), `tt-${prefix}-${process.pid}-${Date.now()}.txt`);
+  return join4(tmpdir(), `tt-${prefix}-${process.pid}-${Date.now()}.txt`);
 }
 async function getFocusPid() {
   try {
@@ -18496,7 +18761,7 @@ async function appendHistory(entry, dir) {
   await mkdir2(target, { recursive: true });
   const now = /* @__PURE__ */ new Date();
   const p = (n) => String(n).padStart(2, "0");
-  const file2 = join3(target, `${now.getFullYear()}-${p(now.getMonth() + 1)}.md`);
+  const file2 = join4(target, `${now.getFullYear()}-${p(now.getMonth() + 1)}.md`);
   const secs = Math.round(entry.durationMs / 1e3);
   const dur = `${Math.floor(secs / 60)}:${p(secs % 60)}`;
   const head = `## ${p(now.getHours())}:${p(now.getMinutes())} \xB7 ${entry.label || "Dictation"} \xB7 ${dur}`;
@@ -18614,6 +18879,7 @@ var SIZE = 72;
 var BG = "#0C0C10";
 var EDGE = "#26262E";
 var INK = "#EFF2F7";
+var FONT = "Segoe UI";
 var NATURAL = 42;
 function esc2(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -18850,7 +19116,7 @@ function textEl(s, y, size) {
   const t = esc2(s);
   const width = s.length * size * CHAR_RATIO;
   const fitted = width > TEXT_WIDTH ? Math.max(7, size * TEXT_WIDTH / width) : size;
-  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="${f(fitted)}" font-weight="600" fill="${INK}">${t}</text>`;
+  return `<text x="36" y="${f(y)}" text-anchor="middle" font-family="${FONT}" font-size="${f(fitted)}" font-weight="600" fill="${INK}">${t}</text>`;
 }
 function wrapLabel(text, size, maxLines = 3) {
   const manual = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -18946,7 +19212,7 @@ function keyImage(spec) {
 function badgeSvg(text) {
   const t = esc2(text.slice(0, 3).toUpperCase());
   const w = t.length <= 2 ? 22 : 27;
-  return `<rect x="${68 - w}" y="4" width="${w}" height="16" rx="5" fill="#1A1A22" stroke="${EDGE}" stroke-width="1"/><text x="${68 - w / 2}" y="16" text-anchor="middle" font-family="'Segoe UI',Arial,sans-serif" font-size="11" font-weight="700" fill="${INK}">${t}</text>`;
+  return `<rect x="${68 - w}" y="4" width="${w}" height="16" rx="5" fill="#1A1A22" stroke="${EDGE}" stroke-width="1"/><text x="${68 - w / 2}" y="16" text-anchor="middle" font-family="${FONT}" font-size="11" font-weight="700" fill="${INK}">${t}</text>`;
 }
 function iconThumb(icon, style, color) {
   if (icon === "none") {
@@ -18966,8 +19232,8 @@ function wordCount(text) {
 }
 
 // src/lib/beep.ts
-import { spawn as spawn2 } from "node:child_process";
-import { dirname, join as join4 } from "node:path";
+import { spawn as spawn3 } from "node:child_process";
+import { dirname, join as join5 } from "node:path";
 var TONES = {
   start: { freq: 880, dur: 0.07 },
   stop: { freq: 620, dur: 0.07 },
@@ -18976,12 +19242,12 @@ var TONES = {
 };
 function ffplayFrom(ffmpegPath) {
   if (!ffmpegPath || ffmpegPath === "ffmpeg" || ffmpegPath === "ffmpeg.exe") return "ffplay";
-  return join4(dirname(ffmpegPath), "ffplay.exe");
+  return join5(dirname(ffmpegPath), "ffplay.exe");
 }
 function beep(ffmpegPath, kind) {
   const { freq, dur } = TONES[kind];
   try {
-    const p = spawn2(
+    const p = spawn3(
       ffplayFrom(ffmpegPath),
       [
         "-hide_banner",
@@ -19003,16 +19269,16 @@ function beep(ffmpegPath, kind) {
 }
 
 // src/lib/vault.ts
-import { execFile as execFile4 } from "node:child_process";
-import { join as join5 } from "node:path";
-var DIR = join5(process.env.LOCALAPPDATA ?? "", "transcritranslator");
-var KEY_FILE = join5(DIR, "openai-key.xml");
+import { execFile as execFile5 } from "node:child_process";
+import { join as join6 } from "node:path";
+var DIR = join6(process.env.LOCALAPPDATA ?? "", "transcritranslator");
+var KEY_FILE = join6(DIR, "openai-key.xml");
 function psQuote2(s) {
   return `'${s.replace(/'/g, "''")}'`;
 }
 function powershell2(script, stdin) {
   return new Promise((resolve, reject) => {
-    const child = execFile4(
+    const child = execFile5(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script],
       { windowsHide: true, maxBuffer: 1 << 20 },
@@ -19063,7 +19329,7 @@ async function clearApiKey() {
 
 // src/lib/presets.ts
 import { readFile as readFile5, writeFile as writeFile4, mkdir as mkdir3 } from "node:fs/promises";
-import { join as join6, dirname as dirname2 } from "node:path";
+import { join as join7, dirname as dirname2 } from "node:path";
 
 // src/lib/preset-text.ts
 var PRESET_TEXT = {
@@ -19124,7 +19390,7 @@ function presetText(locale, key) {
 }
 
 // src/lib/presets.ts
-var PRESETS_FILE = join6(process.env.LOCALAPPDATA ?? "", "transcritranslator", "presets.json");
+var PRESETS_FILE = join7(process.env.LOCALAPPDATA ?? "", "transcritranslator", "presets.json");
 var BUILTINS = [
   {
     id: "raw",
@@ -19320,7 +19586,20 @@ var MIN_AUDIO_MS = 800;
 var TICK_MS = 125;
 var DONE_SIZES = [22, 10];
 function ffmpegOf(g) {
-  return g?.ffmpegPath?.trim() || "ffmpeg";
+  return ffmpegInfo()?.path || g?.ffmpegPath?.trim() || "ffmpeg";
+}
+async function ffmpegState(g) {
+  const info = ffmpegInfo() === void 0 ? await findFfmpeg(g.ffmpegPath) : ffmpegInfo();
+  return {
+    found: !!info,
+    path: info?.path ?? "",
+    version: info?.version ?? "",
+    winget: await hasWinget(),
+    installing: isInstalling()
+  };
+}
+async function deviceNames(g) {
+  return (await listAudioDevices(ffmpegOf(g))).map((d) => d.name);
 }
 async function presetSummaries(locale) {
   return (await listPresets(locale)).map((p) => ({
@@ -19334,10 +19613,10 @@ async function presetSummaries(locale) {
 function appLanguage() {
   return plugin_default.info?.application?.language;
 }
-var uiLocaleCache = "pt";
+var uiLocaleCache = resolveUiLocale(void 0, void 0, osLanguage());
 async function refreshUiLocale(g) {
   const global = g ?? await plugin_default.settings.getGlobalSettings();
-  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage());
+  uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage(), osLanguage());
   return uiLocaleCache;
 }
 function contentLocale(g, spoken) {
@@ -19345,6 +19624,7 @@ function contentLocale(g, spoken) {
     contentLang: g?.contentLang,
     spokenLanguage: spoken,
     uiLang: g?.uiLang,
+    osLanguage: osLanguage(),
     appLanguage: appLanguage()
   });
 }
@@ -19451,6 +19731,9 @@ var Dictation = class extends (_a = SingletonAction) {
       getSettings: async () => snapshot,
       setImage: async (image) => {
         await this.lender()?.setImage(image);
+      },
+      showAlert: async () => {
+        await this.lender()?.showAlert();
       },
       onIdle: async () => {
         const back = this.lender();
@@ -19589,6 +19872,8 @@ var Dictation = class extends (_a = SingletonAction) {
     st.phase = phase;
     st.message = lines;
     await this.render(a, await a.getSettings());
+    if (phase === "error") void a.showAlert?.().catch(() => {
+    });
     st.resetTimer = setTimeout(() => {
       const cur = getState(a.id);
       cur.phase = "idle";
@@ -19713,8 +19998,13 @@ var Dictation = class extends (_a = SingletonAction) {
       await this.flash(a, "error", [T.noKey], 4e3);
       return;
     }
+    if (!ffmpegInfo() && !await findFfmpeg(global.ffmpegPath)) {
+      releaseLock(a.id);
+      await this.flash(a, "error", [T.noFfmpeg], 4e3);
+      return;
+    }
     const ffmpeg = ffmpegOf(global);
-    const audioPath = join7(AUDIO_DIR, `${stamp()}.mp3`);
+    const audioPath = join8(AUDIO_DIR, `${stamp()}.mp3`);
     clearTimeout(st.resetTimer);
     st.resetTimer = void 0;
     st.phase = "arming";
@@ -19763,11 +20053,23 @@ var Dictation = class extends (_a = SingletonAction) {
     rec.on("maxReached", () => {
       void this.stopAndProcess(a, raw);
     });
+    rec.on("done", ({ stderr }) => {
+      const cur = getState(a.id);
+      if (cur.phase !== "arming" || cur.recorder !== rec) return;
+      plugin_default.logger.warn(`microphone did not open: ${stderr.split(/\r?\n/).slice(-2).join(" | ")}`);
+      void untrackPid(rec.pid);
+      releaseLock(a.id);
+      cur.recorder = void 0;
+      void unlink2(audioPath).catch(() => {
+      });
+      void this.flash(a, "error", [...keyText(uiLocaleCache).noMic], 4e3);
+    });
     rec.on("error", (err) => {
       plugin_default.logger.error("ffmpeg failed", err);
       releaseLock(a.id);
       const cur = getState(a.id);
       cur.recorder = void 0;
+      void findFfmpeg(global.ffmpegPath);
       void this.flash(a, "error", [keyText(uiLocaleCache).noFfmpeg], 4e3);
     });
     rec.start();
@@ -19894,11 +20196,15 @@ var Dictation = class extends (_a = SingletonAction) {
           const out = await runText({
             apiKey,
             model: s.textModel,
+            fallbackModel: TEXT_FALLBACK_MODEL,
             systemPrompt: buildTextSystemPrompt(textOpts),
             userText: raw
           });
-          final = applyCanon(out, terms);
-          models.push(s.textModel);
+          final = applyCanon(out.text, terms);
+          models.push(out.model);
+          if (out.model !== s.textModel) {
+            plugin_default.logger.warn(`text model ${s.textModel} unavailable \u2014 fell back to ${out.model}`);
+          }
         } catch (err) {
           if (err instanceof ApiError && err.kind === "filter" && raw) {
             note = "bloqueado \u2014 texto cru";
@@ -19935,7 +20241,7 @@ var Dictation = class extends (_a = SingletonAction) {
     } catch (err) {
       plugin_default.logger.error("pipeline failed", err);
       if (src.audioPath) {
-        const dest = join7(FAILED_DIR, `${stamp()}.mp3`);
+        const dest = join8(FAILED_DIR, `${stamp()}.mp3`);
         await rename(src.audioPath, dest).catch(() => {
         });
         plugin_default.logger.warn(`audio preserved at ${dest}`);
@@ -19957,21 +20263,25 @@ var Dictation = class extends (_a = SingletonAction) {
     try {
       switch (msg?.cmd) {
         case "init": {
-          const { listAudioDevices: listAudioDevices2 } = await Promise.resolve().then(() => (init_recorder(), recorder_exports));
           const uiLocale = await refreshUiLocale(global);
+          const ff = await ffmpegState(global);
           reply({
             event: "init",
-            devices: (await listAudioDevices2(ffmpeg)).map((d) => d.name),
+            devices: await deviceNames(global),
             presets: await presetSummaries(contentLocale(global)),
             hasKey: !!await getApiKey(),
+            ffmpeg: ff,
             canonTerms: global.canonTerms ?? "",
             ffmpegPath: global.ffmpegPath ?? "",
             uiLang: global.uiLang ?? "auto",
             contentLang: global.contentLang ?? "auto",
             appLanguage: appLanguage() ?? "",
-            uiLocale: resolveUiLocale(global.uiLang, appLanguage()),
-            version: "1.4.2.0",
-            versionDate: "2026-08-31",
+            uiLocale,
+            // What "auto" means on this machine, so the panel's selector does not have to
+            // guess it with less information than the plugin has.
+            autoUiLocale: resolveUiLocale("auto", appLanguage(), osLanguage()),
+            version: "1.6.0.0",
+            versionDate: "2026-10-04",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -20053,7 +20363,30 @@ var Dictation = class extends (_a = SingletonAction) {
           reply({
             event: "globalSaved",
             presets: await presetSummaries(contentLocale(next)),
-            uiLocale: resolveUiLocale(next.uiLang, appLanguage())
+            uiLocale: uiLocaleCache
+          });
+          if ((next.ffmpegPath ?? "") !== (global.ffmpegPath ?? "")) {
+            await findFfmpeg(next.ffmpegPath);
+            reply({ event: "ffmpegState", ...await ffmpegState(next), devices: await deviceNames(next) });
+          }
+          break;
+        }
+        case "ffmpegCheck":
+          await findFfmpeg(global.ffmpegPath);
+          reply({ event: "ffmpegState", ...await ffmpegState(global), devices: await deviceNames(global) });
+          break;
+        // Takes minutes. The panel may close meanwhile; the next `init` reports
+        // `installing`, and the final answer goes to whichever panel is open by then.
+        case "ffmpegInstall": {
+          if (!await hasWinget()) break;
+          const done = installFfmpeg(global.ffmpegPath);
+          reply({ event: "ffmpegState", ...await ffmpegState(global) });
+          const info = await done;
+          reply({
+            event: "ffmpegState",
+            ...await ffmpegState(global),
+            devices: await deviceNames(global),
+            installed: !!info
           });
           break;
         }
@@ -20071,6 +20404,7 @@ var Dictation = class extends (_a = SingletonAction) {
           }
           await a.setSettings(next);
           if (a.isKey()) await this.render(a, next);
+          rememberKey(a.id, next);
           reply({ event: "presetApplied", settings: next });
           break;
         }
@@ -20096,6 +20430,10 @@ var Dictation = class extends (_a = SingletonAction) {
           });
           break;
         case "testMic": {
+          if (ffmpegInfo() === null) {
+            reply({ event: "micResult", ok: false, message: "ffmpeg not found" });
+            break;
+          }
           const device = msg.device || await this.defaultDevice(ffmpeg);
           if (!device) {
             reply({ event: "micResult", ok: false, message: "no microphone" });
@@ -20146,7 +20484,7 @@ _init = __decoratorStart(_a);
 Dictation = __decorateElement(_init, 0, "Dictation", _Dictation_decorators, Dictation);
 __runInitializers(_init, 1, Dictation);
 async function probeMic(ffmpeg, device, seconds) {
-  const out = join7(AUDIO_DIR, `probe-${Date.now()}.mp3`);
+  const out = join8(AUDIO_DIR, `probe-${Date.now()}.mp3`);
   const rec = new Recorder({
     ffmpegPath: ffmpeg,
     device,
@@ -20186,6 +20524,8 @@ void getApiKey().catch(() => {
 });
 plugin_default.actions.registerAction(new Dictation());
 await plugin_default.connect();
+void plugin_default.settings.getGlobalSettings().then((g) => findFfmpeg(g?.ffmpegPath)).catch(() => {
+});
 for (const sig of ["exit", "SIGINT", "SIGTERM"]) {
   process.on(sig, () => killAll());
 }

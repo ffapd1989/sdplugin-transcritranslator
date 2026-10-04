@@ -4,7 +4,7 @@
 
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-3B6FD4)](LICENSE)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%20%2F%2011-0078D4)
-![Stream Deck](https://img.shields.io/badge/Stream%20Deck-6.5%2B-101014)
+![Stream Deck](https://img.shields.io/badge/Stream%20Deck-7.1%2B-101014)
 ![Node](https://img.shields.io/badge/Node-24%2B-2E8C3C)
 ![Interface](https://img.shields.io/badge/interface-pt%20%C2%B7%20en%20%C2%B7%20es-2E7D74)
 ![Marketplace](https://img.shields.io/badge/Elgato%20Marketplace-ainda%20n%C3%A3o-8a8a90)
@@ -52,8 +52,8 @@ de forma independente.
 | | |
 |---|---|
 | Windows | 10 ou 11 |
-| App Stream Deck | 6.5+ (qualquer hardware; desenvolvido no XL) |
-| ffmpeg | no PATH — o `full build` traz junto o `ffplay`, usado nos bipes |
+| App Stream Deck | 7.1+ (qualquer hardware; desenvolvido no XL) |
+| ffmpeg | o painel encontra, ou instala com um clique (winget, sem administrador) |
 | Chave da OpenAI | pagamento por uso; cerca de US$ 0,003 por minuto de áudio |
 | Node | 24+, só para compilar |
 
@@ -77,6 +77,13 @@ No app Stream Deck, arraste **Dictate** (categoria *TranscriTranslator*) para um
 a seção **Configuração da máquina** no painel e cole a chave da OpenAI — isso é feito **uma
 vez** e vale para todas as teclas. Se você ainda não tem chave, o painel ensina a obter uma,
 com os links diretos e o custo.
+
+O **ffmpeg** é o programa gratuito que grava o microfone. O painel procura sozinho — inclusive
+um instalado há um minuto, com o app Stream Deck ainda aberto. Se não achar, um aviso no topo
+oferece **Instalar agora**, que o instala pelo winget, o instalador que já vem no Windows, sem
+senha de administrador; **Como instalar** ensina o caminho à mão.
+
+<img src="docs/img/panel-ffmpeg.png" width="340" alt="O guia do ffmpeg: instalar com um clique, ou à mão em três passos">
 
 ## Como usar
 
@@ -205,16 +212,18 @@ Português, inglês e espanhol, em três lugares que **não precisam concordar**
 
 | Eixo | O que controla | Padrão |
 |---|---|---|
-| 🌐 **Painel** | o que **você** lê | segue o app Stream Deck |
+| 🌐 **Painel** | o que **você** lê | segue o Windows, depois o app Stream Deck |
 | 📝 **Presets e prompts** | o que a **IA** lê | segue o idioma falado da tecla |
-| 🎙 **Idioma falado** (por tecla) | o que a transcrição espera ouvir | português |
+| 🎙 **Idioma falado** (por tecla) | o que a transcrição espera ouvir | Detectar |
 
 Isso existe porque são perguntas diferentes. Quem usa o Stream Deck em inglês e trabalha em
-português precisa exatamente disso — e o app só informa um idioma.
+português precisa exatamente disso — e o app só informa um idioma. O Windows vem primeiro
+porque o app Stream Deck não tem português: numa máquina brasileira o app diz inglês e o
+Windows diz a verdade.
 
-**Vale informar o idioma falado.** A documentação da OpenAI é explícita: fornecê-lo *"will
-improve accuracy and latency"*. Por isso ele fica na seção essencial, e não escondido no
-avançado. Deixe em *Detectar* só se você realmente varia de idioma.
+**Vale informar o idioma falado.** *Detectar* é o padrão e funciona com qualquer idioma, mas a
+documentação da OpenAI é explícita: fornecê-lo *"will improve accuracy and latency"*. Por isso
+ele fica na seção essencial, e não escondido no avançado.
 
 **E se eu misturo idiomas?** O `language` é uma **dica, não um filtro**: palavras soltas em
 outro idioma (*deploy*, *commit*, *workshop*) saem certas mesmo com um idioma fixo. O que
@@ -332,7 +341,7 @@ no lugar errado.
 
 ```powershell
 npm run check     # tipos
-npm run test      # 240 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
+npm run test      # 279 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
 npm run mic       # grava 3 s do microfone e valida o núcleo contra o hardware
 npm run shots     # regera docs/img/*.png a partir da interface real
 npm run watch     # rebuild automático
@@ -344,7 +353,7 @@ streamdeck restart com.felipe.transcritranslator
 confirmação, taxa de amostras, pico em dBFS e se o MP3 saiu válido — é o teste que pega
 regressão no comando do ffmpeg.
 
-O `@action` do SDK v2 usa **decorators TC39** — não ative `experimentalDecorators`. O bundle
+O `@action` do SDK 3 usa **decorators TC39** — não ative `experimentalDecorators`. O bundle
 precisa do banner `createRequire` em [`build.mjs`](build.mjs), porque a lib `ws` do SDK usa
 `require()` de builtins.
 
@@ -356,6 +365,7 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 | Arquivo | Papel |
 |---|---|
 | [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
+| [src/lib/ffmpeg.ts](src/lib/ffmpeg.ts) | encontra o ffmpeg (inclusive pelo PATH do registro) e o instala pelo winget |
 | [src/lib/openai.ts](src/lib/openai.ts) | as duas chamadas, retries, recusa, anti-eco |
 | [src/lib/prompts.ts](src/lib/prompts.ts) | composição do prompt em camadas |
 | [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | o texto dos prompts em pt/en/es — o que a IA lê |
@@ -375,7 +385,8 @@ Log do plugin: `%APPDATA%\Elgato\StreamDeck\logs\StreamDeck.log` (procure
 | Sintoma | Causa provável |
 |---|---|
 | "sem chave" | chave não salva no cofre — painel → Configuração da máquina |
-| "sem ffmpeg" | ffmpeg fora do PATH; informe o caminho no painel |
+| "sem ffmpeg" | ffmpeg não encontrado — **Instalar agora** no aviso do topo do painel, ou **Como instalar** |
+| "microfone indisponível" | o microfone foi desconectado, renomeado ou está preso em outro programa — escolha de novo no painel |
 | "sem fala" sempre | microfone mudo ou errado — rode `npm run mic` e use **Testar** no painel |
 | "copiado, Ctrl+V" | você trocou de janela durante o processamento; o texto está no clipboard |
 | "cru — bloqueado" | a etapa de texto foi recusada; a transcrição foi colada sem tratamento |
@@ -405,6 +416,19 @@ página — e a versão em inglês é a canônica. O índice dos dois conjuntos 
 > *Code of conduct*, *Security*) só reconhecem nomes de arquivo fixos, então elas sempre abrem a
 > versão em inglês. O link de troca no topo de cada página leva à portuguesa.
 
+## Agradecimentos
+
+| Projeto | Autor | Licença | Como é usado |
+|---|---|---|---|
+| [Stream Deck SDK](https://github.com/elgatosf/streamdeck) (`@elgato/streamdeck`, `@elgato/schemas`, `@elgato/utils`) | Corsair Memory Inc. | MIT | empacotado |
+| [ws](https://github.com/websockets/ws) | Einar Otto Stangvik, Arnout Kazemier, Luigi Pinca e colaboradores | MIT | empacotado, via SDK |
+| [zod](https://github.com/colinhacks/zod) | Colin McDonnell | MIT | empacotado, via SDK |
+| [FFmpeg](https://ffmpeg.org) — build do [gyan.dev](https://www.gyan.dev/ffmpeg/builds/) | os desenvolvedores do FFmpeg; build de Gyan Doshi | GPL-3.0 | **não empacotado** — instalado por você, chamado como programa à parte |
+| [API da OpenAI](https://platform.openai.com) | OpenAI | termos do serviço | a transcrição e a etapa de texto, com a sua chave |
+
+As licenças do que vai empacotado viajam com o plugin em `THIRD-PARTY-NOTICES.txt`, gerado pelo
+build a partir do que foi de fato empacotado.
+
 ## Licença
 
-[MIT](LICENSE) — Felipe Drummond.
+[MIT](LICENSE) — Felipe Drummond ([@ffapd1989](https://github.com/ffapd1989)).

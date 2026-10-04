@@ -3,7 +3,8 @@
 # Privacidade
 
 Este plugin não tem backend. Não há conta, não há telemetria, não há analytics e não há servidor
-deste projeto. A única coisa com que ele conversa é a **OpenAI, com a sua própria chave de API**.
+deste projeto. A única coisa com que ele conversa é a **OpenAI, com a sua própria chave de API**
+— e, só se você apertar *Instalar agora*, o winget, para buscar o ffmpeg.
 
 ## O que é enviado, e quando
 
@@ -25,6 +26,14 @@ O que a OpenAI faz com o que recebe é entre você e ela, sob os termos da conta
 configurou. Na data em que isto foi escrito, o tráfego de API não é usado para treinar os
 modelos deles por padrão — mas essa política é deles para declarar e mudar, não nossa. Leia por
 conta própria.
+
+## Instalando o ffmpeg
+
+O plugin grava pelo ffmpeg, que ele não embute. Se o ffmpeg faltar, o botão **Instalar agora** do
+painel roda o winget — o instalador que já vem no Windows — para um pacote fixo,
+`Gyan.FFmpeg.Essentials`. O winget o baixa da própria fonte, sob os termos dele e da Microsoft;
+nada seu vai nesse pedido. Só acontece quando você aperta o botão. Encontrar um ffmpeg que já
+está instalado lê o seu PATH e não usa a rede.
 
 ## O que fica na sua máquina
 

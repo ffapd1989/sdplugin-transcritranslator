@@ -10,7 +10,9 @@
 import streamDeck from "@elgato/streamdeck";
 
 import { Dictation } from "./actions/dictation.js";
+import { findFfmpeg } from "./lib/ffmpeg.js";
 import { ensureDirs } from "./lib/paths.js";
+import type { GlobalSettings } from "./lib/settings.js";
 import { cleanupOrphans, killAll } from "./lib/sessions.js";
 import { loadShortcuts } from "./lib/shortcuts.js";
 import { getApiKey } from "./lib/vault.js";
@@ -31,6 +33,13 @@ void getApiKey().catch(() => {});
 
 streamDeck.actions.registerAction(new Dictation());
 await streamDeck.connect();
+
+// Where ffmpeg lives is only known after connecting — the configured path is a global
+// setting. Searching now keeps the first press from paying for it.
+void streamDeck.settings
+  .getGlobalSettings<GlobalSettings>()
+  .then((g) => findFfmpeg(g?.ffmpegPath))
+  .catch(() => {});
 
 // Do not leave ffmpeg alive if the plugin process is shut down.
 for (const sig of ["exit", "SIGINT", "SIGTERM"] as const) {

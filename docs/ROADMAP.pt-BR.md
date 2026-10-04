@@ -312,12 +312,9 @@ Reescrever pt e depois traduzir; não traduzir texto ruim.
       idioma que você declarou em *Eu vou falar em*; se aquilo estiver em *Detectar*, cai para o
       idioma do painel. Existe porque a limpeza usa exemplos da língua falada ("vírgula", "né").
       Algo como **"Automático — acompanha o que eu falo"** já diria mais
-- [ ] **Placeholder do dicionário canônico.** Hoje: `SRVDRU, EdgeRouter, WireGuard, Grafana,
-      n8n, PostgreSQL, Kubernetes`. `SRVDRU` é o servidor de **uma** pessoa — não significa nada
-      para mais ninguém, e o plugin é para a loja. Trocar por exemplos que qualquer um
-      reconheça e que ilustrem o *tipo* de termo (nome de produto com grafia particular, sigla,
-      jargão): `GitHub, JavaScript, PostgreSQL, PDF, API, e-mail`. Adaptar por idioma, já que
-      siglas comuns variam
+- [x] **Placeholder do dicionário canônico — feito (v1.6.0.0).** Citava o servidor de uma
+      pessoa, que não significa nada para mais ninguém. Agora `GitHub, JavaScript, PostgreSQL,
+      PDF, API, e-mail` (`OAuth` no lugar de `e-mail` em inglês)
 - [ ] Revisar **todos** os outros placeholders pelo mesmo critério: exemplo ilustra, não
       dá instrução nem assume o contexto de ninguém
 - [ ] **"Prompt" é jargão.** Aparece em *Presets e prompts*, *Ver o que será enviado*, *prompt
@@ -422,8 +419,14 @@ Já discutido e deliberadamente fora do escopo inicial:
       v1.3.0.0, ver seção 7. Continua dependendo do **app** da Elgato rodando, porque é
       nele que o plugin vive; o que deixou de ser necessário é a tecla estar à mão
 - [ ] Rastreamento de custo (foi decidido **não** fazer; revisitar só se houver demanda)
-- [ ] Publicar na loja da Elgato: `streamdeck validate`, `streamdeck pack`, ícones em todas as
-      resoluções exigidas e revisão do texto do catálogo
+- [ ] Publicar na loja da Elgato. A parte de código está feita (v1.6.0.0): SDK 3 com o manifest
+      do DRM (`SDKVersion: 3`, Stream Deck 7.1+), ícones de lista brancos monocromáticos,
+      `showAlert` nos erros, ffmpeg encontrado ou instalado pelo painel,
+      `THIRD-PARTY-NOTICES.txt`, e `streamdeck validate`/`pack` passando no CLI 1.10.1. Falta: a
+      listagem — ícone do app 288×288, thumbnail 1920×960, ao menos três itens de galeria, o
+      vídeo de demonstração que a Elgato exige de plugin que usa serviço pago, a descrição em
+      inglês listando os requisitos — e testar o build protegido baixado do Maker Console depois
+      do primeiro envio
 
 ---
 

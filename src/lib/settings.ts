@@ -46,7 +46,7 @@ export type GlobalSettings = {
   // WRITTEN in. Someone running the Stream Deck in English while working in Portuguese
   // needs those two to diverge — and the app only reports one.
 
-  /** The panel's language. "auto" follows the Stream Deck app. */
+  /** The panel's language. "auto" follows Windows, then the Stream Deck app. */
   uiLang?: LangPref;
   /**
    * Language of the presets and of the prompts sent to the API.
@@ -55,6 +55,20 @@ export type GlobalSettings = {
    */
   contentLang?: LangPref;
 };
+
+/**
+ * Windows' language, as the plugin's Node sees it ("pt-BR").
+ *
+ * It comes BEFORE the Stream Deck app's language in both cascades because the app has no
+ * Portuguese: a Brazilian user's app reports English, and only Windows tells the truth.
+ */
+export function osLanguage(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * The language in which presets and prompts are written for this key.
@@ -67,21 +81,27 @@ export function resolveContentLocale(opts: {
   contentLang?: LangPref;
   spokenLanguage?: string;
   uiLang?: LangPref;
+  osLanguage?: string;
   appLanguage?: string;
 }): Locale {
   if (opts.contentLang && opts.contentLang !== "auto") return opts.contentLang;
   return (
     asLocale(opts.spokenLanguage) ??
     asLocale(opts.uiLang === "auto" ? undefined : opts.uiLang) ??
+    asLocale(opts.osLanguage) ??
     asLocale(opts.appLanguage) ??
     "en"
   );
 }
 
 /** The panel's language. */
-export function resolveUiLocale(uiLang: LangPref | undefined, appLanguage: string | undefined): Locale {
+export function resolveUiLocale(
+  uiLang: LangPref | undefined,
+  appLanguage: string | undefined,
+  osLang?: string,
+): Locale {
   if (uiLang && uiLang !== "auto") return uiLang;
-  return asLocale(appLanguage) ?? "en";
+  return asLocale(osLang) ?? asLocale(appLanguage) ?? "en";
 }
 
 export type ActionSettings = {
@@ -175,12 +195,12 @@ export const DEFAULTS: Required<ActionSettings> = {
 
   transcribeOn: true,
   transcribeModel: "gpt-transcribe",
-  language: "pt",
+  language: "",
   transcribeContext: "",
   useCanonPrompt: true,
 
   textOn: true,
-  textModel: "gpt-4.1-mini",
+  textModel: "gpt-5.6-luna",
   cleanup: true,
   styleMode: "none",
   targetLanguage: "en",
@@ -255,11 +275,26 @@ export const TRANSCRIBE_MODELS = [
 ];
 
 export const TEXT_MODELS = [
-  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (default)" },
+  { id: "gpt-5.6-luna", label: "GPT-5.6 Luna (default)" },
+  { id: "gpt-5.6-terra", label: "GPT-5.6 Terra (stronger, dearer)" },
+  { id: "gpt-4.1-mini", label: "GPT-4.1 mini (fallback)" },
   { id: "gpt-4.1-nano", label: "GPT-4.1 nano (cheapest)" },
   { id: "gpt-4.1", label: "GPT-4.1" },
   { id: "gpt-4o-mini", label: "GPT-4o mini" },
 ];
+
+/**
+ * Where step 2 goes when the chosen model is not available to the account.
+ *
+ * A new default that the person's project has not been granted yet would otherwise turn
+ * every dictation into a lost one, and the model id is a free-text field — a typo has the
+ * same shape as a model you cannot reach. `gpt-4.1-mini` is the fallback because it is the
+ * model this plugin ran on before and is reachable by any account.
+ *
+ * It is deliberately NOT a setting: a fallback the person has to configure is a fallback
+ * that is empty on the day it is needed.
+ */
+export const TEXT_FALLBACK_MODEL = "gpt-4.1-mini";
 
 
 

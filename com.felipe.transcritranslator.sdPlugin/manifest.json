@@ -1,16 +1,17 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "TranscriTranslator",
-  "Version": "1.4.2.0",
+  "Version": "1.6.0.0",
   "Author": "Felipe Drummond",
+  "URL": "https://github.com/ffapd1989",
   "Description": "Voice dictation: records the microphone, transcribes it at OpenAI and pastes the text into the focused field. Every key is configurable — clean-up, translation, rewriting, your own dictionary and appearance.",
   "Category": "TranscriTranslator",
   "CategoryIcon": "imgs/plugin/category",
   "Icon": "imgs/plugin/plugin",
   "CodePath": "bin/plugin.js",
-  "SDKVersion": 2,
+  "SDKVersion": 3,
   "Software": {
-    "MinimumVersion": "6.5"
+    "MinimumVersion": "7.1"
   },
   "OS": [
     {
@@ -19,7 +20,7 @@
     }
   ],
   "Nodejs": {
-    "Version": "20",
+    "Version": "24",
     "Debug": "enabled"
   },
   "UUID": "com.felipe.transcritranslator",

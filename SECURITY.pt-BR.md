@@ -52,5 +52,11 @@ interpolado nesses scripts é escapado com aspas simples dobradas, e texto sempr
 arquivo UTF-8 em vez de linha de comando — tanto para sobreviver aos acentos quanto para não
 montar comando a partir de conteúdo arbitrário.
 
+**Instalando o ffmpeg.** O *Instalar agora* do painel roda `winget install --id
+Gyan.FFmpeg.Essentials`, com o id do pacote como constante: nada do que o painel envia chega a
+essa linha de comando, então o botão não vira "instale qualquer coisa". A busca por um ffmpeg
+já instalado lê o PATH do registro com `reg query` e roda os candidatos com `-version`, nada
+mais.
+
 **ffmpeg.** Iniciado com vetor de argumentos, nunca por shell, então nome de dispositivo com
 caractere estranho não vira comando.

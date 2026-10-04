@@ -17,7 +17,7 @@ Este arquivo é o guia de **desenvolvimento**. Para uso e configuração, ver [R
 
 ```powershell
 npm run check     # tipos (tsc --noEmit)
-npm run test      # 240 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
+npm run test      # 279 asserções das partes puras — sem Stream Deck, sem rede, sem microfone
 npm run mic       # grava 3 s do microfone real e valida o núcleo contra o hardware
 npm run leak      # dispara o atalho na sequência que deixava o ffmpeg gravando para sempre
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
@@ -102,6 +102,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/plugin.ts](src/plugin.ts) | Boot: cria pastas, mata ffmpeg órfão, aquece o cofre, conecta |
 | [src/actions/dictation.ts](src/actions/dictation.ts) | Máquina de estados da tecla + ponte com o painel. É o arquivo grande (~800 linhas) |
 | [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lista microfones, grava, mede nível, detecta silêncio |
+| [src/lib/ffmpeg.ts](src/lib/ffmpeg.ts) | Encontra o ffmpeg (inclusive pelo PATH do registro) e o instala pelo winget |
 | [src/lib/openai.ts](src/lib/openai.ts) | As duas chamadas, retries, detecção de recusa, anti-eco |
 | [src/lib/prompts.ts](src/lib/prompts.ts) | Composição do system prompt em camadas |
 | [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | **Texto** dos prompts em pt/en/es — é o que a IA lê |
@@ -126,7 +127,7 @@ Não são a mesma coisa e não precisam concordar:
 
 | Eixo | Onde mora | Resolve em |
 |---|---|---|
-| Painel (o que **você** lê) | `GlobalSettings.uiLang` | `resolveUiLocale()` → app Stream Deck |
+| Painel (o que **você** lê) | `GlobalSettings.uiLang` | `resolveUiLocale()` → Windows → app Stream Deck |
 | Presets e prompts (o que a **IA** lê) | `GlobalSettings.contentLang` | `resolveContentLocale()` → idioma falado → painel → app |
 | Idioma falado (por tecla) | `ActionSettings.language` | vai direto no parâmetro `language` da API |
 
@@ -332,6 +333,55 @@ não produzia nada: sem som, sem mudança na tecla, indistinguível de um plugin
 recebe o mesmo bipe curto do ramo "você chegou tarde" do `runDeepLink`. Trocar a ordem das duas
 verificações põe os bipes dentro da rajada.
 
+**22. O passo 2 manda o modelo de raciocínio não raciocinar, e um modelo que a conta não
+alcança cai no reserva em vez de perder a fala.** O modelo de texto padrão é o
+`gpt-5.6-luna`, que raciocina em `medium` se não lhe disserem o contrário — e token de
+raciocínio é cobrado como SAÍDA e sai de dentro do `max_completion_tokens`. Limpar ditado é
+trabalho mecânico com alguém esperando, cursor já no campo, então o
+`reasoning_effort: "none"` é o que faz o novo padrão ser ao mesmo tempo mais barato e mais
+rápido que o anterior:
+
+| por 1M de tokens | entrada | cache | saída |
+|---|---|---|---|
+| `gpt-5.6-luna` | US$ 0,20 | US$ 0,02 | US$ 1,20 |
+| `gpt-4.1-mini` | US$ 0,40 | US$ 0,10 | US$ 1,60 |
+
+Deixado em `medium`, o raciocínio apagaria essa diferença e, num ditado longo, poderia gastar
+o orçamento inteiro de 4096 tokens e devolver mensagem vazia — que aqui chega como falha. O
+parâmetro é um ramo, e não uma constante, porque os modelos 4.x respondem **HTTP 400** a um
+campo que não conhecem, igual ao `keywords[]` da decisão 18.
+
+O reserva responde UMA pergunta: esta conta consegue usar este modelo? Recusa, 429 e chave
+errada continuam estourando — repetir isso num segundo modelo ou colaria conteúdo que o
+primeiro recusou, ou esconderia um problema que você precisa ver. O `runText` devolve o modelo
+que RESPONDEU, para o histórico registrar o que rodou de verdade: um log dizendo
+`gpt-5.6-luna` enquanto todo ditado usa o reserva em silêncio seria pior que log nenhum.
+
+**23. O ffmpeg também é procurado no PATH do registro, e instalado por um id fixo do winget.**
+O plugin herda o PATH do app Stream Deck, congelado quando o app subiu. Instale o ffmpeg com o
+app aberto — pelo winget, à mão, por qualquer gerenciador — e o PATH herdado não o tem até o app
+reiniciar; o registro já tem. Por isso o `findFfmpeg` lê também o `Path` do usuário e da máquina
+no registro: um mecanismo só para todo jeito de instalar, sem lista de pastas por gerenciador
+para manter. O botão de instalar roda `winget install --id Gyan.FFmpeg.Essentials`, uma
+constante — nada do que o painel envia chega a essa linha de comando. Essentials e não o full
+build: zip portátil menor, escopo do usuário, sem administrador, e tem tudo o que o gravador usa
+(`dshow`, `libmp3lame`, `astats`, `ametadata`) mais o `ffplay` — verificado gravando com ele. O
+sucesso é decidido por encontrar o ffmpeg depois, não pelo código de saída do winget: "já
+instalado" sai com código diferente de zero e é um bom resultado.
+
+**24. Um gravador que fecha antes do `ready` devolve a tecla.** Com o microfone desconectado,
+renomeado ou preso em outro programa, o ffmpeg sobe, não captura nada e sai — o `Recorder`
+emite só `done {ok:false}` (363 ms na reprodução), nunca `ready` nem `error`. Sem o handler de
+`done` no `startRecordingInner`, a fase ficava em `arming` com a trava presa: o `onKeyUp`
+retorna cedo em `arming`, então a tecla ignorava todo toque, e todas as outras diziam "gravando
+em outra tecla" até o plugin reiniciar. O handler só age enquanto a fase ainda é `arming` para
+aquele mesmo gravador, então uma parada normal (fase `stopping`) passa intocada.
+
+**25. Erro chama `showAlert` além de desenhar a mensagem.** As diretrizes da loja exigem
+(*MUST*). Só a fase `error` faz isso — aviso não é falha. A superfície emprestada delega ao
+`lender()` exatamente como o `setImage`, então um ditado disparado pelo teclado alerta na tecla
+que estiver emprestando o display.
+
 ## Decisões de produto (definidas com o usuário)
 
 Não são acidentes de implementação — foram escolhidas explicitamente:
@@ -346,6 +396,12 @@ Não são acidentes de implementação — foram escolhidas explicitamente:
 - Custo **não** é rastreado.
 - O plugin é **de propósito geral** — nada de domínio específico embutido. Dicionário e campo
   de estilo nascem vazios.
+- O idioma falado nasce em **Detectar**, e todo idioma "automático" começa pelo **Windows**: o
+  app Stream Deck não tem português, então numa máquina brasileira ele informa inglês.
+- O ffmpeg **não é embutido**. O painel o encontra ou, com um clique, o instala pelo winget; o
+  caminho à mão está no mesmo guia.
+- O repositório é público, e o UUID `com.felipe.transcritranslator` fica — ele é permanente
+  depois que o plugin entra no Marketplace.
 
 O histórico completo dessas decisões está no plano em
 [docs/ORIGINAL-PLAN.pt-BR.md](docs/ORIGINAL-PLAN.pt-BR.md).
@@ -354,13 +410,20 @@ O histórico completo dessas decisões está no plano em
 
 ## Armadilhas do ambiente
 
-- **Decorators TC39.** O `@action` do SDK v2 exige decorators TC39 — **não** ative
+- **Decorators TC39.** O `@action` do SDK 3 exige decorators TC39 — **não** ative
   `experimentalDecorators` no tsconfig.
+- **O SDK 3 se recusa a conectar abaixo do Stream Deck 7.1.** O `connect()` confere o
+  `Software.MinimumVersion` do manifest logo de cara, porque os eventos de settings dele precisam
+  do 7.1. Baixar o mínimo não amplia o público — mata o plugin no boot.
+- **O SDK 3 só dispara `onDidReceiveSettings` para mudanças feitas no painel**, não no
+  `getSettings()`. Quando o próprio plugin grava settings (`applyPreset`), ele tem de redesenhar
+  a tecla e atualizar o caderninho do atalho (`rememberKey`) na mão.
 - **Banner `createRequire` em [build.mjs](build.mjs).** A lib `ws` do SDK usa `require()` de
   builtins; sem o banner, o bundle ESM quebra em runtime.
-- **O plugin roda no Node 20 do Stream Deck**, não no Node do sistema
-  (`%APPDATA%\Elgato\StreamDeck\NodeJS\20.x\node.exe`). `File`, `FormData`, `fetch` e
-  `AbortSignal.timeout` existem lá — já verificado —, mas API mais nova pode não existir.
+- **O plugin roda no Node 24 do Stream Deck**, não no Node do sistema
+  (`%APPDATA%\Elgato\StreamDeck\NodeJS\24.x\node.exe`). `File`, `FormData`, `fetch`,
+  `AbortSignal.timeout` e ICU completo existem lá — já verificado —, mas API mais nova pode não
+  existir.
 - **`streamDeck.ui.sendToPropertyInspector(...)`** é quem fala com o painel, não o objeto da ação.
 - **PowerShell e números negativos:** `Mix-Channel $r -0.42` faz o parser ler `-0.42` como nome
   de parâmetro. Sempre entre parênteses: `(Mix-Channel $r (-0.42))`.
@@ -460,7 +523,25 @@ lista e mantêm o caminho antigo intacto. Verificado contra a API real pelo pró
 `gpt-4o-mini-transcribe`, e a blindagem anti-eco ainda pegando o eco do modelo antigo no
 silêncio.
 
-**Nada disso foi visto na tecla física ainda** — só no render headless.
+Na v1.5.0.0 (02/09/2026) o modelo de texto passou a ser o `gpt-5.6-luna`, com o `gpt-4.1-mini`
+guardado como reserva para a conta que não o alcança — a decisão 22 traz os preços e o
+raciocínio sobre o `reasoning_effort`. O reserva, o ramo do `reasoning_effort` e a recusa em
+cair no reserva com chave errada estão cobertos pelo `npm run test` com `fetch` dublado.
+Exercitado contra a API real em 04/10/2026: todos os ids das listas existem na conta (`GET
+/v1/models`), e o `runText` com `gpt-5.6-luna` e `reasoning_effort: "none"` respondeu sem cair
+no reserva. Uma amostra, a frio: 2365 ms contra 1474 ms do `gpt-4.1-mini` — o "mais rápido" da
+decisão 22 ainda não está confirmado. Os preços continuam lidos da documentação da OpenAI.
+
+Na v1.6.0.0 (04/10/2026) o plugin foi preparado para o Marketplace: SDK 3 com `SDKVersion: 3`,
+Stream Deck 7.1+ e Node 24 (a porta do DRM da loja); ícones de lista brancos monocromáticos;
+`showAlert` nos erros (decisão 25); uma tecla que não trava mais quando o microfone some
+(decisão 24); ffmpeg encontrado pelo registro e instalado pelo painel (decisão 23), exercitado de
+verdade — o winget instalou o build essentials em 8 s e o gravador capturou com ele; Detectar
+como idioma falado padrão, com o Windows primeiro na cascata de idiomas; e o
+`THIRD-PARTY-NOTICES.txt` gerado pelo build.
+
+**Nada do trabalho visual desde a v1.1 foi visto na tecla física ainda** — só no render
+headless. Isso inclui o `font-family` de família única (QtSvg) e o alerta.
 
 O que falta são os **casos de borda**, que não se exercitam no uso normal e falham em silêncio:
 trocar de janela durante o processamento, trocar de página no XL durante a gravação, e a

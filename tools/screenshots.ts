@@ -216,12 +216,14 @@ const INIT = {
   devices: ["FIFINE Microphone (USB PnP Audio)", "Headset (CORSAIR HS80 RGB)"],
   presets: PRESETS,
   hasKey: true,
+  ffmpeg: { found: true, path: "ffmpeg", version: "9.0.1-essentials_build-www.gyan.dev", winget: true, installing: false },
   canonTerms: DICTIONARY,
   ffmpegPath: "",
   uiLang: "en",
   contentLang: "auto",
   appLanguage: "en",
   uiLocale: "en",
+  autoUiLocale: "en",
   version: VERSION.version,
   versionDate: VERSION.date,
   swatches: SWATCHES,
@@ -384,6 +386,14 @@ await panelPage("panel-appearance", `
   document.getElementById("btnAdvanced").click();
   for (const d of document.querySelectorAll("details")) d.removeAttribute("open");
   document.querySelector("#styleGrid").closest("details").setAttribute("open", "");
+`);
+
+// A machine with no ffmpeg: the warning on top and the guide that installs it.
+await panelPage("panel-ffmpeg", `
+  handlePlugin({ event: "ffmpegState", found: false, path: "", version: "", winget: true, installing: false });
+  document.querySelector(".ffHelp").click();
+  const sheet = document.querySelector("#ffModal .sheet").getBoundingClientRect();
+  window.__shotHeight = Math.ceil(sheet.bottom + 14);
 `);
 
 // The canonical dictionary, in its own window.

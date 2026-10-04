@@ -111,7 +111,7 @@ window.TT_I18N = {
     copy: "Copiar",
 
     spokenLang: "Eu vou falar em",
-    spokenHint: "Informar o idioma melhora a precisão e a velocidade — a própria OpenAI diz isso. Só deixe em Detectar se você realmente varia de idioma.",
+    spokenHint: "Detectar funciona com qualquer idioma. Se você sempre fala o mesmo, escolha-o: informar o idioma melhora a precisão e a velocidade — a própria OpenAI diz isso.",
     mixedHint: "Fala misturada: palavras soltas em outro idioma (deploy, commit, workshop) saem certas mesmo com um idioma fixo — o idioma é uma dica, não um filtro. Para garantir a grafia delas, cadastre-as no dicionário de palavras canônicas.",
     context: "Contexto para o modelo de áudio",
     contextPh: "Ex.: Reunião técnica sobre infraestrutura de rede. Fala rápida, com nomes de servidores.",
@@ -183,12 +183,12 @@ window.TT_I18N = {
       "Stream Deck, que ficam em texto plano no disco.",
     keyClear: "Remover chave",
     canonLabel: "Palavras canônicas",
-    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
+    canonPh: "GitHub, JavaScript, PostgreSQL, PDF, API, e-mail",
     canonHint:
       "A grafia é corrigida no texto final por comparação exata — sem limite de quantidade e " +
       "sem custo. Termos em MAIÚSCULAS são tratados como siglas.",
     ffmpeg: "ffmpeg",
-    ffmpegPh: "vazio = procura no PATH",
+    ffmpegPh: "vazio = encontrar sozinho",
     saved: "salvo",
 
     // languages
@@ -204,7 +204,8 @@ window.TT_I18N = {
     langHint:
       "São coisas diferentes: o painel é o que VOCÊ lê; os presets e os prompts são o que a IA lê. " +
       "Dá para manter o Stream Deck em inglês e trabalhar em português. " +
-      "Em Painel, Default significa acompanhar o idioma do app Stream Deck.",
+      "Em Painel, Default significa acompanhar o idioma do Windows (ou o do app Stream Deck, se o " +
+      "Windows estiver num idioma que o painel não tem).",
 
     // dictionary
     dictOpen: "Abrir dicionário",
@@ -239,6 +240,33 @@ window.TT_I18N = {
     openKeys: "Página de chaves",
     openBilling: "Billing",
     openPricing: "Preços",
+
+    // missing ffmpeg
+    noFfTitle: "Falta o ffmpeg",
+    noFfBody: "É o programa gratuito que grava o microfone. Sem ele a tecla não grava — dá para instalar daqui mesmo.",
+    ffInstall: "Instalar agora",
+    ffHow: "Como instalar",
+    ffCheck: "Verificar",
+    ffHelpTitle: "Como instalar o ffmpeg",
+    ffHelpIntro:
+      "O plugin usa o ffmpeg para gravar o microfone e tocar os bipes. Ele é gratuito e fica só no " +
+      "seu usuário do Windows.",
+    ffAutoHint:
+      "Usa o winget, o instalador que já vem no Windows. Não pede senha de administrador e leva de " +
+      "1 a 3 minutos.",
+    ffManualTitle: "Instalação à mão:",
+    ffStep1: "Abra o site do gyan.dev (botão abaixo) e baixe o arquivo ffmpeg-release-essentials.zip.",
+    ffStep2: "Extraia o zip numa pasta que vai ficar ali, por exemplo C:\\ffmpeg.",
+    ffStep3: "Dentro dela, entre em bin, copie o caminho do ffmpeg.exe, cole no campo abaixo e clique em Verificar.",
+    ffOpenSite: "Abrir gyan.dev",
+    ffPathPh: "C:\\ffmpeg\\bin\\ffmpeg.exe",
+    ffNote: "O ffmpeg é software livre de terceiros (licença GPL). O plugin não o embute: só o chama.",
+    ffFound: "✓ ffmpeg {v} encontrado",
+    ffMissing: "✗ ffmpeg não encontrado",
+    ffChecking: "Verificando…",
+    ffInstalling: "Instalando o ffmpeg… leva de 1 a 3 minutos. Pode fechar este painel.",
+    ffInstalled: "✓ ffmpeg instalado. Pronto para gravar.",
+    ffInstallFailed: "A instalação automática não deu certo. Use o passo a passo em “Como instalar”.",
 
     // preset: description and breakdown
     presetDesc_raw:
@@ -385,7 +413,7 @@ window.TT_I18N = {
     copy: "Copy",
 
     spokenLang: "I will speak in",
-    spokenHint: "Telling it the language improves accuracy and speed — OpenAI says so itself. Only leave it on Detect if you genuinely switch languages.",
+    spokenHint: "Detect works with any language. If you always speak the same one, pick it: telling it the language improves accuracy and speed — OpenAI says so itself.",
     mixedHint: "Mixed speech: stray words from another language (deploy, commit, workshop) come out right even with a fixed language — the language is a hint, not a filter. To lock their spelling, add them to the canonical word dictionary.",
     context: "Context for the audio model",
     contextPh: "E.g. Technical meeting about network infrastructure. Fast speech, server names.",
@@ -456,12 +484,12 @@ window.TT_I18N = {
       "settings, which sit in plain text on disk.",
     keyClear: "Remove key",
     canonLabel: "Canonical words",
-    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
+    canonPh: "GitHub, JavaScript, PostgreSQL, PDF, API, OAuth",
     canonHint:
       "Spelling is fixed in the final text by exact comparison — no size limit and no cost. " +
       "UPPERCASE terms are treated as acronyms.",
     ffmpeg: "ffmpeg",
-    ffmpegPh: "empty = look it up in PATH",
+    ffmpegPh: "empty = find it automatically",
     saved: "saved",
 
     langSection: "Languages",
@@ -473,7 +501,8 @@ window.TT_I18N = {
     langHint:
       "These are different things: the panel is what YOU read; presets and prompts are what the AI " +
       "reads. You can keep Stream Deck in English and work in another language. " +
-      "Under Panel, Default means following the Stream Deck app's language.",
+      "Under Panel, Default means following Windows' language (or the Stream Deck app's, when " +
+      "Windows is in a language the panel does not have).",
 
     dictOpen: "Open dictionary",
     dictTerms: "terms",
@@ -506,6 +535,32 @@ window.TT_I18N = {
     openKeys: "API keys page",
     openBilling: "Billing",
     openPricing: "Pricing",
+
+    noFfTitle: "ffmpeg is missing",
+    noFfBody: "It is the free program that records the microphone. Without it the key cannot record — you can install it right from here.",
+    ffInstall: "Install now",
+    ffHow: "How to install",
+    ffCheck: "Check",
+    ffHelpTitle: "How to install ffmpeg",
+    ffHelpIntro:
+      "The plugin uses ffmpeg to record the microphone and play the beeps. It is free and installs " +
+      "for your Windows user only.",
+    ffAutoHint:
+      "Uses winget, the installer that ships with Windows. No administrator password, and it takes " +
+      "1 to 3 minutes.",
+    ffManualTitle: "Installing by hand:",
+    ffStep1: "Open the gyan.dev site (button below) and download ffmpeg-release-essentials.zip.",
+    ffStep2: "Extract the zip into a folder that will stay put, for example C:\\ffmpeg.",
+    ffStep3: "Inside it, open bin, copy the path of ffmpeg.exe, paste it in the field below and press Check.",
+    ffOpenSite: "Open gyan.dev",
+    ffPathPh: "C:\\ffmpeg\\bin\\ffmpeg.exe",
+    ffNote: "ffmpeg is free third-party software (GPL licence). The plugin does not bundle it: it only calls it.",
+    ffFound: "✓ ffmpeg {v} found",
+    ffMissing: "✗ ffmpeg not found",
+    ffChecking: "Checking…",
+    ffInstalling: "Installing ffmpeg… it takes 1 to 3 minutes. You can close this panel.",
+    ffInstalled: "✓ ffmpeg installed. Ready to record.",
+    ffInstallFailed: "The automatic install did not work. Follow the steps under “How to install”.",
 
     presetDesc_raw:
       "Raw, exactly as it left your mouth. No second call, so it is the fastest and the cheapest — " +
@@ -652,7 +707,7 @@ window.TT_I18N = {
     copy: "Copiar",
 
     spokenLang: "Voy a hablar en",
-    spokenHint: "Indicar el idioma mejora la precisión y la velocidad — lo dice la propia OpenAI. Deja Detectar solo si realmente cambias de idioma.",
+    spokenHint: "Detectar funciona con cualquier idioma. Si siempre hablas el mismo, elígelo: indicar el idioma mejora la precisión y la velocidad — lo dice la propia OpenAI.",
     mixedHint: "Habla mezclada: palabras sueltas de otro idioma (deploy, commit, workshop) salen bien aunque fijes un idioma — el idioma es una pista, no un filtro. Para asegurar su grafía, añádelas al diccionario de palabras canónicas.",
     context: "Contexto para el modelo de audio",
     contextPh: "Ej.: Reunión técnica sobre infraestructura de red. Habla rápida, nombres de servidores.",
@@ -723,12 +778,12 @@ window.TT_I18N = {
       "de Stream Deck, que queda en texto plano en el disco.",
     keyClear: "Quitar clave",
     canonLabel: "Palabras canónicas",
-    canonPh: "SRVDRU, EdgeRouter, WireGuard, Grafana, n8n, PostgreSQL, Kubernetes",
+    canonPh: "GitHub, JavaScript, PostgreSQL, PDF, API, e-mail",
     canonHint:
       "La grafía se corrige en el texto final por comparación exacta — sin límite y sin coste. " +
       "Los términos en MAYÚSCULAS se tratan como siglas.",
     ffmpeg: "ffmpeg",
-    ffmpegPh: "vacío = buscar en el PATH",
+    ffmpegPh: "vacío = encontrarlo solo",
     saved: "guardado",
 
     langSection: "Idiomas",
@@ -740,7 +795,8 @@ window.TT_I18N = {
     langHint:
       "Son cosas distintas: el panel es lo que TÚ lees; los presets y prompts son lo que lee la IA. " +
       "Puedes tener Stream Deck en inglés y trabajar en otro idioma. " +
-      "En Panel, Default significa seguir el idioma de la app Stream Deck.",
+      "En Panel, Default significa seguir el idioma de Windows (o el de la app Stream Deck, si " +
+      "Windows está en un idioma que el panel no tiene).",
 
     dictOpen: "Abrir diccionario",
     dictTerms: "términos",
@@ -773,6 +829,32 @@ window.TT_I18N = {
     openKeys: "Página de claves",
     openBilling: "Billing",
     openPricing: "Precios",
+
+    noFfTitle: "Falta ffmpeg",
+    noFfBody: "Es el programa gratuito que graba el micrófono. Sin él la tecla no graba — puedes instalarlo desde aquí mismo.",
+    ffInstall: "Instalar ahora",
+    ffHow: "Cómo instalar",
+    ffCheck: "Verificar",
+    ffHelpTitle: "Cómo instalar ffmpeg",
+    ffHelpIntro:
+      "El plugin usa ffmpeg para grabar el micrófono y reproducir los pitidos. Es gratuito y se " +
+      "instala solo para tu usuario de Windows.",
+    ffAutoHint:
+      "Usa winget, el instalador que ya viene con Windows. No pide contraseña de administrador y " +
+      "tarda de 1 a 3 minutos.",
+    ffManualTitle: "Instalación a mano:",
+    ffStep1: "Abre el sitio de gyan.dev (botón de abajo) y descarga ffmpeg-release-essentials.zip.",
+    ffStep2: "Extrae el zip en una carpeta que se vaya a quedar ahí, por ejemplo C:\\ffmpeg.",
+    ffStep3: "Dentro de ella, entra en bin, copia la ruta de ffmpeg.exe, pégala en el campo de abajo y pulsa Verificar.",
+    ffOpenSite: "Abrir gyan.dev",
+    ffPathPh: "C:\\ffmpeg\\bin\\ffmpeg.exe",
+    ffNote: "ffmpeg es software libre de terceros (licencia GPL). El plugin no lo incluye: solo lo llama.",
+    ffFound: "✓ ffmpeg {v} encontrado",
+    ffMissing: "✗ ffmpeg no encontrado",
+    ffChecking: "Verificando…",
+    ffInstalling: "Instalando ffmpeg… tarda de 1 a 3 minutos. Puedes cerrar este panel.",
+    ffInstalled: "✓ ffmpeg instalado. Listo para grabar.",
+    ffInstallFailed: "La instalación automática no funcionó. Sigue los pasos de “Cómo instalar”.",
 
     presetDesc_raw:
       "Crudo, tal como salió de tu boca. No pasa por una segunda llamada, así que es lo más rápido y " +

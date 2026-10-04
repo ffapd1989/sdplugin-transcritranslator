@@ -53,5 +53,11 @@ interpolated into those scripts is quoted with doubled single quotes, and text a
 through a UTF-8 file rather than the command line — both to survive accents and to avoid
 building commands out of arbitrary content.
 
+**Installing ffmpeg.** The panel's *Install now* runs `winget install --id
+Gyan.FFmpeg.Essentials`, with the package id as a constant: nothing the panel sends reaches that
+command line, so the button cannot be turned into "install anything". The search for an
+existing ffmpeg reads the PATH from the registry with `reg query` and runs the candidates with
+`-version`, nothing else.
+
 **ffmpeg.** Started with an argument array, never through a shell, so a device name with odd
 characters cannot become a command.

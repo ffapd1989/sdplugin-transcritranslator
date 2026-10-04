@@ -20,7 +20,9 @@
 //   "I'm sorry, but I can't help with that" would be pasted into the document as if it
 //   were the result.
 //
-//   RETRY — only on transient errors. Repeating a 401 is a waste of time.
+//   RETRY — only on transient errors. Repeating a 401 is a waste of time. A model this
+//   account cannot use is not transient either, but it IS recoverable: `runText` moves to
+//   the fallback model instead of losing the speech.
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
@@ -28,7 +30,7 @@ import { basename } from "node:path";
 import { keyText } from "./key-text.js";
 import type { Locale } from "./prompt-text.js";
 
-export type ApiErrorKind = "auth" | "transient" | "filter" | "fatal";
+export type ApiErrorKind = "auth" | "transient" | "filter" | "model" | "fatal";
 
 export class ApiError extends Error {
   constructor(
@@ -76,8 +78,34 @@ function isRefusalText(text: string): boolean {
   return REFUSAL_PREFIXES.some((p) => lower.startsWith(p));
 }
 
+/**
+ * This account cannot use this model id — it does not exist, or the project has no access.
+ *
+ * It has to be told apart from `auth` even though some of these answer 403, because the two
+ * cost different things: a wrong KEY loses the dictation, a wrong MODEL only means falling
+ * back. That is also why the message is inspected rather than the status alone — the same
+ * 403 carries both cases.
+ */
+const MODEL_CODES = new Set(["model_not_found", "unsupported_model", "unknown_model"]);
+const MODEL_PHRASES = [
+  "does not exist or you do not have access",
+  "do not have access to model",
+  "does not have access to model",
+  "model not found",
+  "unsupported model",
+  "is not supported with this model",
+];
+
+function isModelError(body: any): boolean {
+  const code = body?.error?.code || body?.code || "";
+  if (MODEL_CODES.has(code)) return true;
+  const msg = String(body?.error?.message || body?.message || "").toLowerCase();
+  return MODEL_PHRASES.some((p) => msg.includes(p));
+}
+
 function classify(status: number, body: any): ApiErrorKind {
   if (isFilterError(body)) return "filter";
+  if (isModelError(body)) return "model";
   if (status === 401 || status === 403) return "auth";
   if (status === 429 || status >= 500) return "transient";
   return "fatal";
@@ -194,12 +222,57 @@ export async function transcribe(opts: {
   });
 }
 
+/**
+ * Models that take `reasoning_effort`.
+ *
+ * The GPT-5.6 family reasons at `medium` unless told otherwise, and a reasoning token is
+ * billed as OUTPUT and spent from inside `max_completion_tokens`. For step 2 that is a
+ * bad trade twice over: the work is mechanical (tidy up the speech, translate it) and the
+ * person is waiting with the cursor already in the field, so the thinking buys nothing and
+ * costs both latency and money. Worse, on a long dictation the reasoning can eat the whole
+ * 4096 budget and return an empty message — which reads here as a failure.
+ *
+ * The branch exists for the same reason `supportsKeywords` does, and it is not optional:
+ * the 4.x models answer HTTP 400 to a parameter they do not know.
+ */
+export function supportsReasoningEffort(model: string): boolean {
+  return /^gpt-5\.\d+-(sol|terra|luna)\b/.test(model.trim());
+}
+
+export type TextResult = { text: string; model: string };
+
+/**
+ * Step 2, with a fallback model.
+ *
+ * The fallback answers ONE question — "can this account use this model at all?" — and
+ * nothing else. A refusal, a 429 or a bad key are all left to blow up, because retrying
+ * those on a second model would either paste content the first model declined or hide a
+ * problem the person needs to see. The model that actually answered comes back in the
+ * result so the history records what was really used: a log that says `gpt-5.6-luna` while
+ * every dictation quietly ran on the fallback would be worse than no log.
+ */
 export async function runText(opts: {
   apiKey: string;
   model: string;
   systemPrompt: string;
   userText: string;
-}): Promise<string> {
+  /** Used only when `model` is unavailable to this account. */
+  fallbackModel?: string;
+}): Promise<TextResult> {
+  try {
+    return { text: await callText(opts, opts.model), model: opts.model };
+  } catch (err) {
+    const fallback = opts.fallbackModel?.trim();
+    const recoverable = err instanceof ApiError && err.kind === "model";
+    if (!recoverable || !fallback || fallback === opts.model.trim()) throw err;
+    return { text: await callText(opts, fallback), model: fallback };
+  }
+}
+
+async function callText(
+  opts: { apiKey: string; systemPrompt: string; userText: string },
+  model: string,
+): Promise<string> {
   return withRetries(async () => {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -210,12 +283,13 @@ export async function runText(opts: {
       // max_completion_tokens (not max_tokens) and no temperature: compatible with the
       // whole GPT-4x/5x family.
       body: JSON.stringify({
-        model: opts.model,
+        model,
         messages: [
           { role: "system", content: opts.systemPrompt },
           { role: "user", content: opts.userText },
         ],
         max_completion_tokens: 4096,
+        ...(supportsReasoningEffort(model) ? { reasoning_effort: "none" } : {}),
       }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });

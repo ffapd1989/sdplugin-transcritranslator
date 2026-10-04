@@ -18,7 +18,7 @@ This file is the **development** guide. For usage and configuration, see [README
 
 ```powershell
 npm run check     # types (tsc --noEmit)
-npm run test      # 240 assertions over the pure parts — no Stream Deck, no network, no microphone
+npm run test      # 279 assertions over the pure parts — no Stream Deck, no network, no microphone
 npm run mic       # records 3 s from the real microphone and validates the core against the hardware
 npm run leak      # fires the shortcut in the sequence that used to leave ffmpeg recording forever
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
@@ -103,6 +103,7 @@ press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
 | [src/plugin.ts](src/plugin.ts) | Boot: creates folders, kills orphan ffmpeg, warms the vault, connects |
 | [src/actions/dictation.ts](src/actions/dictation.ts) | The key's state machine + bridge to the panel. This is the big file (~800 lines) |
 | [src/lib/recorder.ts](src/lib/recorder.ts) | ffmpeg: lists microphones, records, measures level, detects silence |
+| [src/lib/ffmpeg.ts](src/lib/ffmpeg.ts) | Finds ffmpeg (registry PATH included) and installs it through winget |
 | [src/lib/openai.ts](src/lib/openai.ts) | The two calls, retries, refusal detection, anti-echo |
 | [src/lib/prompts.ts](src/lib/prompts.ts) | Layered composition of the system prompt |
 | [src/lib/prompt-text.ts](src/lib/prompt-text.ts) | The **text** of the prompts in pt/en/es — this is what the AI reads |
@@ -127,7 +128,7 @@ They are not the same thing and they do not have to agree:
 
 | Axis | Where it lives | Resolves to |
 |---|---|---|
-| Panel (what **you** read) | `GlobalSettings.uiLang` | `resolveUiLocale()` → Stream Deck app |
+| Panel (what **you** read) | `GlobalSettings.uiLang` | `resolveUiLocale()` → Windows → Stream Deck app |
 | Presets and prompts (what the **AI** reads) | `GlobalSettings.contentLang` | `resolveContentLocale()` → spoken language → panel → app |
 | Spoken language (per key) | `ActionSettings.language` | goes straight into the API's `language` parameter |
 
@@ -343,6 +344,54 @@ being processed used to produce nothing at all: no sound, no key change, indisti
 a plugin that had died. It now gets the same short beep the "you came late" branch in
 `runDeepLink` gives. Swapping the two checks back puts the beeps inside the burst.
 
+**22. Step 2 tells the reasoning model not to reason, and a model the account cannot reach
+falls back instead of losing the speech.** The default text model is `gpt-5.6-luna`, which
+reasons at `medium` unless told otherwise — and a reasoning token is billed as OUTPUT and
+spent from inside `max_completion_tokens`. Tidying up dictation is mechanical work with a
+person waiting, cursor already in the field, so `reasoning_effort: "none"` is what makes the
+new default both cheaper and faster than the one it replaces:
+
+| per 1M tokens | input | cached | output |
+|---|---|---|---|
+| `gpt-5.6-luna` | $0.20 | $0.02 | $1.20 |
+| `gpt-4.1-mini` | $0.40 | $0.10 | $1.60 |
+
+Left at `medium` the reasoning would erase that gap, and on a long dictation it could spend
+the whole 4096-token budget and return an empty message — which arrives here as a failure.
+The parameter is a branch rather than a constant because the 4.x models answer **HTTP 400**
+to a field they do not know, exactly like `keywords[]` in decision 18.
+
+The fallback answers ONE question: can this account use this model at all? A refusal, a 429
+and a bad key are all left to blow up — retrying those on a second model would either paste
+content the first one declined or hide a problem you need to see. `runText` returns the model
+that ANSWERED, so the history records what really ran: a log reading `gpt-5.6-luna` while
+every dictation quietly used the fallback would be worse than no log.
+
+**23. ffmpeg is also searched for in the registry PATH, and installed by a fixed winget id.**
+The plugin inherits its PATH from the Stream Deck app, frozen when the app started. Install
+ffmpeg with the app open — by winget, by hand, by any package manager — and the inherited PATH
+does not have it until the app restarts; the registry already does. So `findFfmpeg` reads the
+user and machine `Path` from the registry as well: one mechanism for every way of installing,
+with no list of per-manager folders to maintain. The install button runs
+`winget install --id Gyan.FFmpeg.Essentials`, a constant — nothing the panel sends reaches that
+command line. Essentials rather than the full build: a smaller portable zip, user scope, no
+administrator, and it has everything the recorder uses (`dshow`, `libmp3lame`, `astats`,
+`ametadata`) plus `ffplay` — verified by recording with it. Success is decided by finding ffmpeg
+afterwards, not by winget's exit code: "already installed" exits non-zero and is a good outcome.
+
+**24. A recorder that closes before `ready` gives the key back.** With the microphone unplugged,
+renamed or held by another program, ffmpeg starts, captures nothing and exits — `Recorder`
+emits only `done {ok:false}` (363 ms in the repro), never `ready` and never `error`. Without the
+`done` handler in `startRecordingInner` the phase stayed `arming` with the lock held: `onKeyUp`
+returns early on `arming`, so the key ignored every press, and every other key said "recording
+on another key" until the plugin restarted. The handler only acts while the phase is still
+`arming` for that same recorder, so a normal stop (phase `stopping`) passes through untouched.
+
+**25. Errors call `showAlert` as well as drawing the message.** The store guidelines require it
+(*MUST*). Only the `error` phase does it — a warning is not a failure. The borrowed surface
+delegates to `lender()` exactly like `setImage`, so a keyboard-triggered dictation alerts on
+whichever key is lending its display.
+
 ## Product decisions (settled with the user)
 
 These are not implementation accidents — they were chosen explicitly:
@@ -358,6 +407,12 @@ These are not implementation accidents — they were chosen explicitly:
 - Cost is **not** tracked.
 - The plugin is **general-purpose** — no domain-specific content baked in. The dictionary and
   the style field start out empty.
+- The spoken language defaults to **Detect**, and every "auto" language starts at **Windows**:
+  the Stream Deck app has no Portuguese, so on a Brazilian machine it reports English.
+- ffmpeg is **not bundled**. The panel finds it or, on a click, installs it through winget; the
+  manual path is in the same guide.
+- The repository is public, and the UUID `com.felipe.transcritranslator` stays — it is permanent
+  once the plugin is on the Marketplace.
 
 The full history of these decisions is in the plan at
 [docs/ORIGINAL-PLAN.md](docs/ORIGINAL-PLAN.md).
@@ -366,13 +421,19 @@ The full history of these decisions is in the plan at
 
 ## Environment traps
 
-- **TC39 decorators.** The SDK v2 `@action` requires TC39 decorators — do **not** enable
+- **TC39 decorators.** The SDK 3 `@action` requires TC39 decorators — do **not** enable
   `experimentalDecorators` in the tsconfig.
+- **SDK 3 refuses to connect below Stream Deck 7.1.** `connect()` checks the manifest's
+  `Software.MinimumVersion` up front, because its settings events need 7.1. Lowering the minimum
+  does not widen the audience — it kills the plugin at boot.
+- **SDK 3 fires `onDidReceiveSettings` only for changes made in the panel**, not on
+  `getSettings()`. When the plugin writes settings itself (`applyPreset`), it has to redraw the
+  key and refresh the shortcut notebook (`rememberKey`) by hand.
 - **The `createRequire` banner in [build.mjs](build.mjs).** The SDK's `ws` library uses
   `require()` on builtins; without the banner, the ESM bundle breaks at runtime.
-- **The plugin runs on the Stream Deck's Node 20**, not the system Node
-  (`%APPDATA%\Elgato\StreamDeck\NodeJS\20.x\node.exe`). `File`, `FormData`, `fetch` and
-  `AbortSignal.timeout` exist there — already verified — but a newer API may not.
+- **The plugin runs on the Stream Deck's Node 24**, not the system Node
+  (`%APPDATA%\Elgato\StreamDeck\NodeJS\24.x\node.exe`). `File`, `FormData`, `fetch`,
+  `AbortSignal.timeout` and full ICU exist there — already verified — but a newer API may not.
 - **`streamDeck.ui.sendToPropertyInspector(...)`** is what talks to the panel, not the action
   object.
 - **PowerShell and negative numbers:** `Mix-Channel $r -0.42` makes the parser read `-0.42` as a
@@ -475,7 +536,25 @@ the real API through the plugin's own `transcribe()`, on a synthetic clip: 6/6 t
 `gpt-transcribe`, 4/6 with `gpt-4o-mini-transcribe`, and the anti-echo shield still catching the
 old model's echo on silence.
 
-**None of this has been seen on the physical key yet** — only in the headless render.
+In v1.5.0.0 (02/09/2026) the text model became `gpt-5.6-luna`, with `gpt-4.1-mini` kept as the
+fallback for an account that cannot reach it — decision 22 has the prices and the reasoning
+about `reasoning_effort`. The fallback, the `reasoning_effort` branch and the refusal to fall
+back on a bad key are covered by `npm run test` against a stubbed `fetch`. Exercised against
+the real API on 04/10/2026: every model id in the lists exists on the account (`GET
+/v1/models`), and `runText` with `gpt-5.6-luna` and `reasoning_effort: "none"` answered without
+falling back. One sample, cold: 2365 ms against 1474 ms for `gpt-4.1-mini` — the "faster" in
+decision 22 is not confirmed yet. The prices are still read from OpenAI's documentation.
+
+In v1.6.0.0 (04/10/2026) the plugin was prepared for the Marketplace: SDK 3 with
+`SDKVersion: 3`, Stream Deck 7.1+ and Node 24 (the store's DRM gate); white monochrome list
+icons; `showAlert` on errors (decision 25); a key that no longer locks up when the microphone
+disappears (decision 24); ffmpeg found through the registry and installed from the panel
+(decision 23), exercised for real — winget installed the essentials build in 8 s and the
+recorder captured with it; Detect as the default spoken language with Windows first in the
+language cascade; and `THIRD-PARTY-NOTICES.txt` generated by the build.
+
+**None of the visual work since v1.1 has been seen on the physical key yet** — only in the
+headless render. That includes the single-family `font-family` (QtSvg) and the alert.
 
 What is missing are the **edge cases**, which normal use does not exercise and which fail
 silently: switching windows during processing, switching pages on the XL during a recording, and

@@ -29,6 +29,8 @@ export type KeyText = {
   // --- warnings and errors ---
   noKey: string;
   noFfmpeg: string;
+  /** ffmpeg ran but the microphone did not open: unplugged, renamed or taken. */
+  noMic: [string, string];
   noSpeech: string;
   nothingToDo: [string, string];
   noText: string;
@@ -60,6 +62,7 @@ const TEXT: Record<Locale, KeyText> = {
     busy: ["gravando em", "outra tecla"],
     noKey: "sem chave",
     noFfmpeg: "sem ffmpeg",
+    noMic: ["microfone", "indisponível"],
     noSpeech: "sem fala",
     nothingToDo: ["nada a", "fazer"],
     noText: "sem texto",
@@ -85,6 +88,7 @@ const TEXT: Record<Locale, KeyText> = {
     busy: ["recording on", "another key"],
     noKey: "no key",
     noFfmpeg: "no ffmpeg",
+    noMic: ["mic", "unavailable"],
     noSpeech: "no speech",
     nothingToDo: ["nothing", "to do"],
     noText: "no text",
@@ -110,6 +114,7 @@ const TEXT: Record<Locale, KeyText> = {
     busy: ["grabando en", "otra tecla"],
     noKey: "sin clave",
     noFfmpeg: "sin ffmpeg",
+    noMic: ["micrófono", "no disponible"],
     noSpeech: "sin voz",
     nothingToDo: ["nada que", "hacer"],
     noText: "sin texto",

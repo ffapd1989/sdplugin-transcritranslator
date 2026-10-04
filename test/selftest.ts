@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { claimStart, finishStart, getState } from "../src/lib/sessions.js";
 import { applyCanon, parseTerms, buildTranscribePrompt, buildKeywords, KEYWORDS_LIMIT, promptBudget, estimateTokens } from "../src/lib/canon.js";
-import { looksLikePromptEcho, supportsKeywords, shortError, ApiError } from "../src/lib/openai.js";
+import { looksLikePromptEcho, supportsKeywords, supportsReasoningEffort, runText, shortError, ApiError } from "../src/lib/openai.js";
 import { buildTextSystemPrompt, hasTextWork, textPromptParts } from "../src/lib/prompts.js";
 import { builtinPresets } from "../src/lib/presets.js";
 import { promptText, LOCALES } from "../src/lib/prompt-text.js";
@@ -15,8 +15,9 @@ import {
 } from "../src/lib/languages.js";
 import { keyText, wordCountLines } from "../src/lib/key-text.js";
 import { shade } from "../src/lib/theme.js";
-import { withDefaults, resolveContentLocale, resolveUiLocale, DEFAULTS, SILENCE_MIN, SILENCE_MAX } from "../src/lib/settings.js";
+import { withDefaults, resolveContentLocale, resolveUiLocale, DEFAULTS, TEXT_MODELS, TEXT_FALLBACK_MODEL, SILENCE_MIN, SILENCE_MAX } from "../src/lib/settings.js";
 import { normalizeAlias, shortcutUrl, rememberKey, lookup, ownerOf, resetShortcuts } from "../src/lib/shortcuts.js";
+import { pathDirs } from "../src/lib/ffmpeg.js";
 
 let pass = 0, fail = 0;
 function ok(name: string, cond: boolean, extra = "") {
@@ -25,7 +26,7 @@ function ok(name: string, cond: boolean, extra = "") {
 }
 
 console.log("\n— canonical dictionary —");
-const terms = parseTerms("CPC, acórdão, SRVDRU, B.R.I.C.K., n8n, a");
+const terms = parseTerms("CPC, acórdão, HTTPS, B.R.I.C.K., n8n, a");
 ok("drops a 1-letter term", !terms.includes("a"), JSON.stringify(terms));
 ok("keeps a term with dots", terms.includes("B.R.I.C.K."));
 ok("fixes capitalisation", applyCanon("o cpc diz que", terms) === "o CPC diz que");
@@ -70,9 +71,9 @@ ok("the prompt keeps only the context",
   buildTranscribePrompt({ terms: many, context: "Reunião técnica.", useCanon: false }).prompt === "Reunião técnica.");
 
 console.log("\n— anti-echo —");
-const promptList = "CPC, acórdão, SRVDRU, WireGuard, Grafana";
-ok("detects the list handed back", looksLikePromptEcho("CPC, acórdão, SRVDRU, WireGuard, Grafana", promptList));
-ok("detects the list reordered", looksLikePromptEcho("Grafana, SRVDRU, CPC, acórdão, WireGuard", promptList));
+const promptList = "CPC, acórdão, HTTPS, WireGuard, Grafana";
+ok("detects the list handed back", looksLikePromptEcho("CPC, acórdão, HTTPS, WireGuard, Grafana", promptList));
+ok("detects the list reordered", looksLikePromptEcho("Grafana, HTTPS, CPC, acórdão, WireGuard", promptList));
 ok("does not flag real speech",
   !looksLikePromptEcho("bom dia, preciso marcar a reunião de amanhã com o time todo", promptList));
 ok("does not flag speech that quotes a term",
@@ -163,6 +164,22 @@ ok("a language with no translation falls back to English",
   resolveContentLocale({ contentLang: "auto", spokenLanguage: "ja", uiLang: "auto", appLanguage: "ja" }) === "en");
 ok("an explicit panel language beats the app", resolveUiLocale("pt", "en") === "pt");
 ok("the panel on auto follows the app", resolveUiLocale("auto", "es") === "es");
+// The Stream Deck app has no Portuguese: a Brazilian's app says "en", Windows says "pt-BR".
+ok("on auto, Windows comes before the app", resolveUiLocale("auto", "en", "pt-BR") === "pt");
+ok("Windows in an untranslated language falls back to the app", resolveUiLocale("auto", "es", "ja-JP") === "es");
+ok("an explicit panel language beats Windows", resolveUiLocale("en", "es", "pt-BR") === "en");
+ok("content on auto, speech on detect: Windows before the app",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "", uiLang: "auto", osLanguage: "pt-BR", appLanguage: "en" }) === "pt");
+ok("the spoken language still beats Windows",
+  resolveContentLocale({ contentLang: "auto", spokenLanguage: "es", uiLang: "auto", osLanguage: "pt-BR" }) === "es");
+
+console.log("\n— ffmpeg search —");
+ok("expands %VAR%, strips quotes, drops empties and case-insensitive repeats",
+  JSON.stringify(pathDirs(
+    '%LOCALAPPDATA%\\x;"C:\\Program Files\\y";;c:\\PROGRAM FILES\\Y; %NOPE%\\z ',
+    { LOCALAPPDATA: "C:\\Users\\u\\AppData\\Local" },
+  )) === JSON.stringify(["C:\\Users\\u\\AppData\\Local\\x", "C:\\Program Files\\y", "%NOPE%\\z"]));
+ok("an empty PATH yields no folders", pathDirs("", {}).length === 0);
 
 console.log("\n— theme —");
 const sh = shade("#3B6FD4");
@@ -194,7 +211,9 @@ ok("counts words", wordCount("  uma  duas   três ") === 3);
 console.log("\n— defaults —");
 const d = withDefaults(undefined);
 ok("default audio model", d.transcribeModel === "gpt-transcribe");
-ok("default text model", d.textModel === "gpt-4.1-mini");
+ok("default text model", d.textModel === "gpt-5.6-luna");
+// A stranger's first key must not assume Portuguese speech: "" is auto-detect.
+ok("default spoken language is auto-detect", d.language === "");
 const cleared = withDefaults({ style: "", label: "", cleanup: false });
 ok("an empty string does not become the default", cleared.style === "" && cleared.label === "");
 ok("false does not become the default", cleared.cleanup === false);
@@ -492,6 +511,64 @@ ok("the default sits inside its own range",
   for (const locale of LOCALES) {
     const missing = [...asked].filter((k) => !TABLE[locale]?.[k]);
     ok("every data-i18n key exists in " + locale, missing.length === 0, missing.join(", "));
+  }
+}
+
+console.log("\n— step 2: model and fallback —");
+ok("the default and the fallback are different models", TEXT_FALLBACK_MODEL !== DEFAULTS.textModel);
+ok("the default is offered in the panel", TEXT_MODELS.some((m) => m.id === DEFAULTS.textModel));
+ok("the fallback is offered in the panel", TEXT_MODELS.some((m) => m.id === TEXT_FALLBACK_MODEL));
+
+// reasoning_effort is an HTTP 400 on the 4.x models — the branch is not an optimisation.
+ok("the 5.6 family takes reasoning_effort", supportsReasoningEffort("gpt-5.6-luna"));
+ok("a dated snapshot takes it too", supportsReasoningEffort("gpt-5.6-luna-2026-07-09"));
+ok("tolerates whitespace around the id", supportsReasoningEffort("  gpt-5.6-terra  "));
+ok("the fallback model does not", !supportsReasoningEffort(TEXT_FALLBACK_MODEL));
+ok("gpt-4o-mini does not", !supportsReasoningEffort("gpt-4o-mini"));
+ok("a lookalike id does not", !supportsReasoningEffort("gpt-5.6-lunatic-mini"));
+
+{
+  const realFetch = globalThis.fetch;
+  const sent: Array<{ model: string; effort?: string }> = [];
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+  globalThis.fetch = (async (_url: unknown, init: any) => {
+    const body = JSON.parse(String(init.body));
+    sent.push({ model: body.model, effort: body.reasoning_effort });
+    if (body.model === "gpt-5.6-luna") {
+      return json(404, { error: { code: "model_not_found",
+        message: "The model `gpt-5.6-luna` does not exist or you do not have access to it." } });
+    }
+    if (body.model === "wrong-key") {
+      return json(401, { error: { message: "Incorrect API key provided" } });
+    }
+    return json(200, { choices: [{ message: { content: "o texto limpo" }, finish_reason: "stop" }] });
+  }) as typeof fetch;
+
+  const call = (model: string) =>
+    runText({ apiKey: "k", model, fallbackModel: TEXT_FALLBACK_MODEL, systemPrompt: "s", userText: "u" });
+
+  try {
+    const fell = await call("gpt-5.6-luna");
+    ok("a model this account cannot use falls back", fell.model === TEXT_FALLBACK_MODEL, fell.model);
+    ok("and the text is the fallback's answer", fell.text === "o texto limpo", fell.text);
+    // The history records what ANSWERED, not what was configured.
+    ok("the reasoning model was told not to reason", sent[0]?.effort === "none", String(sent[0]?.effort));
+    ok("the fallback was sent no reasoning_effort", sent[1]?.effort === undefined, String(sent[1]?.effort));
+
+    sent.length = 0;
+    const direct = await call(TEXT_FALLBACK_MODEL);
+    ok("an available model answers on the first request",
+      direct.model === TEXT_FALLBACK_MODEL && sent.length === 1, `requests=${sent.length}`);
+
+    // A bad key must NOT be retried elsewhere: falling back would hide the real problem.
+    sent.length = 0;
+    let kind = "resolved";
+    await call("wrong-key").catch((e) => { kind = e instanceof ApiError ? e.kind : "other"; });
+    ok("a bad key does not fall back", kind === "auth" && sent.length === 1, `${kind}, requests=${sent.length}`);
+  } finally {
+    globalThis.fetch = realFetch;
   }
 }
 

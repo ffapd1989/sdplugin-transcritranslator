@@ -20,7 +20,7 @@ streamdeck link com.felipe.transcritranslator.sdPlugin
 streamdeck restart com.felipe.transcritranslator
 ```
 
-You need Windows, the Stream Deck app 6.5+, ffmpeg on the PATH and Node 24+. An OpenAI key is
+You need Windows, the Stream Deck app 7.1+, ffmpeg on the PATH and Node 24+. An OpenAI key is
 only needed to exercise the network path; everything else runs without one.
 
 ## The working cycle
