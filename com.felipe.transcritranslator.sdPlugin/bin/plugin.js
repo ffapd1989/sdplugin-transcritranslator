@@ -18069,8 +18069,7 @@ function installFfmpeg(configured) {
   return installing;
 }
 
-// src/lib/sessions.ts
-import { execFile as execFile3 } from "node:child_process";
+// src/lib/prefs.ts
 import { readFile, writeFile } from "node:fs/promises";
 
 // src/lib/paths.ts
@@ -18082,6 +18081,7 @@ var FAILED_DIR = join3(AUDIO_DIR, "falhou");
 var HISTORY_DIR = join3(ROOT, "historico");
 var PIDS_FILE = join3(ROOT, "ffmpeg-pids.json");
 var SHORTCUTS_FILE = join3(ROOT, "atalhos.json");
+var PREFS_FILE = join3(ROOT, "settings.json");
 async function ensureDirs() {
   for (const d of [ROOT, AUDIO_DIR, FAILED_DIR, HISTORY_DIR]) {
     await mkdir(d, { recursive: true });
@@ -18092,7 +18092,32 @@ function stamp(d = /* @__PURE__ */ new Date()) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
 }
 
+// src/lib/prefs.ts
+var prefs = {};
+var writing = Promise.resolve();
+async function loadPrefs() {
+  try {
+    const data = JSON.parse(await readFile(PREFS_FILE, "utf8"));
+    if (data && typeof data === "object") prefs = data;
+    return true;
+  } catch {
+    return false;
+  }
+}
+function getPrefs() {
+  return prefs;
+}
+function setPrefs(next) {
+  prefs = next;
+  const json2 = JSON.stringify(next, null, 2);
+  writing = writing.then(() => writeFile(PREFS_FILE, json2, "utf8")).catch(() => {
+  });
+  return writing;
+}
+
 // src/lib/sessions.ts
+import { execFile as execFile3 } from "node:child_process";
+import { readFile as readFile2, writeFile as writeFile2 } from "node:fs/promises";
 var states = /* @__PURE__ */ new Map();
 var lockOwner = null;
 function getState(actionId) {
@@ -18136,14 +18161,14 @@ async function untrackPid(pid) {
 }
 async function persistPids() {
   try {
-    await writeFile(PIDS_FILE, JSON.stringify([...livePids]), "utf8");
+    await writeFile2(PIDS_FILE, JSON.stringify([...livePids]), "utf8");
   } catch {
   }
 }
 async function cleanupOrphans() {
   let pids = [];
   try {
-    pids = JSON.parse(await readFile(PIDS_FILE, "utf8"));
+    pids = JSON.parse(await readFile2(PIDS_FILE, "utf8"));
   } catch {
     return;
   }
@@ -18166,7 +18191,7 @@ async function cleanupOrphans() {
       })
     )
   );
-  await writeFile(PIDS_FILE, "[]", "utf8").catch(() => {
+  await writeFile2(PIDS_FILE, "[]", "utf8").catch(() => {
   });
 }
 function killAll() {
@@ -18388,7 +18413,7 @@ function buildTextSystemPrompt(o) {
 }
 
 // src/lib/openai.ts
-import { readFile as readFile2 } from "node:fs/promises";
+import { readFile as readFile3 } from "node:fs/promises";
 import { basename } from "node:path";
 
 // src/lib/key-text.ts
@@ -18592,7 +18617,7 @@ function supportsKeywords(model) {
   return KEYWORDS_MODELS.has(model.trim());
 }
 async function transcribe(opts) {
-  const buf = await readFile2(opts.audioPath);
+  const buf = await readFile3(opts.audioPath);
   return withRetries(async () => {
     const form = new FormData();
     form.append("file", new File([buf], basename(opts.audioPath), { type: "audio/mpeg" }));
@@ -18682,7 +18707,7 @@ function shortError(err, locale = "pt") {
 
 // src/lib/deliver.ts
 import { execFile as execFile4 } from "node:child_process";
-import { readFile as readFile3, writeFile as writeFile2, appendFile, mkdir as mkdir2, unlink } from "node:fs/promises";
+import { readFile as readFile4, writeFile as writeFile3, appendFile, mkdir as mkdir2, unlink } from "node:fs/promises";
 import { join as join4 } from "node:path";
 import { tmpdir } from "node:os";
 function psQuote(s) {
@@ -18725,7 +18750,7 @@ async function isForegroundFullscreen() {
 }
 async function deliver(text, opts) {
   const file2 = await tempFile("out");
-  await writeFile2(file2, text, "utf8");
+  await writeFile3(file2, text, "utf8");
   try {
     if (!opts.autoPaste) {
       await powershell(
@@ -18748,7 +18773,7 @@ async function readSelectionOrClipboard() {
     await powershell(
       `Add-Type -AssemblyName System.Windows.Forms;[System.Windows.Forms.SendKeys]::SendWait('^c');Start-Sleep -Milliseconds 250;$t = Get-Clipboard -Raw;[IO.File]::WriteAllText(${psQuote(file2)}, [string]$t, (New-Object Text.UTF8Encoding($false)))`
     );
-    return (await readFile3(file2, "utf8")).trim();
+    return (await readFile4(file2, "utf8")).trim();
   } catch {
     return "";
   } finally {
@@ -18781,7 +18806,7 @@ async function appendHistory(entry, dir) {
 }
 
 // src/lib/shortcuts.ts
-import { readFile as readFile4, writeFile as writeFile3 } from "node:fs/promises";
+import { readFile as readFile5, writeFile as writeFile4 } from "node:fs/promises";
 var entries = /* @__PURE__ */ new Map();
 var loaded = false;
 var writeTimer;
@@ -18795,7 +18820,7 @@ async function loadShortcuts() {
   if (loaded) return;
   loaded = true;
   try {
-    const data = JSON.parse(await readFile4(SHORTCUTS_FILE, "utf8"));
+    const data = JSON.parse(await readFile5(SHORTCUTS_FILE, "utf8"));
     if (data && typeof data === "object") {
       for (const [alias, entry] of Object.entries(data)) {
         if (entry && typeof entry.actionId === "string") entries.set(alias, entry);
@@ -18807,7 +18832,7 @@ async function loadShortcuts() {
 function persist() {
   clearTimeout(writeTimer);
   writeTimer = setTimeout(() => {
-    void writeFile3(SHORTCUTS_FILE, JSON.stringify(Object.fromEntries(entries), null, 2), "utf8").catch(
+    void writeFile4(SHORTCUTS_FILE, JSON.stringify(Object.fromEntries(entries), null, 2), "utf8").catch(
       () => {
       }
     );
@@ -19328,7 +19353,7 @@ async function clearApiKey() {
 }
 
 // src/lib/presets.ts
-import { readFile as readFile5, writeFile as writeFile4, mkdir as mkdir3 } from "node:fs/promises";
+import { readFile as readFile6, writeFile as writeFile5, mkdir as mkdir3 } from "node:fs/promises";
 import { join as join7, dirname as dirname2 } from "node:path";
 
 // src/lib/preset-text.ts
@@ -19526,7 +19551,7 @@ function builtinPresets(locale) {
 }
 async function readUserPresets() {
   try {
-    const raw = await readFile5(PRESETS_FILE, "utf8");
+    const raw = await readFile6(PRESETS_FILE, "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -19552,13 +19577,13 @@ async function savePreset(name, settings2, locale) {
   if (idx >= 0) users[idx] = preset;
   else users.push(preset);
   await mkdir3(dirname2(PRESETS_FILE), { recursive: true });
-  await writeFile4(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
+  await writeFile5(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
   return preset;
 }
 async function deletePreset(id) {
   const users = (await readUserPresets()).filter((p) => p.id !== id);
   await mkdir3(dirname2(PRESETS_FILE), { recursive: true });
-  await writeFile4(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
+  await writeFile5(PRESETS_FILE, JSON.stringify(users, null, 2), "utf8");
 }
 var PRESET_FIELDS = [
   "label",
@@ -19615,7 +19640,7 @@ function appLanguage() {
 }
 var uiLocaleCache = resolveUiLocale(void 0, void 0, osLanguage());
 async function refreshUiLocale(g) {
-  const global = g ?? await plugin_default.settings.getGlobalSettings();
+  const global = g ?? getPrefs();
   uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage(), osLanguage());
   return uiLocaleCache;
 }
@@ -19774,11 +19799,11 @@ var Dictation = class extends (_a = SingletonAction) {
   }
   /** "Heard you, but the previous dictation is still going." Never delays the caller. */
   async beepLate() {
-    const global = await plugin_default.settings.getGlobalSettings();
+    const global = getPrefs();
     beep(ffmpegOf(global), "cancel");
   }
   async runDeepLink(ev) {
-    const global = await plugin_default.settings.getGlobalSettings();
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     const fail = (why) => {
       plugin_default.logger.warn(`shortcut: ${why}`);
@@ -19982,7 +20007,7 @@ var Dictation = class extends (_a = SingletonAction) {
   }
   async startRecordingInner(a, raw, st) {
     const s = withDefaults(raw);
-    const global = await plugin_default.settings.getGlobalSettings();
+    const global = getPrefs();
     const T = keyText(await refreshUiLocale(global));
     if (!s.transcribeOn) {
       await this.runTextOnly(a, s, global);
@@ -20091,7 +20116,7 @@ var Dictation = class extends (_a = SingletonAction) {
     });
     st.audioPath = void 0;
     st.levels = [];
-    const global = await plugin_default.settings.getGlobalSettings();
+    const global = getPrefs();
     if (s.beep) beep(ffmpegOf(global), "cancel");
     await this.flash(a, "warn", [why], 1600);
   }
@@ -20099,7 +20124,7 @@ var Dictation = class extends (_a = SingletonAction) {
     const st = getState(a.id);
     if (st.phase !== "recording" && st.phase !== "arming") return;
     const s = withDefaults(raw);
-    const global = await plugin_default.settings.getGlobalSettings();
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     const rec = st.recorder;
     const durationMs = st.startedAt ? Date.now() - st.startedAt : 0;
@@ -20255,7 +20280,7 @@ var Dictation = class extends (_a = SingletonAction) {
   async onSendToPlugin(ev) {
     const msg = ev.payload;
     const a = ev.action;
-    const global = await plugin_default.settings.getGlobalSettings() ?? {};
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     const reply = (data) => {
       void plugin_default.ui.sendToPropertyInspector(data);
@@ -20280,8 +20305,8 @@ var Dictation = class extends (_a = SingletonAction) {
             // What "auto" means on this machine, so the panel's selector does not have to
             // guess it with less information than the plugin has.
             autoUiLocale: resolveUiLocale("auto", appLanguage(), osLanguage()),
-            version: "1.6.0.0",
-            versionDate: "2026-10-04",
+            version: "1.6.1.0",
+            versionDate: "2026-10-05",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,
@@ -20339,12 +20364,12 @@ var Dictation = class extends (_a = SingletonAction) {
         }
         case "setKey":
           await setApiKey(msg.key);
-          await plugin_default.settings.setGlobalSettings({ ...global, hasKey: true });
+          await setPrefs({ ...global, hasKey: true });
           reply({ event: "keySaved", hasKey: true });
           break;
         case "clearKey":
           await clearApiKey();
-          await plugin_default.settings.setGlobalSettings({ ...global, hasKey: false });
+          await setPrefs({ ...global, hasKey: false });
           reply({ event: "keySaved", hasKey: false });
           break;
         case "setGlobal": {
@@ -20355,7 +20380,7 @@ var Dictation = class extends (_a = SingletonAction) {
             uiLang: msg.uiLang ?? global.uiLang,
             contentLang: msg.contentLang ?? global.contentLang
           };
-          await plugin_default.settings.setGlobalSettings(next);
+          await setPrefs(next);
           await refreshUiLocale(next);
           for (const other of this.actions) {
             if (other.isKey()) await this.render(other, await other.getSettings());
@@ -20513,8 +20538,10 @@ async function probeMic(ffmpeg, device, seconds) {
 
 // src/plugin.ts
 plugin_default.logger.setLevel("info");
+var hadPrefs = false;
 try {
   await ensureDirs();
+  hadPrefs = await loadPrefs();
   await cleanupOrphans();
   await loadShortcuts();
 } catch (err) {
@@ -20524,8 +20551,11 @@ void getApiKey().catch(() => {
 });
 plugin_default.actions.registerAction(new Dictation());
 await plugin_default.connect();
-void plugin_default.settings.getGlobalSettings().then((g) => findFfmpeg(g?.ffmpegPath)).catch(() => {
-});
+if (!hadPrefs) {
+  void plugin_default.settings.getGlobalSettings().then((old) => old && Object.keys(old).length ? setPrefs(old) : void 0).catch(() => {
+  });
+}
+void findFfmpeg(getPrefs().ffmpegPath);
 for (const sig of ["exit", "SIGINT", "SIGTERM"]) {
   process.on(sig, () => killAll());
 }

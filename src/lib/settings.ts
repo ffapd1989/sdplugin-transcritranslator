@@ -1,9 +1,10 @@
 // Shape of the settings.
 //
 // Two layers, and the split is NOT arbitrary:
-//   - GLOBAL: only what belongs to the MACHINE or to the PERSON — the API key, the
-//     canonical word dictionary (the acronyms you use at work), the ffmpeg path and the
-//     language preferences. There is no sense in varying these per key.
+//   - GLOBAL: only what belongs to the MACHINE or to the PERSON — the canonical word
+//     dictionary (the acronyms you use at work), the ffmpeg path and the language
+//     preferences. There is no sense in varying these per key. They live in a file of the
+//     plugin's own, not in the Stream Deck global settings — see prefs.ts for why.
 //   - PER KEY: everything else. This is what lets you have a "raw dictation" key, a
 //     "formal email" key and a "-> English" key side by side on the XL, each independent.
 //

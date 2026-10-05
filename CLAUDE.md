@@ -67,7 +67,8 @@ it with the `.pt-BR` suffix. **Both change in the same edit.** A `.pt-BR` file t
 is worse than no translation at all, because it looks current.
 
 The pairs are `README`, `CLAUDE`, `CONTRIBUTING`, `PRIVACY`, `SECURITY`, `CODE_OF_CONDUCT`,
-`docs/README`, `docs/ROADMAP` and `docs/ORIGINAL-PLAN`. Adding a document means adding two, plus
+`docs/README`, `docs/ROADMAP`, `docs/ORIGINAL-PLAN` and `docs/marketplace/LISTING`. Adding a
+document means adding two, plus
 a line in both `docs/README` files.
 
 The tab strip GitHub shows above the repository page (*Readme*, *MIT license*, *Code of
@@ -114,6 +115,7 @@ press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
 | [src/lib/deliver.ts](src/lib/deliver.ts) | Focus, clipboard, pasting, history |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | Global key state, single-recording lock, orphan PIDs |
 | [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Nickname → key, so the keyboard shortcut can reach an off-screen key |
+| [src/lib/prefs.ts](src/lib/prefs.ts) | Languages, dictionary and ffmpeg path in `settings.json` (decision 26) |
 | [src/lib/icons.ts](src/lib/icons.ts) | The key drawn in SVG (icons, waveform, badges) |
 | [src/lib/settings.ts](src/lib/settings.ts) | Types, defaults and the language resolution cascade |
 | [src/lib/vault.ts](src/lib/vault.ts) | DPAPI vault for the OpenAI key |
@@ -392,6 +394,18 @@ on another key" until the plugin restarted. The handler only acts while the phas
 delegates to `lender()` exactly like `setImage`, so a keyboard-triggered dictation alerts on
 whichever key is lending its display.
 
+**26. The preferences live in a file of the plugin's own, not in the Stream Deck global
+settings.** Languages, dictionary and ffmpeg path go to
+`%LOCALAPPDATA%\transcritranslator\settings.json` ([prefs.ts](src/lib/prefs.ts)), like the
+presets and the shortcut notebook. The app keeps its global settings in the Windows
+Credential Manager, and on the development machine that store broke for a whole session:
+every write failed with `CredWrite() err: 1312`, every read with "Failed to parse account
+settings from credentials" — Elgato's own Spotify, Weather and Discord plugins included. The
+panel switched language on screen, the save silently failed, and the next panel opened on
+"Default"; the dictionary was gone too. Restarting the app fixed writing but not the data
+already lost. The file is read once at boot and kept in memory; the first boot without it
+copies over whatever the app can still read.
+
 ## Product decisions (settled with the user)
 
 These are not implementation accidents — they were chosen explicitly:
@@ -492,7 +506,9 @@ when `i18n.js` was missing.
 [tools/screenshots.ts](tools/screenshots.ts): the key strip comes out of `keyImage()`, the same
 function the physical key uses, and the panel shots are the real `ui/dictation.html` fed the
 same payloads the plugin sends over `sendToPropertyInspector`. Change the interface, run it
-again. A screenshot taken by hand starts lying the next day, and nobody notices.
+again. A screenshot taken by hand starts lying the next day, and nobody notices. The same run
+composes the Marketplace thumbnail, gallery and app icon in `docs/marketplace/` from those
+keys and panel shots, at the exact sizes the store asks for.
 
 Two traps in there, both already handled, both worth knowing if you touch that file: headless
 Chrome refuses to make a window narrower than ~500 px (so the width is pinned in the document

@@ -34,6 +34,7 @@ import {
 } from "../lib/settings.js";
 import { Recorder, listAudioDevices } from "../lib/recorder.js";
 import { findFfmpeg, ffmpegInfo, hasWinget, installFfmpeg, isInstalling } from "../lib/ffmpeg.js";
+import { getPrefs, setPrefs } from "../lib/prefs.js";
 import {
   getState,
   acquireLock,
@@ -132,14 +133,14 @@ function appLanguage(): string | undefined {
 /**
  * The PANEL's language, cached.
  *
- * The key is redrawn at 8 fps while recording; one `getGlobalSettings` round-trip per
- * frame would be absurd. Since the language only changes when the person moves the
+ * The key is redrawn at 8 fps while recording; resolving the cascade on every frame
+ * would be waste. Since the language only changes when the person moves the
  * selector, the cache is refreshed on `willAppear` and after every `setGlobal`.
  */
 let uiLocaleCache: Locale = resolveUiLocale(undefined, undefined, osLanguage());
 
 async function refreshUiLocale(g?: GlobalSettings): Promise<Locale> {
-  const global = g ?? (await streamDeck.settings.getGlobalSettings<GlobalSettings>());
+  const global = g ?? getPrefs();
   uiLocaleCache = resolveUiLocale(global?.uiLang, appLanguage(), osLanguage());
   return uiLocaleCache;
 }
@@ -398,12 +399,12 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
   /** "Heard you, but the previous dictation is still going." Never delays the caller. */
   private async beepLate(): Promise<void> {
-    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const global = getPrefs();
     beep(ffmpegOf(global), "cancel");
   }
 
   private async runDeepLink(ev: DidReceiveDeepLinkEvent): Promise<void> {
-    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     const fail = (why: string): void => {
       streamDeck.logger.warn(`shortcut: ${why}`);
@@ -678,7 +679,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st: KeyState,
   ): Promise<void> {
     const s = withDefaults(raw);
-    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const global = getPrefs();
     const T = keyText(await refreshUiLocale(global));
 
     // No audio step: the key only rewrites whatever is selected.
@@ -815,7 +816,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     st.audioPath = undefined;
     st.levels = [];
 
-    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const global = getPrefs();
     if (s.beep) beep(ffmpegOf(global), "cancel");
     await this.flash(a, "warn", [why], 1600);
   }
@@ -825,7 +826,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     if (st.phase !== "recording" && st.phase !== "arming") return;
 
     const s = withDefaults(raw);
-    const global = await streamDeck.settings.getGlobalSettings<GlobalSettings>();
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     const rec = st.recorder;
     const durationMs = st.startedAt ? Date.now() - st.startedAt : 0;
@@ -1024,7 +1025,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
   override async onSendToPlugin(ev: SendToPluginEvent<PiMessage, ActionSettings>): Promise<void> {
     const msg = ev.payload;
     const a = ev.action;
-    const global = (await streamDeck.settings.getGlobalSettings<GlobalSettings>()) ?? {};
+    const global = getPrefs();
     const ffmpeg = ffmpegOf(global);
     // In the SDK the one that talks to the panel is streamDeck.ui, not the action object.
     // The message only goes out if there is a visible PI — the SDK itself guarantees that.
@@ -1118,13 +1119,13 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
         case "setKey":
           await setApiKey(msg.key);
-          await streamDeck.settings.setGlobalSettings({ ...global, hasKey: true });
+          await setPrefs({ ...global, hasKey: true });
           reply({ event: "keySaved", hasKey: true });
           break;
 
         case "clearKey":
           await clearApiKey();
-          await streamDeck.settings.setGlobalSettings({ ...global, hasKey: false });
+          await setPrefs({ ...global, hasKey: false });
           reply({ event: "keySaved", hasKey: false });
           break;
 
@@ -1136,7 +1137,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
             uiLang: msg.uiLang ?? global.uiLang,
             contentLang: msg.contentLang ?? global.contentLang,
           };
-          await streamDeck.settings.setGlobalSettings(next);
+          await setPrefs(next);
           // The key writes in the panel's language too: moving the selector has to repaint
           // the visible keys, not just the panel.
           await refreshUiLocale(next);

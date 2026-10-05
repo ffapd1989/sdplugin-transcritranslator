@@ -435,10 +435,11 @@ Already discussed and deliberately outside the initial scope:
 - [ ] Publish on the Elgato store. The code side is done (v1.6.0.0): SDK 3 with the DRM
       manifest (`SDKVersion: 3`, Stream Deck 7.1+), white monochrome list icons, `showAlert` on
       errors, ffmpeg found or installed from the panel, `THIRD-PARTY-NOTICES.txt`, and
-      `streamdeck validate`/`pack` passing on CLI 1.10.1. Left: the listing — a 288×288 app
-      icon, a 1920×960 thumbnail, at least three gallery items, the demo video Elgato requires
-      for plugins that use a paid service, the English description listing the requirements —
-      and testing the protected build downloaded from Maker Console after the first upload
+      `streamdeck validate`/`pack` passing on CLI 1.10.1. The listing is ready in
+      [marketplace/](marketplace/LISTING.md): app icon, thumbnail, five gallery images,
+      description, tags, links and release notes. Left: recording the demo video Elgato requires
+      for plugins that use a paid service (shot list in the listing), creating the organisation
+      in Maker Console, and testing the protected build downloaded after the first upload
 
 ---
 

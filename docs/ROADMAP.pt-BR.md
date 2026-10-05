@@ -422,11 +422,12 @@ Já discutido e deliberadamente fora do escopo inicial:
 - [ ] Publicar na loja da Elgato. A parte de código está feita (v1.6.0.0): SDK 3 com o manifest
       do DRM (`SDKVersion: 3`, Stream Deck 7.1+), ícones de lista brancos monocromáticos,
       `showAlert` nos erros, ffmpeg encontrado ou instalado pelo painel,
-      `THIRD-PARTY-NOTICES.txt`, e `streamdeck validate`/`pack` passando no CLI 1.10.1. Falta: a
-      listagem — ícone do app 288×288, thumbnail 1920×960, ao menos três itens de galeria, o
-      vídeo de demonstração que a Elgato exige de plugin que usa serviço pago, a descrição em
-      inglês listando os requisitos — e testar o build protegido baixado do Maker Console depois
-      do primeiro envio
+      `THIRD-PARTY-NOTICES.txt`, e `streamdeck validate`/`pack` passando no CLI 1.10.1. A
+      listagem está pronta em [marketplace/](marketplace/LISTING.pt-BR.md): ícone do app,
+      thumbnail, cinco imagens de galeria, descrição, tags, links e notas da versão. Falta:
+      gravar o vídeo de demonstração que a Elgato exige de plugin que usa serviço pago (lista de
+      cenas na listagem), criar a organização no Maker Console e testar o build protegido
+      baixado depois do primeiro envio
 
 ---
 

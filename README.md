@@ -279,6 +279,7 @@ listens expecting that vocabulary.
 | `…\audio\` | audio files, if you ask for them to be kept |
 | `…\audio\falhou\` | audio from a failed upload — **always preserved** |
 | `…\presets.json` | your presets |
+| `…\settings.json` | languages, dictionary and ffmpeg path |
 
 The key does **not** live in the Stream Deck settings: those become a plain-text `.json` under
 `%APPDATA%\Elgato`. Under DPAPI it only opens on this Windows account.
@@ -343,7 +344,7 @@ the plugin copies and tells you, instead of pasting in the wrong place.
 npm run check     # types
 npm run test      # 279 assertions over the pure parts (dictionary, prompts, languages, SVG, defaults)
 npm run mic       # records 3 s from the microphone and validates the core against the hardware
-npm run shots     # regenerates docs/img/*.png from the real interface
+npm run shots     # regenerates docs/img/ and docs/marketplace/ from the real interface
 npm run watch     # automatic rebuild
 npm run build
 streamdeck restart com.felipe.transcritranslator

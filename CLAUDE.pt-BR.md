@@ -66,7 +66,8 @@ com o sufixo `.pt-BR`. **Os dois mudam na mesma alteração.** Um `.pt-BR` atras
 tradução nenhuma, porque parece atual.
 
 Os pares são `README`, `CLAUDE`, `CONTRIBUTING`, `PRIVACY`, `SECURITY`, `CODE_OF_CONDUCT`,
-`docs/README`, `docs/ROADMAP` e `docs/ORIGINAL-PLAN`. Acrescentar um documento é acrescentar
+`docs/README`, `docs/ROADMAP`, `docs/ORIGINAL-PLAN` e `docs/marketplace/LISTING`. Acrescentar
+um documento é acrescentar
 dois, mais uma linha nos dois `docs/README`.
 
 A faixa de abas que o GitHub mostra no topo da página do repositório (*Readme*, *MIT license*,
@@ -113,6 +114,7 @@ apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
 | [src/lib/deliver.ts](src/lib/deliver.ts) | Foco, clipboard, colagem, histórico |
 | [src/lib/sessions.ts](src/lib/sessions.ts) | Estado global das teclas, trava de gravação única, PIDs órfãos |
 | [src/lib/shortcuts.ts](src/lib/shortcuts.ts) | Apelido → tecla, para o atalho de teclado alcançar tecla fora da tela |
+| [src/lib/prefs.ts](src/lib/prefs.ts) | Idiomas, dicionário e caminho do ffmpeg no `settings.json` (decisão 26) |
 | [src/lib/icons.ts](src/lib/icons.ts) | A tecla desenhada em SVG (ícones, waveform, badges) |
 | [src/lib/settings.ts](src/lib/settings.ts) | Tipos, defaults e a cascata de resolução de idioma |
 | [src/lib/vault.ts](src/lib/vault.ts) | Cofre DPAPI da chave da OpenAI |
@@ -382,6 +384,18 @@ aquele mesmo gravador, então uma parada normal (fase `stopping`) passa intocada
 `lender()` exatamente como o `setImage`, então um ditado disparado pelo teclado alerta na tecla
 que estiver emprestando o display.
 
+**26. As preferências moram num arquivo do próprio plugin, não nas configurações globais do
+Stream Deck.** Idiomas, dicionário e caminho do ffmpeg vão para
+`%LOCALAPPDATA%\transcritranslator\settings.json` ([prefs.ts](src/lib/prefs.ts)), como os
+presets e o caderninho dos atalhos. O app guarda as configurações globais no Gerenciador de
+Credenciais do Windows, e na máquina de desenvolvimento esse cofre quebrou por uma sessão
+inteira: toda gravação falhava com `CredWrite() err: 1312`, toda leitura com "Failed to parse
+account settings from credentials" — inclusive nos plugins Spotify, Weather e Discord da própria
+Elgato. O painel trocava de idioma na tela, a gravação falhava em silêncio e o painel seguinte
+abria em "Default"; o dicionário também tinha sumido. Reiniciar o app consertou a gravação, mas
+não os dados já perdidos. O arquivo é lido uma vez no boot e fica em memória; o primeiro boot
+sem ele copia o que o app ainda conseguir ler.
+
 ## Decisões de produto (definidas com o usuário)
 
 Não são acidentes de implementação — foram escolhidas explicitamente:
@@ -481,6 +495,8 @@ quando o `i18n.js` faltava.
 função que desenha a tecla física, e as telas do painel são o `ui/dictation.html` de verdade
 alimentado com os mesmos payloads que o plugin manda pelo `sendToPropertyInspector`. Mexeu na
 interface, rode de novo. Captura feita à mão começa a mentir no dia seguinte, e ninguém percebe.
+A mesma rodada compõe o thumbnail, a galeria e o ícone do app do Marketplace em
+`docs/marketplace/` a partir dessas teclas e telas, nos tamanhos exatos que a loja pede.
 
 Duas armadilhas ali, as duas já resolvidas, mas boas de saber se for mexer: o Chrome headless
 recusa janela mais estreita que ~500 px (por isso a largura é travada no próprio documento e a

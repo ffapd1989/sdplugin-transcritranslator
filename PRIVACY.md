@@ -45,6 +45,7 @@ network.
 | `…\audio\` | the MP3 files | only if you tick *keep audio*; otherwise deleted right after delivery |
 | `…\audio\falhou\` | audio whose upload failed | kept **even with *keep audio* off**, so a network error does not cost you the recording. Nothing deletes these but you |
 | `…\presets.json` | the moulds you saved | until you delete them |
+| `…\settings.json` | your language choices, the canonical dictionary and the ffmpeg path | until you delete it |
 | `…\atalhos.json` | nickname → key, for the keyboard shortcut, including a copy of those keys' settings | rebuilt as keys appear |
 
 The clipboard is used to deliver the text, so what you dictate passes through it and stays there

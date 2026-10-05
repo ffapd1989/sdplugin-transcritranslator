@@ -44,6 +44,7 @@ está instalado lê o seu PATH e não usa a rede.
 | `…\audio\` | os arquivos MP3 | só se você marcar *guardar áudio*; caso contrário são apagados logo após a entrega |
 | `…\audio\falhou\` | áudio cujo envio falhou | guardado **mesmo com *guardar áudio* desligado**, para um erro de rede não custar a gravação. Ninguém apaga esses além de você |
 | `…\presets.json` | os moldes que você salvou | até você apagar |
+| `…\settings.json` | suas escolhas de idioma, o dicionário canônico e o caminho do ffmpeg | até você apagar |
 | `…\atalhos.json` | apelido → tecla, para o atalho de teclado, incluindo uma cópia das configurações dessas teclas | reconstruído conforme as teclas aparecem |
 
 O clipboard é usado para entregar o texto, então o que você dita passa por ele e fica lá até

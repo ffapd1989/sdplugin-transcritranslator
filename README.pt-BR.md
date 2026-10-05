@@ -280,6 +280,7 @@ ouvir esperando aquele vocabulário.
 | `…\audio\` | áudios, se você pedir para guardar |
 | `…\audio\falhou\` | áudio de envio que falhou — **sempre preservado** |
 | `…\presets.json` | seus presets |
+| `…\settings.json` | idiomas, dicionário e caminho do ffmpeg |
 
 A chave **não** fica nas configurações do Stream Deck: elas viram um `.json` em texto plano em
 `%APPDATA%\Elgato`. No DPAPI ela só abre nesta conta do Windows.
@@ -343,7 +344,7 @@ no lugar errado.
 npm run check     # tipos
 npm run test      # 279 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
 npm run mic       # grava 3 s do microfone e valida o núcleo contra o hardware
-npm run shots     # regera docs/img/*.png a partir da interface real
+npm run shots     # regera docs/img/ e docs/marketplace/ a partir da interface real
 npm run watch     # rebuild automático
 npm run build
 streamdeck restart com.felipe.transcritranslator

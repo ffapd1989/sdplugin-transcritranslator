@@ -856,8 +856,8 @@ function applyLang() {
 
 /**
  * Two selectors, because they are two questions: which language you READ the panel in, and
- * which language the AI reads the presets and prompts in. Both live in the plugin's global
- * settings — not in the browser — so they apply to any key and survive a reinstall.
+ * which language the AI reads the presets and prompts in. Both live in the plugin's
+ * preferences file — not in the browser — so they apply to any key and survive a reinstall.
  */
 function buildLangPickers(prefs) {
   const langOptions = (extraLabel) => {
@@ -1047,7 +1047,7 @@ function handlePlugin(p) {
         }
       }
 
-      // The panel's language comes from the plugin's global settings, so the selectors
+      // The panel's language comes from the plugin's preferences, so the selectors
       // are built before the interface is translated.
       if (p.appLanguage) appLang = String(p.appLanguage).slice(0, 2);
       if (p.autoUiLocale) autoLang = p.autoUiLocale;

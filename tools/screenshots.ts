@@ -213,7 +213,7 @@ const DICTIONARY = "GitHub, JavaScript, PostgreSQL, Kubernetes, WireGuard, Grafa
 
 const INIT = {
   event: "init",
-  devices: ["FIFINE Microphone (USB PnP Audio)", "Headset (CORSAIR HS80 RGB)"],
+  devices: ["Microphone (USB Audio Device)", "Headset Microphone"],
   presets: PRESETS,
   hasKey: true,
   ffmpeg: { found: true, path: "ffmpeg", version: "9.0.1-essentials_build-www.gyan.dev", winget: true, installing: false },
@@ -237,7 +237,7 @@ const INIT = {
 const SETTINGS: ActionSettings = {
   presetId: "es",
   label: "Translate",
-  micDevice: "FIFINE Microphone (USB PnP Audio)",
+  micDevice: "Microphone (USB Audio Device)",
   shortcutAlias: "translate",
   mode: "toggle",
   // English, because the prompts follow the SPOKEN language (see prompt-text.ts) and
@@ -403,4 +403,115 @@ await panelPage("panel-dictionary", `
   window.__shotHeight = Math.ceil(sheet.bottom + 14);
 `);
 
-console.log("\ndone — docs/img/\n");
+// ---------------------------------------------------------------------------
+// 3. The Marketplace listing — thumbnail, gallery and app icon
+// ---------------------------------------------------------------------------
+//
+// Same rule as above: the keys are `keyImage()` and the panels are the PNGs just rendered
+// from the real `dictation.html`. Elgato asks for 1920×960 PNGs with English text only, and a
+// 288×288 app icon. Rendered at scale 1, because that size IS the deliverable.
+
+const MARKET = join(ROOT, "docs", "marketplace");
+await mkdir(MARKET, { recursive: true });
+
+const SLIDE_CSS = `
+  * { box-sizing: border-box; }
+  body { margin:0; width:1920px; height:960px; overflow:hidden; background:
+         radial-gradient(1200px 700px at 78% 40%, #1d2340 0%, #111116 60%, #0c0c10 100%);
+         font-family:"Segoe UI",Arial,sans-serif; color:#eef0f5; }
+  .wrap { display:flex; align-items:center; gap:90px; height:960px; padding:0 120px; }
+  .text { flex:0 0 640px; }
+  .kicker { font-size:26px; letter-spacing:.14em; text-transform:uppercase; color:#7f9be6; margin-bottom:22px; }
+  h1 { font-size:84px; line-height:1.04; margin:0 0 28px; font-weight:700; letter-spacing:-.01em; }
+  p { font-size:34px; line-height:1.4; color:#b9bfcc; margin:0 0 18px; }
+  ul { margin:26px 0 0; padding:0; list-style:none; }
+  li { font-size:31px; color:#d7dbe4; margin:0 0 16px; padding-left:42px; position:relative; }
+  li::before { content:""; position:absolute; left:0; top:14px; width:18px; height:18px;
+               border-radius:5px; background:#3b6fd4; }
+  .art { flex:1; display:flex; align-items:center; justify-content:center; gap:34px; }
+  .key { border-radius:34px; background:#000; box-shadow:0 18px 60px rgba(0,0,0,.55); display:block; }
+  .cap { text-align:center; font-size:24px; color:#8d93a0; margin-top:14px; }
+  .panel { border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.6); border:1px solid #2c2f3a;
+           overflow:hidden; background:#2d2d2d; }
+  .panel img { display:block; }
+  .chips { display:flex; gap:14px; margin-top:34px; }
+  .chip { font-size:28px; padding:10px 24px; border-radius:40px; background:#1f2740; color:#cfdaf7;
+          border:1px solid #33427a; }
+  .small { font-size:24px; color:#7d8391; margin-top:40px; }`;
+
+const keyTag = (svg: string, size: number, caption?: string) =>
+  `<figure style="margin:0"><img class="key" src="${svg}" width="${size}" height="${size}" alt="">` +
+  (caption ? `<div class="cap">${caption}</div>` : "") + `</figure>`;
+
+/** A panel PNG (2x) shown at `width` CSS px, cropped to `height` from the top. */
+const panelTag = (file: string, width: number, height: number) =>
+  `<div class="panel" style="width:${width}px;height:${height}px">` +
+  `<img src="${url(join(OUT, file))}" width="${width}" alt=""></div>`;
+
+async function slide(name: string, text: string, art: string): Promise<void> {
+  const file = join(WORK, `market-${name}.html`);
+  await writeFile(file, `<!doctype html><meta charset="utf-8"><style>${SLIDE_CSS}</style>` +
+    `<div class="wrap"><div class="text">${text}</div><div class="art">${art}</div></div>`, "utf8");
+  await chrome(["--force-device-scale-factor=1", "--window-size=1920,960",
+    `--screenshot=${join(MARKET, `${name}.png`)}`, url(file)]);
+  console.log(`  marketplace/${name}.png`);
+}
+
+const STYLES = KEY_STYLES.map((st) => keyImage({
+  color: "#3B6FD4", style: st, icon: "mic", lines: wrapLabel("Dictate", 14), fontSize: 14,
+}));
+
+await slide("thumbnail", `
+  <h1>TranscriTranslator</h1>
+  <p>Voice dictation on a Stream Deck key.</p>
+  <div class="chips"><span class="chip">Transcribe</span><span class="chip">Translate</span><span class="chip">Rewrite</span></div>
+  <div class="small">Uses your own OpenAI API key · Windows</div>`,
+  `<div style="display:grid;grid-template-columns:repeat(2,250px);gap:34px">
+    ${keyTag(CYCLE[0].svg, 250)}${keyTag(CYCLE[1].svg, 250)}${keyTag(FLAVOURS[0].svg, 250)}${keyTag(CYCLE[3].svg, 250)}
+  </div>`);
+
+await slide("gallery-1-dictate", `
+  <div class="kicker">Dictate anywhere</div>
+  <h1>Press, speak, press again.</h1>
+  <p>The text lands in the field you were typing in — and only there: switch windows and it is
+  copied instead of pasted.</p>`,
+  CYCLE.map((c) => keyTag(c.svg, 190, c.caption)).join(""));
+
+await slide("gallery-2-jobs", `
+  <div class="kicker">One key, three jobs</div>
+  <h1>Transcribe, translate, rewrite.</h1>
+  <ul><li>Clean-up: punctuation, no fillers</li><li>28 target languages, from a list</li>
+  <li>Your own instruction per key</li><li>A dictionary for your spelling</li></ul>`,
+  `<div style="display:grid;grid-template-columns:repeat(2,210px);gap:30px">
+    ${FLAVOURS.map((c) => keyTag(c.svg, 210)).join("")}</div>
+   ${panelTag("panel-simple.png", 400, 760)}`);
+
+await slide("gallery-3-setup", `
+  <div class="kicker">No terminal needed</div>
+  <h1>Set up from the panel.</h1>
+  <ul><li>ffmpeg found, or installed in one click</li><li>OpenAI key stored with Windows DPAPI</li>
+  <li>Panel in English, Portuguese and Spanish</li></ul>`,
+  panelTag("panel-ffmpeg.png", 470, 730));
+
+await slide("gallery-4-prompts", `
+  <div class="kicker">No hidden prompts</div>
+  <h1>See exactly what is sent.</h1>
+  <p>Every block of text that goes to OpenAI, in both steps, readable before you dictate.</p>`,
+  panelTag("panel-prompt.png", 470, 760));
+
+await slide("gallery-5-look", `
+  <div class="kicker">Make the key yours</div>
+  <h1>Three styles, eighteen icons.</h1>
+  <p>Colours per state, a live preview, and the label you want.</p>
+  <div style="display:flex;gap:26px;margin-top:34px">${STYLES.map((s) => keyTag(s, 150)).join("")}</div>`,
+  panelTag("panel-appearance.png", 440, 760));
+
+// The app icon: the key's own neon microphone, no label — a mark, not a screenshot.
+const iconFile = join(WORK, "market-icon.html");
+await writeFile(iconFile, `<!doctype html><style>body{margin:0;background:#0c0c10}</style>` +
+  `<img src="${keyImage({ color: "#3B6FD4", style: "neon", icon: "mic", lines: [] })}" width="288" height="288" style="display:block">`, "utf8");
+await chrome(["--force-device-scale-factor=1", "--window-size=288,288",
+  `--screenshot=${join(MARKET, "app-icon.png")}`, url(iconFile)]);
+console.log("  marketplace/app-icon.png");
+
+console.log("\ndone — docs/img/ and docs/marketplace/\n");

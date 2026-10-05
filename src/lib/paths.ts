@@ -12,6 +12,8 @@ export const HISTORY_DIR = join(ROOT, "historico");
 export const PIDS_FILE = join(ROOT, "ffmpeg-pids.json");
 /** Shortcut nickname -> key, to trigger a key that is not on screen (see shortcuts.ts). */
 export const SHORTCUTS_FILE = join(ROOT, "atalhos.json");
+/** Languages, dictionary and ffmpeg path — the machine-wide preferences (see prefs.ts). */
+export const PREFS_FILE = join(ROOT, "settings.json");
 
 export async function ensureDirs(): Promise<void> {
   for (const d of [ROOT, AUDIO_DIR, FAILED_DIR, HISTORY_DIR]) {

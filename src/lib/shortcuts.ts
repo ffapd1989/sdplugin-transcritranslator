@@ -7,10 +7,10 @@
 // in sight, the plugin keeps a copy of its own of the settings of every key that has
 // shown up at least once, indexed by the nickname the person gave it.
 //
-// WHY IN A FILE, and not in the Stream Deck global settings: the globals are the OpenAI
-// key, the dictionary and the language preferences — the PERSON's things. This is a
-// derived index, which the plugin rebuilds by itself as keys show up. Mixing the two
-// would make the panel load a whole map of keys on every open, for no gain at all.
+// WHY A FILE OF ITS OWN, and not inside the preferences (prefs.ts): those are the
+// dictionary and the language choices — the PERSON's things. This is a derived index,
+// which the plugin rebuilds by itself as keys show up. Mixing the two would make the
+// panel load a whole map of keys on every open, for no gain at all.
 //
 // IT IS NOT A DISPOSABLE CACHE: if the file disappears, a shortcut pointing at a key
 // that has not shown up in this session stops working until you visit its page. That is
