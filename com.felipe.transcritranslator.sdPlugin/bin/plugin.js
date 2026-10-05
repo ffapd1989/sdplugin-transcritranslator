@@ -20305,7 +20305,7 @@ var Dictation = class extends (_a = SingletonAction) {
             // What "auto" means on this machine, so the panel's selector does not have to
             // guess it with less information than the plugin has.
             autoUiLocale: resolveUiLocale("auto", appLanguage(), osLanguage()),
-            version: "1.6.1.1",
+            version: "1.6.1.2",
             versionDate: "2026-10-05",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,

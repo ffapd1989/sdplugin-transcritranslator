@@ -90,19 +90,20 @@ video demonstrating the plugin is fully functional" — the review-process page)
 slot in the submission is a gallery item, so it goes there, next to the five images. MP4,
 1920×1080, **under 50 MB**: the submission page says 50, the product guidelines say 250, and the
 stricter one is the one that cannot bounce.
-A shot list that covers what the reviewer has to see working, in about 90 seconds:
 
-1. A clean machine: drag **Dictate** onto a key, open the panel, the ffmpeg warning shows up,
-   **Install now**, the green confirmation.
-2. Paste the OpenAI key in the help window.
-3. Open Notepad, tap the key, speak a sentence with a self-correction and "comma", tap again —
-   the cleaned-up text lands in Notepad.
-4. Apply **Translate → Spanish**, speak, and the Spanish text lands.
-5. A rewrite key (formal email) on a messy sentence.
-6. Hold the key while recording: *release to cancel*, nothing is sent.
-7. Switch windows while it is sending: the text is copied, not pasted.
+The current video runs 2:18 and weighs 14 MB; it is not versioned, because the repository is no
+place for it. What it shows, in order:
 
-The reviewer reads English, so record with the panel in English.
+1. An OpenAI key pasted into **Machine settings** and saved: *Key stored in the vault*.
+2. **Clean dictation** in English: the key records, sends, and the tidied text lands in Notepad.
+3. **Translate → English**: Portuguese spoken, English pasted.
+4. The two models behind every key, `gpt-transcribe` and `gpt-5.6-luna`, in the Advanced tab.
+
+What a re-shoot has to keep:
+
+- The gallery is public, so the narration speaks to whoever is buying, not to the reviewer.
+- No API key readable on screen, not even a temporary one: blur it in the edit.
+- Panel in English and English captions, because the reviewer reads English.
 
 ## Before pressing submit
 

@@ -3,6 +3,7 @@
 # TranscriTranslator — ditado por voz no Stream Deck
 
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-3B6FD4)](LICENSE)
+[![Privacidade](https://img.shields.io/badge/privacidade-o%20que%20vai%20%C3%A0%20OpenAI-6E56CF)](PRIVACY.pt-BR.md)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%20%2F%2011-0078D4)
 ![Stream Deck](https://img.shields.io/badge/Stream%20Deck-7.1%2B-101014)
 ![Node](https://img.shields.io/badge/Node-24%2B-2E8C3C)

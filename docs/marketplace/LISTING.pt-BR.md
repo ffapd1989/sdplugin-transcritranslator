@@ -97,19 +97,20 @@ video demonstrating the plugin is fully functional" — página do processo de r
 lugar para vídeo no envio é um item da galeria, então ele vai lá, ao lado das cinco imagens. MP4,
 1920×1080, **menos de 50 MB**: a página de envio diz 50, as diretrizes de produto dizem 250, e o
 mais restrito é o que não volta.
-Uma lista de cenas que cobre o que o revisor precisa ver funcionando, em uns 90 segundos:
 
-1. Máquina limpa: arrastar **Dictate** para uma tecla, abrir o painel, aparece o aviso do
-   ffmpeg, **Instalar agora**, a confirmação verde.
-2. Colar a chave da OpenAI na janela de ajuda.
-3. Abrir o Bloco de Notas, tocar a tecla, falar uma frase com uma autocorreção e "vírgula",
-   tocar de novo — o texto limpo cai no Bloco de Notas.
-4. Aplicar **Translate → Spanish**, falar, e o texto em espanhol cai.
-5. Uma tecla de reescrita (e-mail formal) sobre uma frase bagunçada.
-6. Segurar a tecla durante a gravação: *solte para cancelar*, nada é enviado.
-7. Trocar de janela durante o envio: o texto é copiado, não colado.
+O vídeo atual tem 2:18 e 14 MB; ele não é versionado, porque o repositório não é lugar para ele.
+O que mostra, em ordem:
 
-Para o revisor, que lê em inglês, vale gravar com o painel em inglês.
+1. Uma chave da OpenAI colada em **Machine settings** e salva: *Key stored in the vault*.
+2. **Clean dictation** em inglês: a tecla grava, envia, e o texto arrumado cai no Bloco de Notas.
+3. **Translate → English**: fala em português, texto colado em inglês.
+4. Os dois modelos por trás de cada tecla, `gpt-transcribe` e `gpt-5.6-luna`, na aba Advanced.
+
+O que uma regravação tem de manter:
+
+- A galeria é pública, então a narração fala com quem está comprando, não com o revisor.
+- Nenhuma chave de API legível na tela, nem uma temporária: borrar na edição.
+- Painel em inglês e legendas em inglês, porque o revisor lê em inglês.
 
 ## Antes de apertar enviar
 
