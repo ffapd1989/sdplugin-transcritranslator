@@ -848,6 +848,8 @@ function applyLang() {
   // Built before the language is known, so it would keep the first guess's wording.
   const contentAuto = document.querySelector('#contentLang option[value="auto"]');
   if (contentAuto) contentAuto.textContent = t("langContentAuto");
+  const spokenAuto = document.querySelector('#langList option[value=""]');
+  if (spokenAuto) spokenAuto.textContent = t("langDetect");
   refreshKeyStatus();
   refreshFfmpeg();
   renderPresetInfo();
