@@ -556,6 +556,10 @@ verdade — o winget instalou o build essentials em 8 s e o gravador capturou co
 como idioma falado padrão, com o Windows primeiro na cascata de idiomas; e o
 `THIRD-PARTY-NOTICES.txt` gerado pelo build.
 
+A v1.6.1.2 entrou no ar no
+[Elgato Marketplace](https://marketplace.elgato.com/product/transcritranslator-880a4449-1857-4d98-9cb0-b1c295684126)
+em 14/10/2026, com o nome de maker *Drummond Addons*.
+
 **Nada do trabalho visual desde a v1.1 foi visto na tecla física ainda** — só no render
 headless. Isso inclui o `font-family` de família única (QtSvg) e o alerta.
 

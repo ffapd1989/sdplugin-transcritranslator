@@ -231,8 +231,8 @@ window.TT_I18N = {
     helpStep3: "Vá em API keys e clique em “Create new secret key”.",
     helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo aqui embaixo.",
     helpCost:
-      "Custo aproximado: cerca de US$ 0,003 por minuto de áudio, mais alguns centavos por mil " +
-      "palavras reescritas. Um dia inteiro de ditado costuma custar menos que um café.",
+      "Custo aproximado: cerca de US$ 0,005 por minuto de fala, somando a transcrição e a " +
+      "limpeza. Um dia inteiro de ditado costuma custar menos que um café.",
     helpSafety:
       "A chave fica cifrada por DPAPI nesta conta do Windows. Não vai para as configurações do " +
       "Stream Deck nem para lugar nenhum além da própria OpenAI.",
@@ -526,7 +526,7 @@ window.TT_I18N = {
     helpStep3: "Go to API keys and click “Create new secret key”.",
     helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the field just below.",
     helpCost:
-      "Rough cost: about US$0.003 per minute of audio, plus a few cents per thousand rewritten words. " +
+      "Rough cost: about US$0.005 per minute of speech, transcription and clean-up together. " +
       "A full day of dictation usually costs less than a coffee.",
     helpSafety:
       "The key is encrypted with DPAPI under this Windows account. It never reaches the Stream Deck " +
@@ -820,8 +820,8 @@ window.TT_I18N = {
     helpStep3: "Ve a API keys y pulsa “Create new secret key”.",
     helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el campo de aquí abajo.",
     helpCost:
-      "Coste aproximado: unos US$ 0,003 por minuto de audio, más unos céntimos por cada mil palabras " +
-      "reescritas. Un día entero de dictado suele costar menos que un café.",
+      "Coste aproximado: unos US$ 0,005 por minuto de voz, sumando la transcripción y la " +
+      "limpieza. Un día entero de dictado suele costar menos que un café.",
     helpSafety:
       "La clave queda cifrada con DPAPI en esta cuenta de Windows. No llega a la configuración de " +
       "Stream Deck ni a ningún sitio salvo la propia OpenAI.",

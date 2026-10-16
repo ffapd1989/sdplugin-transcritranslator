@@ -419,15 +419,13 @@ Já discutido e deliberadamente fora do escopo inicial:
       v1.3.0.0, ver seção 7. Continua dependendo do **app** da Elgato rodando, porque é
       nele que o plugin vive; o que deixou de ser necessário é a tecla estar à mão
 - [ ] Rastreamento de custo (foi decidido **não** fazer; revisitar só se houver demanda)
-- [ ] Publicar na loja da Elgato. A parte de código está feita (v1.6.0.0): SDK 3 com o manifest
-      do DRM (`SDKVersion: 3`, Stream Deck 7.1+), ícones de lista brancos monocromáticos,
-      `showAlert` nos erros, ffmpeg encontrado ou instalado pelo painel,
-      `THIRD-PARTY-NOTICES.txt`, e `streamdeck validate`/`pack` passando no CLI 1.10.1. A
-      listagem está pronta em [marketplace/](marketplace/LISTING.pt-BR.md): ícone do app,
-      thumbnail, cinco imagens de galeria, descrição, tags, links e notas da versão. Falta:
-      gravar o vídeo de demonstração que a Elgato exige de plugin que usa serviço pago (lista de
-      cenas na listagem), criar a organização no Maker Console e testar o build protegido
-      baixado depois do primeiro envio
+- [x] Publicar na loja da Elgato — [no ar no Marketplace](https://marketplace.elgato.com/product/transcritranslator-880a4449-1857-4d98-9cb0-b1c295684126)
+      desde a v1.6.1.2. A parte de código veio na v1.6.0.0: SDK 3 com o manifest do DRM
+      (`SDKVersion: 3`, Stream Deck 7.1+), ícones de lista brancos monocromáticos, `showAlert`
+      nos erros, ffmpeg encontrado ou instalado pelo painel, `THIRD-PARTY-NOTICES.txt`, e
+      `streamdeck validate`/`pack` passando no CLI 1.10.1. A listagem — ícone do app,
+      thumbnail, galeria, vídeo de demonstração, descrição, tags, links e notas da versão — está
+      em [marketplace/](marketplace/LISTING.pt-BR.md)
 
 ---
 

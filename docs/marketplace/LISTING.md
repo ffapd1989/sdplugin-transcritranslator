@@ -41,7 +41,7 @@ What it does
 
 Requirements
 • Windows 10 or 11 and Stream Deck 7.1 or later
-• Your own OpenAI API key, pay as you go (about US$0.003 per minute of audio)
+• Your own OpenAI API key, pay as you go (about US$0.005 per minute of speech)
 • ffmpeg: the plugin finds it, or installs it for you with one click
 
 Setup, all inside the panel

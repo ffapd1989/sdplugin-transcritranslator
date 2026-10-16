@@ -432,14 +432,13 @@ Already discussed and deliberately outside the initial scope:
       see section 7. It still depends on Elgato's **app** running, because that is where the
       plugin lives; what stopped being necessary is having the key within reach
 - [ ] Cost tracking (it was decided **not** to do it; revisit only if there is demand)
-- [ ] Publish on the Elgato store. The code side is done (v1.6.0.0): SDK 3 with the DRM
-      manifest (`SDKVersion: 3`, Stream Deck 7.1+), white monochrome list icons, `showAlert` on
-      errors, ffmpeg found or installed from the panel, `THIRD-PARTY-NOTICES.txt`, and
-      `streamdeck validate`/`pack` passing on CLI 1.10.1. The listing is ready in
-      [marketplace/](marketplace/LISTING.md): app icon, thumbnail, five gallery images,
-      description, tags, links and release notes. Left: recording the demo video Elgato requires
-      for plugins that use a paid service (shot list in the listing), creating the organisation
-      in Maker Console, and testing the protected build downloaded after the first upload
+- [x] Publish on the Elgato store — [live on the Marketplace](https://marketplace.elgato.com/product/transcritranslator-880a4449-1857-4d98-9cb0-b1c295684126)
+      since v1.6.1.2. The code side came in v1.6.0.0: SDK 3 with the DRM manifest
+      (`SDKVersion: 3`, Stream Deck 7.1+), white monochrome list icons, `showAlert` on errors,
+      ffmpeg found or installed from the panel, `THIRD-PARTY-NOTICES.txt`, and
+      `streamdeck validate`/`pack` passing on CLI 1.10.1. The listing — app icon, thumbnail,
+      gallery, demo video, description, tags, links and release notes — is in
+      [marketplace/](marketplace/LISTING.md)
 
 ---
 

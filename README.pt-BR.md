@@ -8,7 +8,7 @@
 ![Stream Deck](https://img.shields.io/badge/Stream%20Deck-7.1%2B-101014)
 ![Node](https://img.shields.io/badge/Node-24%2B-2E8C3C)
 ![Interface](https://img.shields.io/badge/interface-pt%20%C2%B7%20en%20%C2%B7%20es-2E7D74)
-![Marketplace](https://img.shields.io/badge/Elgato%20Marketplace-ainda%20n%C3%A3o-8a8a90)
+[![Elgato Marketplace](https://img.shields.io/badge/Elgato%20Marketplace-dispon%C3%ADvel-1F6FEB)](https://marketplace.elgato.com/product/transcritranslator-880a4449-1857-4d98-9cb0-b1c295684126)
 
 Uma tecla do Stream Deck vira um microfone de ditado: **aperta, fala, aperta de novo**, e o
 texto aparece no campo onde você estava digitando — transcrito pela OpenAI e, se você quiser,
@@ -21,9 +21,9 @@ tecla física usa, e são regeradas por `npm run shots`. Nada ali é montagem.
 
 > **A chave da OpenAI é sua.** O plugin não tem serviço próprio: ele fala com a *sua* conta na
 > OpenAI. O áudio vai para o endpoint de transcrição e, com a segunda etapa ligada, o texto vai
-> para um modelo de linguagem. É pagamento por uso, na ordem de **US$ 0,003 por minuto de
-> áudio** mais alguns centavos por mil palavras reescritas. Sem chave não se dita nada — o
-> painel ensina a obter uma, com os links diretos.
+> para um modelo de linguagem. É pagamento por uso: cerca de **US$ 0,005 por minuto de
+> fala**, transcrição e limpeza somadas, pelo preço de tabela da OpenAI. Sem chave não se dita
+> nada — o painel ensina a obter uma, com os links diretos.
 
 Cada tecla faz um de três trabalhos, e quem escolhe é você: **transcrever** e colar o que foi
 dito; **transcrever e traduzir** para um de 28 idiomas; ou **transcrever e reescrever** seguindo
@@ -55,12 +55,15 @@ de forma independente.
 | Windows | 10 ou 11 |
 | App Stream Deck | 7.1+ (qualquer hardware; desenvolvido no XL) |
 | ffmpeg | o painel encontra, ou instala com um clique (winget, sem administrador) |
-| Chave da OpenAI | pagamento por uso; cerca de US$ 0,003 por minuto de áudio |
+| Chave da OpenAI | pagamento por uso; cerca de US$ 0,005 por minuto de fala |
 | Node | 24+, só para compilar |
 
 ## Instalação
 
-Ele **ainda não está no Elgato Marketplace**, então a instalação é a partir do código:
+Baixe pelo **[Elgato Marketplace](https://marketplace.elgato.com/product/transcritranslator-880a4449-1857-4d98-9cb0-b1c295684126)**
+— é gratuito, e o app Stream Deck instala para você.
+
+Para compilar a partir do código:
 
 ```powershell
 git clone https://github.com/ffapd1989/sdplugin-transcritranslator.git
