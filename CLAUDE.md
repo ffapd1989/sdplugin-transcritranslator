@@ -24,6 +24,7 @@ npm run leak      # fires the shortcut in the sequence that used to leave ffmpeg
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # automatic rebuild
 npm run shots     # regenerates the README images from the real interface (needs Chrome)
+npm run shots -- pt   # the same set in Portuguese (or es), into docs/img/pt/ and docs/marketplace/pt/
 
 streamdeck restart com.felipe.transcritranslator   # reloads it in the app
 ```

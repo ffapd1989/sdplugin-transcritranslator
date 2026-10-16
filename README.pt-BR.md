@@ -14,7 +14,7 @@ Uma tecla do Stream Deck vira um microfone de ditado: **aperta, fala, aperta de 
 texto aparece no campo onde você estava digitando — transcrito pela OpenAI e, se você quiser,
 já limpo, traduzido ou reescrito no tom que você definir.
 
-<img src="docs/img/keys.png" width="400" alt="Teclas do Stream Deck: o ciclo do ditado, quatro teclas configuradas de formas diferentes e os estados de aviso">
+<img src="docs/img/pt/keys.png" width="400" alt="Teclas do Stream Deck: o ciclo do ditado, quatro teclas configuradas de formas diferentes e os estados de aviso">
 
 Toda tecla dessa imagem é o próprio plugin se desenhando — elas saem da mesma função que a
 tecla física usa, e são regeradas por `npm run shots`. Nada ali é montagem.
@@ -87,7 +87,7 @@ um instalado há um minuto, com o app Stream Deck ainda aberto. Se não achar, u
 oferece **Instalar agora**, que o instala pelo winget, o instalador que já vem no Windows, sem
 senha de administrador; **Como instalar** ensina o caminho à mão.
 
-<img src="docs/img/panel-ffmpeg.png" width="340" alt="O guia do ffmpeg: instalar com um clique, ou à mão em três passos">
+<img src="docs/img/pt/panel-ffmpeg.png" width="340" alt="O guia do ffmpeg: instalar com um clique, ou à mão em três passos">
 
 ## Como usar
 
@@ -109,8 +109,8 @@ atalho de teclado, cores e ffmpeg.
 
 <table>
 <tr>
-<td><img src="docs/img/panel-simple.png" width="340" alt="Modo simples: preset, rótulo, prévia da tecla ao vivo, microfone, idioma falado e as duas etapas"></td>
-<td valign="top"><img src="docs/img/panel-capture.png" width="340" alt="Captura: modo, parada por silêncio, limite, bipe e o atalho de teclado com o endereço pronto"></td>
+<td><img src="docs/img/pt/panel-simple.png" width="340" alt="Modo simples: preset, rótulo, prévia da tecla ao vivo, microfone, idioma falado e as duas etapas"></td>
+<td valign="top"><img src="docs/img/pt/panel-capture.png" width="340" alt="Captura: modo, parada por silêncio, limite, bipe e o atalho de teclado com o endereço pronto"></td>
 </tr>
 <tr>
 <td align="center"><em>Modo simples</em></td>
@@ -131,7 +131,7 @@ atalho de teclado, cores e ffmpeg.
 peça: o dicionário que viaja junto com a transcrição, a camada de limpeza, a instrução de
 tradução, a grafia canônica e as travas de segurança. Se o plugin manda, você pode ler.
 
-<img src="docs/img/panel-prompt.png" width="340" alt="O texto exato enviado à OpenAI, separado em blocos nomeados">
+<img src="docs/img/pt/panel-prompt.png" width="340" alt="O texto exato enviado à OpenAI, separado em blocos nomeados">
 
 > A imagem mostra os prompts em inglês porque a tecla do exemplo fala inglês: o idioma dos
 > prompts acompanha a **fala**, não o painel.
@@ -190,7 +190,7 @@ Três direções visuais — `neon`, `aurora`, `ring` — e 18 ícones, escolhid
 miniaturas em vez de um `<select>`. As miniaturas são desenhadas pelo plugin na cor e no
 estilo da própria tecla, então a grade mostra o que a tecla vai mostrar.
 
-<img src="docs/img/panel-appearance.png" width="340" alt="Aparência: amostras de cor por estado, os três estilos de tecla e a grade de ícones">
+<img src="docs/img/pt/panel-appearance.png" width="340" alt="Aparência: amostras de cor por estado, os três estilos de tecla e a grade de ícones">
 
 ## Acionar pelo teclado
 
@@ -246,7 +246,7 @@ Os nomes e as instruções dos presets seguem o mesmo eixo.
 Suas siglas e termos próprios, em **Configuração da máquina → Abrir dicionário**. Ele age em
 duas frentes:
 
-<img src="docs/img/panel-dictionary.png" width="340" alt="O dicionário de palavras canônicas em janela própria">
+<img src="docs/img/pt/panel-dictionary.png" width="340" alt="O dicionário de palavras canônicas em janela própria">
 
 1. **Na entrada** — ajuda o modelo a *ouvir* certo, e o caminho depende do modelo de áudio:
    - o `gpt-transcribe` (o padrão) recebe o dicionário em `keywords[]`, um campo feito
@@ -349,6 +349,7 @@ npm run check     # tipos
 npm run test      # 279 asserções das partes puras (dicionário, prompts, idiomas, SVG, defaults)
 npm run mic       # grava 3 s do microfone e valida o núcleo contra o hardware
 npm run shots     # regera docs/img/ e docs/marketplace/ a partir da interface real
+npm run shots -- pt   # o mesmo em português, em docs/img/pt/ e docs/marketplace/pt/
 npm run watch     # rebuild automático
 npm run build
 streamdeck restart com.felipe.transcritranslator

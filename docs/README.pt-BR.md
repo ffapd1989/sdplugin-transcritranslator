@@ -21,8 +21,10 @@ lado com o sufixo `.pt-BR`. Os dois mudam no mesmo commit.
 ## Também nesta pasta
 
 - [img/](img/) — as imagens usadas no readme. Elas são **geradas**, não tiradas à mão:
-  `npm run shots` redesenha tudo a partir da tecla real e do painel real.
+  `npm run shots` redesenha tudo a partir da tecla real e do painel real. O readme em português
+  usa o conjunto em [img/pt/](img/pt/), desenhado por `npm run shots -- pt`.
 - [marketplace/](marketplace/) — thumbnail, galeria e ícone do app para a loja, gerados pelo
-  mesmo `npm run shots`, ao lado do texto da listagem.
+  mesmo `npm run shots`, ao lado do texto da listagem. A loja só aceita inglês; o conjunto em
+  português em [marketplace/pt/](marketplace/pt/) serve para mostrar o plugin em outros lugares.
 - [estilos/](estilos/) — as oito propostas visuais comparadas lado a lado antes de a aparência
   atual ser escrita, mais o conjunto final de ícones. Vale abrir antes de propor uma nona.

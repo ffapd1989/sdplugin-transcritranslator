@@ -349,6 +349,7 @@ npm run check     # types
 npm run test      # 279 assertions over the pure parts (dictionary, prompts, languages, SVG, defaults)
 npm run mic       # records 3 s from the microphone and validates the core against the hardware
 npm run shots     # regenerates docs/img/ and docs/marketplace/ from the real interface
+npm run shots -- pt   # the same in Portuguese, into docs/img/pt/ and docs/marketplace/pt/
 npm run watch     # automatic rebuild
 npm run build
 streamdeck restart com.felipe.transcritranslator

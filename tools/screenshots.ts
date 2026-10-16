@@ -6,7 +6,8 @@
 // changes, `npm run shots` reprints the truth; a hand-made screenshot would start lying
 // the next day.
 //
-//   npm run shots
+//   npm run shots          English, into docs/img/ and docs/marketplace/
+//   npm run shots -- pt    the same in Portuguese (or es), into docs/img/pt/ and docs/marketplace/pt/
 //
 // Needs Chrome installed (headless). Everything else comes from the project itself.
 
@@ -24,11 +25,181 @@ import { textPromptParts } from "../src/lib/prompts.js";
 import { buildTranscribePrompt, buildKeywords, parseTerms } from "../src/lib/canon.js";
 import { supportsKeywords } from "../src/lib/openai.js";
 import { keyText } from "../src/lib/key-text.js";
+import type { Locale } from "../src/lib/prompt-text.js";
+
+const LOCALE = (process.argv[2] ?? "en") as Locale;
+if (!["pt", "en", "es"].includes(LOCALE)) {
+  console.error(`Unknown language "${LOCALE}" — use pt, en or es`);
+  process.exit(1);
+}
 
 const ROOT = process.cwd();
 const UI = join(ROOT, "com.felipe.transcritranslator.sdPlugin", "ui");
-const OUT = join(ROOT, "docs", "img");
+const SUBFOLDER = LOCALE === "en" ? "" : LOCALE;
+const OUT = join(ROOT, "docs", "img", SUBFOLDER);
+const MARKET = join(ROOT, "docs", "marketplace", SUBFOLDER);
 const WORK = join(ROOT, "node_modules", ".cache", "shots");
+
+/** What the window reads in the panel's own language, from the panel's own table. */
+const I18N: { TT_I18N?: Record<Locale, Record<string, string>> } = {};
+new Function("window", await readFile(join(UI, "i18n.js"), "utf8"))(I18N);
+const UI_TEXT = I18N.TT_I18N![LOCALE];
+
+/**
+ * The words these pictures need that the plugin itself never says: the slide copy, the
+ * captions under the keys and the fake hardware names. The key labels are the ones a
+ * person would type on that key in that language.
+ */
+const COPY: Record<Locale, {
+  target: string;
+  alias: string;
+  devices: [string, string];
+  labels: { dictate: string; translate: string; email: string; topics: string; proofread: string };
+  cycle: [string, string, string, string];
+  flavours: [string, string, string, string];
+  warnings: [string, string, string, string];
+  rows: [string, string, string];
+  thumbnail: { tagline: string; chips: [string, string, string]; small: string };
+  slides: Record<"dictate" | "jobs" | "setup" | "prompts" | "look", { kicker: string; title: string; body: string }>;
+}> = {
+  en: {
+    target: "es",
+    alias: "translate",
+    devices: ["Microphone (USB Audio Device)", "Headset Microphone"],
+    labels: { dictate: "Dictate", translate: "Translate", email: "Formal email", topics: "Bullet points", proofread: "Proofread selection" },
+    cycle: ["idle", "recording", "sending", "pasted"],
+    flavours: ["translate → es · aurora", "formal email · ring", "bullet points · neon", "proofread · aurora"],
+    warnings: ["hold to cancel", "focus moved", "nothing heard", "policy refusal"],
+    rows: ["one dictation, start to finish", "the same key, other jobs", "when something needs saying"],
+    thumbnail: {
+      tagline: "Voice dictation on a Stream Deck key.",
+      chips: ["Transcribe", "Translate", "Rewrite"],
+      small: "Uses your own OpenAI API key · Windows",
+    },
+    slides: {
+      dictate: {
+        kicker: "Dictate anywhere",
+        title: "Press, speak, press again.",
+        body: `<p>The text lands in the field you were typing in — and only there: switch windows and it is
+          copied instead of pasted.</p>`,
+      },
+      jobs: {
+        kicker: "One key, three jobs",
+        title: "Transcribe, translate, rewrite.",
+        body: `<ul><li>Clean-up: punctuation, no fillers</li><li>28 target languages, from a list</li>
+          <li>Your own instruction per key</li><li>A dictionary for your spelling</li></ul>`,
+      },
+      setup: {
+        kicker: "No terminal needed",
+        title: "Set up from the panel.",
+        body: `<ul><li>ffmpeg found, or installed in one click</li><li>OpenAI key stored with Windows DPAPI</li>
+          <li>Panel in English, Portuguese and Spanish</li></ul>`,
+      },
+      prompts: {
+        kicker: "No hidden prompts",
+        title: "See exactly what is sent.",
+        body: `<p>Every block of text that goes to OpenAI, in both steps, readable before you dictate.</p>`,
+      },
+      look: {
+        kicker: "Make the key yours",
+        title: "Three styles, eighteen icons.",
+        body: `<p>Colours per state, a live preview, and the label you want.</p>`,
+      },
+    },
+  },
+  pt: {
+    target: "en",
+    alias: "traduzir",
+    devices: ["Microfone (USB Audio Device)", "Microfone do headset"],
+    labels: { dictate: "Ditar", translate: "Traduzir", email: "E-mail formal", topics: "Tópicos", proofread: "Revisar seleção" },
+    cycle: ["em espera", "gravando", "enviando", "colado"],
+    flavours: ["traduzir → en · aurora", "e-mail formal · ring", "tópicos · neon", "revisar · aurora"],
+    warnings: ["segure para cancelar", "janela trocada", "nada ouvido", "recusa da política"],
+    rows: ["um ditado, do começo ao fim", "a mesma tecla, outros trabalhos", "quando algo precisa ser dito"],
+    thumbnail: {
+      tagline: "Ditado por voz numa tecla do Stream Deck.",
+      chips: ["Transcrever", "Traduzir", "Reescrever"],
+      small: "Usa a sua própria chave da API da OpenAI · Windows",
+    },
+    slides: {
+      dictate: {
+        kicker: "Dite em qualquer lugar",
+        title: "Aperte, fale, aperte de novo.",
+        body: `<p>O texto aparece no campo em que você estava digitando — e só nele: se trocar de janela,
+          ele é copiado em vez de colado.</p>`,
+      },
+      jobs: {
+        kicker: "Uma tecla, três trabalhos",
+        title: "Transcrever, traduzir, reescrever.",
+        body: `<ul><li>Limpeza: pontuação, sem hesitações</li><li>28 idiomas de destino, numa lista</li>
+          <li>Uma instrução sua em cada tecla</li><li>Um dicionário para a sua grafia</li></ul>`,
+      },
+      setup: {
+        kicker: "Sem terminal",
+        title: "Configure pelo painel.",
+        body: `<ul><li>ffmpeg encontrado, ou instalado com um clique</li><li>Chave da OpenAI guardada com o DPAPI do Windows</li>
+          <li>Painel em português, inglês e espanhol</li></ul>`,
+      },
+      prompts: {
+        kicker: "Nenhum prompt escondido",
+        title: "Veja exatamente o que é enviado.",
+        body: `<p>Cada bloco de texto que vai para a OpenAI, nas duas etapas, legível antes de você ditar.</p>`,
+      },
+      look: {
+        kicker: "A tecla do seu jeito",
+        title: "Três estilos, dezoito ícones.",
+        body: `<p>Cores por estado, prévia ao vivo e o rótulo que você quiser.</p>`,
+      },
+    },
+  },
+  es: {
+    target: "en",
+    alias: "traducir",
+    devices: ["Micrófono (USB Audio Device)", "Micrófono del auricular"],
+    labels: { dictate: "Dictar", translate: "Traducir", email: "Correo formal", topics: "Viñetas", proofread: "Revisar selección" },
+    cycle: ["en reposo", "grabando", "enviando", "pegado"],
+    flavours: ["traducir → en · aurora", "correo formal · ring", "viñetas · neon", "revisar · aurora"],
+    warnings: ["mantén para cancelar", "ventana cambiada", "nada oído", "rechazo de política"],
+    rows: ["un dictado, de principio a fin", "la misma tecla, otros trabajos", "cuando hay algo que decir"],
+    thumbnail: {
+      tagline: "Dictado por voz en una tecla del Stream Deck.",
+      chips: ["Transcribir", "Traducir", "Reescribir"],
+      small: "Usa tu propia clave de API de OpenAI · Windows",
+    },
+    slides: {
+      dictate: {
+        kicker: "Dicta en cualquier sitio",
+        title: "Pulsa, habla, pulsa otra vez.",
+        body: `<p>El texto aparece en el campo donde estabas escribiendo — y solo ahí: si cambias de ventana,
+          se copia en lugar de pegarse.</p>`,
+      },
+      jobs: {
+        kicker: "Una tecla, tres trabajos",
+        title: "Transcribir, traducir, reescribir.",
+        body: `<ul><li>Limpieza: puntuación, sin muletillas</li><li>28 idiomas de destino, en una lista</li>
+          <li>Tu propia instrucción en cada tecla</li><li>Un diccionario para tu ortografía</li></ul>`,
+      },
+      setup: {
+        kicker: "Sin terminal",
+        title: "Configura desde el panel.",
+        body: `<ul><li>ffmpeg encontrado, o instalado con un clic</li><li>Clave de OpenAI guardada con DPAPI de Windows</li>
+          <li>Panel en español, inglés y portugués</li></ul>`,
+      },
+      prompts: {
+        kicker: "Ningún prompt oculto",
+        title: "Mira exactamente qué se envía.",
+        body: `<p>Cada bloque de texto que va a OpenAI, en los dos pasos, legible antes de dictar.</p>`,
+      },
+      look: {
+        kicker: "La tecla a tu manera",
+        title: "Tres estilos, dieciocho iconos.",
+        body: `<p>Colores por estado, vista previa en vivo y la etiqueta que quieras.</p>`,
+      },
+    },
+  },
+};
+const WORDS = COPY[LOCALE];
+const BADGE = WORDS.target.toUpperCase();
 
 const CHROME = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
@@ -109,7 +280,7 @@ function widthFix(width: number): string {
 // 1. The key strip — every state, drawn by the real thing
 // ---------------------------------------------------------------------------
 
-const T = keyText("en");
+const T = keyText(LOCALE);
 
 /** A rolling waveform that looks like speech rather than a random sawtooth. */
 const SPEECH = [0.18, 0.42, 0.71, 0.55, 0.88, 0.63, 0.35, 0.52, 0.28];
@@ -121,57 +292,57 @@ function cell(caption: string, svg: string): Cell {
 }
 
 const CYCLE: Cell[] = [
-  cell("idle", keyImage({
+  cell(WORDS.cycle[0], keyImage({
     color: "#3B6FD4", style: "neon", icon: "mic",
-    lines: wrapLabel("Dictate", 14), fontSize: 14,
+    lines: wrapLabel(WORDS.labels.dictate, 14), fontSize: 14,
   })),
-  cell("recording", keyImage({
+  cell(WORDS.cycle[1], keyImage({
     color: "#C44040", style: "neon", special: "wave",
     levels: SPEECH, lines: ["0:07"], fontSize: 14,
   })),
-  cell("sending", keyImage({
+  cell(WORDS.cycle[2], keyImage({
     color: "#B8791F", style: "neon", special: "dots",
     phase: 1, lines: [T.sending], fontSize: 12,
   })),
-  cell("pasted", keyImage({
+  cell(WORDS.cycle[3], keyImage({
     color: "#2E8C3C", style: "neon", special: "check",
     lines: ["142", T.words], fontSizes: [22, 10], lineGap: 1,
   })),
 ];
 
 const FLAVOURS: Cell[] = [
-  cell("translate → es · aurora", keyImage({
+  cell(WORDS.flavours[0], keyImage({
     color: "#2E7D74", style: "aurora", icon: "globe",
-    lines: wrapLabel("Translate", 13), fontSize: 13, badge: "ES",
+    lines: wrapLabel(WORDS.labels.translate, 13), fontSize: 13, badge: BADGE,
   })),
-  cell("formal email · ring", keyImage({
+  cell(WORDS.flavours[1], keyImage({
     color: "#5A4FCF", style: "ring", icon: "mail",
-    lines: wrapLabel("Formal email", 13), fontSize: 13,
+    lines: wrapLabel(WORDS.labels.email, 13), fontSize: 13,
   })),
-  cell("bullet points · neon", keyImage({
+  cell(WORDS.flavours[2], keyImage({
     color: "#B8791F", style: "neon", icon: "list",
-    lines: wrapLabel("Bullet points", 13), fontSize: 13,
+    lines: wrapLabel(WORDS.labels.topics, 13), fontSize: 13,
   })),
-  cell("proofread · aurora", keyImage({
+  cell(WORDS.flavours[3], keyImage({
     color: "#7A4FA8", style: "aurora", icon: "pen",
-    lines: wrapLabel("Proofread selection", 12), fontSize: 12,
+    lines: wrapLabel(WORDS.labels.proofread, 12), fontSize: 12,
   })),
 ];
 
 const WARNINGS: Cell[] = [
-  cell("hold to cancel", keyImage({
+  cell(WORDS.warnings[0], keyImage({
     color: "#C44040", style: "neon", special: "warn",
     lines: [...T.releaseCancel], fontSize: 10, lineGap: 1,
   })),
-  cell("focus moved", keyImage({
+  cell(WORDS.warnings[1], keyImage({
     color: "#B8791F", style: "neon", special: "warn",
     lines: [...T.copied], fontSize: 11, lineGap: 1,
   })),
-  cell("nothing heard", keyImage({
+  cell(WORDS.warnings[2], keyImage({
     color: "#B8791F", style: "neon", special: "warn",
     lines: [T.noSpeech], fontSize: 12,
   })),
-  cell("policy refusal", keyImage({
+  cell(WORDS.warnings[3], keyImage({
     color: "#B8791F", style: "neon", special: "warn",
     lines: [...T.rawBlocked], fontSize: 11, lineGap: 1,
   })),
@@ -201,7 +372,7 @@ function strip(rows: Array<{ title: string; cells: Cell[] }>): string {
 // 2. The panel — the real HTML, fed the real payloads
 // ---------------------------------------------------------------------------
 
-const PRESETS = builtinPresets("en").map((p) => ({
+const PRESETS = builtinPresets(LOCALE).map((p) => ({
   id: p.id,
   name: p.name,
   builtin: !!p.builtin,
@@ -213,42 +384,42 @@ const DICTIONARY = "GitHub, JavaScript, PostgreSQL, Kubernetes, WireGuard, Grafa
 
 const INIT = {
   event: "init",
-  devices: ["Microphone (USB Audio Device)", "Headset Microphone"],
+  devices: WORDS.devices,
   presets: PRESETS,
   hasKey: true,
   ffmpeg: { found: true, path: "ffmpeg", version: "9.0.1-essentials_build-www.gyan.dev", winget: true, installing: false },
   canonTerms: DICTIONARY,
   ffmpegPath: "",
-  uiLang: "en",
+  uiLang: LOCALE,
   contentLang: "auto",
-  appLanguage: "en",
-  uiLocale: "en",
-  autoUiLocale: "en",
+  appLanguage: LOCALE,
+  uiLocale: LOCALE,
+  autoUiLocale: LOCALE,
   version: VERSION.version,
   versionDate: VERSION.date,
   swatches: SWATCHES,
   transcribeModels: TRANSCRIBE_MODELS,
   textModels: TEXT_MODELS,
-  languages: spokenLanguages("en", "Detect (or I mix languages)"),
-  targetLanguages: targetLanguages("en"),
+  languages: spokenLanguages(LOCALE, UI_TEXT.langDetect),
+  targetLanguages: targetLanguages(LOCALE),
 };
 
 /** A key that shows off the interesting half: transcription + clean-up + translation. */
 const SETTINGS: ActionSettings = {
-  presetId: "es",
-  label: "Translate",
-  micDevice: "Microphone (USB Audio Device)",
-  shortcutAlias: "translate",
+  presetId: WORDS.target,
+  label: WORDS.labels.translate,
+  micDevice: WORDS.devices[0],
+  shortcutAlias: WORDS.alias,
   mode: "toggle",
-  // English, because the prompts follow the SPOKEN language (see prompt-text.ts) and
-  // these shots have to be readable for whoever reads the README.
-  language: "en",
+  // The shots' own language, because the prompts follow the SPOKEN language (see
+  // prompt-text.ts) and they have to be readable for whoever looks at them.
+  language: LOCALE,
   transcribeOn: true,
   transcribeContext: "",
   textOn: true,
   cleanup: true,
   styleMode: "translate",
-  targetLanguage: "es",
+  targetLanguage: WORDS.target,
   icon: "globe",
   keyStyle: "aurora",
   colorIdle: "#2E7D74",
@@ -262,7 +433,7 @@ const KEY_PREVIEW = {
   image: keyImage({
     color: FULL.colorIdle, style: FULL.keyStyle, icon: FULL.icon,
     lines: wrapLabel(FULL.label, FULL.labelSize), fontSize: FULL.labelSize,
-    lineGap: FULL.labelGap, badge: "ES",
+    lineGap: FULL.labelGap, badge: BADGE,
   }),
   icons: ICON_NAMES.map((n) => ({ name: n, image: iconThumb(n, FULL.keyStyle, FULL.colorIdle) })),
   styles: KEY_STYLES.map((st) => ({ name: st, image: iconThumb(FULL.icon, st, FULL.colorIdle) })),
@@ -274,7 +445,7 @@ const TEXT_OPTS = {
   targetLanguage: FULL.targetLanguage,
   style: FULL.style,
   canonTerms: TERMS,
-  locale: "en" as const,
+  locale: LOCALE,
 };
 
 // The same branch the plugin takes, so the screenshot cannot show a prompt the default
@@ -300,8 +471,8 @@ const PREVIEW = {
 
 const SHORTCUT = {
   event: "shortcutState",
-  alias: "translate",
-  url: "streamdeck://plugins/message/com.felipe.transcritranslator/dictate?key=translate&streamdeck=hidden",
+  alias: WORDS.alias,
+  url: `streamdeck://plugins/message/com.felipe.transcritranslator/dictate?key=${WORDS.alias}&streamdeck=hidden`,
   conflictWith: null,
 };
 
@@ -346,9 +517,9 @@ console.log("\nrendering:");
 // The key strip.
 const stripFile = join(WORK, "keys.html");
 await writeFile(stripFile, strip([
-  { title: "one dictation, start to finish", cells: CYCLE },
-  { title: "the same key, other jobs", cells: FLAVOURS },
-  { title: "when something needs saying", cells: WARNINGS },
+  { title: WORDS.rows[0], cells: CYCLE },
+  { title: WORDS.rows[1], cells: FLAVOURS },
+  { title: WORDS.rows[2], cells: WARNINGS },
 ]), "utf8");
 await shot(stripFile, STRIP_WIDTH, await measure(stripFile), join(OUT, "keys.png"));
 console.log("  keys.png");
@@ -411,7 +582,6 @@ await panelPage("panel-dictionary", `
 // from the real `dictation.html`. Elgato asks for 1920×960 PNGs with English text only, and a
 // 288×288 app icon. Rendered at scale 1, because that size IS the deliverable.
 
-const MARKET = join(ROOT, "docs", "marketplace");
 await mkdir(MARKET, { recursive: true });
 
 const SLIDE_CSS = `
@@ -458,52 +628,38 @@ async function slide(name: string, text: string, art: string): Promise<void> {
 }
 
 const STYLES = KEY_STYLES.map((st) => keyImage({
-  color: "#3B6FD4", style: st, icon: "mic", lines: wrapLabel("Dictate", 14), fontSize: 14,
+  color: "#3B6FD4", style: st, icon: "mic", lines: wrapLabel(WORDS.labels.dictate, 14), fontSize: 14,
 }));
+
+const slideText = (name: keyof typeof WORDS.slides) =>
+  `<div class="kicker">${WORDS.slides[name].kicker}</div>` +
+  `<h1>${WORDS.slides[name].title}</h1>${WORDS.slides[name].body}`;
 
 await slide("thumbnail", `
   <h1>TranscriTranslator</h1>
-  <p>Voice dictation on a Stream Deck key.</p>
-  <div class="chips"><span class="chip">Transcribe</span><span class="chip">Translate</span><span class="chip">Rewrite</span></div>
-  <div class="small">Uses your own OpenAI API key · Windows</div>`,
+  <p>${WORDS.thumbnail.tagline}</p>
+  <div class="chips">${WORDS.thumbnail.chips.map((chip) => `<span class="chip">${chip}</span>`).join("")}</div>
+  <div class="small">${WORDS.thumbnail.small}</div>`,
   `<div style="display:grid;grid-template-columns:repeat(2,250px);gap:34px">
     ${keyTag(CYCLE[0].svg, 250)}${keyTag(CYCLE[1].svg, 250)}${keyTag(FLAVOURS[0].svg, 250)}${keyTag(CYCLE[3].svg, 250)}
   </div>`);
 
-await slide("gallery-1-dictate", `
-  <div class="kicker">Dictate anywhere</div>
-  <h1>Press, speak, press again.</h1>
-  <p>The text lands in the field you were typing in — and only there: switch windows and it is
-  copied instead of pasted.</p>`,
+await slide("gallery-1-dictate", slideText("dictate"),
   CYCLE.map((c) => keyTag(c.svg, 190, c.caption)).join(""));
 
-await slide("gallery-2-jobs", `
-  <div class="kicker">One key, three jobs</div>
-  <h1>Transcribe, translate, rewrite.</h1>
-  <ul><li>Clean-up: punctuation, no fillers</li><li>28 target languages, from a list</li>
-  <li>Your own instruction per key</li><li>A dictionary for your spelling</li></ul>`,
+await slide("gallery-2-jobs", slideText("jobs"),
   `<div style="display:grid;grid-template-columns:repeat(2,210px);gap:30px">
     ${FLAVOURS.map((c) => keyTag(c.svg, 210)).join("")}</div>
    ${panelTag("panel-simple.png", 400, 760)}`);
 
-await slide("gallery-3-setup", `
-  <div class="kicker">No terminal needed</div>
-  <h1>Set up from the panel.</h1>
-  <ul><li>ffmpeg found, or installed in one click</li><li>OpenAI key stored with Windows DPAPI</li>
-  <li>Panel in English, Portuguese and Spanish</li></ul>`,
+await slide("gallery-3-setup", slideText("setup"),
   panelTag("panel-ffmpeg.png", 470, 730));
 
-await slide("gallery-4-prompts", `
-  <div class="kicker">No hidden prompts</div>
-  <h1>See exactly what is sent.</h1>
-  <p>Every block of text that goes to OpenAI, in both steps, readable before you dictate.</p>`,
+await slide("gallery-4-prompts", slideText("prompts"),
   panelTag("panel-prompt.png", 470, 760));
 
-await slide("gallery-5-look", `
-  <div class="kicker">Make the key yours</div>
-  <h1>Three styles, eighteen icons.</h1>
-  <p>Colours per state, a live preview, and the label you want.</p>
-  <div style="display:flex;gap:26px;margin-top:34px">${STYLES.map((s) => keyTag(s, 150)).join("")}</div>`,
+await slide("gallery-5-look", slideText("look") +
+  `<div style="display:flex;gap:26px;margin-top:34px">${STYLES.map((s) => keyTag(s, 150)).join("")}</div>`,
   panelTag("panel-appearance.png", 440, 760));
 
 // The app icon: the key's own neon microphone, no label — a mark, not a screenshot.
@@ -514,4 +670,4 @@ await chrome(["--force-device-scale-factor=1", "--window-size=288,288",
   `--screenshot=${join(MARKET, "app-icon.png")}`, url(iconFile)]);
 console.log("  marketplace/app-icon.png");
 
-console.log("\ndone — docs/img/ and docs/marketplace/\n");
+console.log(`\ndone — ${OUT} and ${MARKET}\n`);

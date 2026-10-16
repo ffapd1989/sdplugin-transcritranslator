@@ -23,6 +23,7 @@ npm run leak      # dispara o atalho na sequência que deixava o ffmpeg gravando
 npm run build     # bundle -> com.felipe.transcritranslator.sdPlugin/bin/plugin.js
 npm run watch     # rebuild automático
 npm run shots     # regera as imagens do README a partir da interface real (precisa do Chrome)
+npm run shots -- pt   # o mesmo conjunto em português (ou es), em docs/img/pt/ e docs/marketplace/pt/
 
 streamdeck restart com.felipe.transcritranslator   # recarrega no app
 ```
