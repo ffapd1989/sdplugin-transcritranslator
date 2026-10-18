@@ -220,16 +220,16 @@ window.TT_I18N = {
     close: "Fechar",
 
     // missing key
-    noKeyTitle: "Falta a chave da OpenAI",
-    noKeyBody: "Sem ela, a tecla mostra erro ao ser apertada. Leva dois minutos para resolver.",
-    noKeyHow: "Como consigo uma chave?",
-    helpTitle: "Como obter uma chave da OpenAI",
+    noKeyTitle: "Cole aqui sua chave da OpenAI",
+    noKeyBody: "É ela que faz a transcrição.",
+    noKeyLead: "Não tem uma chave? Leva dois minutos:",
+    keySavedReady: "✓ Chave salva. Pronto para ditar.",
     helpStep1: "Crie uma conta (ou entre) em platform.openai.com.",
     helpStep2:
       "Adicione crédito em Billing. A API é pré-paga e separada da assinatura do ChatGPT — " +
       "ter ChatGPT Plus NÃO dá acesso à API.",
     helpStep3: "Vá em API keys e clique em “Create new secret key”.",
-    helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo aqui embaixo.",
+    helpStep4: "Copie a chave (começa com sk- e só aparece uma vez) e cole no campo aí em cima.",
     helpCost:
       "Custo aproximado: cerca de US$ 0,005 por minuto de fala, somando a transcrição e a " +
       "limpeza. Um dia inteiro de ditado costuma custar menos que um café.",
@@ -515,16 +515,16 @@ window.TT_I18N = {
     dictFooter: "One term per comma or per line. UPPERCASE is treated as an acronym.",
     close: "Close",
 
-    noKeyTitle: "OpenAI key missing",
-    noKeyBody: "Without it the key shows an error when pressed. It takes two minutes to sort out.",
-    noKeyHow: "How do I get a key?",
-    helpTitle: "How to get an OpenAI key",
+    noKeyTitle: "Paste your OpenAI key here",
+    noKeyBody: "This is what powers the transcription.",
+    noKeyLead: "No key yet? It takes two minutes:",
+    keySavedReady: "✓ Key saved. Ready to dictate.",
     helpStep1: "Create an account (or sign in) at platform.openai.com.",
     helpStep2:
       "Add credit under Billing. The API is prepaid and separate from the ChatGPT subscription — " +
       "having ChatGPT Plus does NOT grant API access.",
     helpStep3: "Go to API keys and click “Create new secret key”.",
-    helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the field just below.",
+    helpStep4: "Copy the key (it starts with sk- and is shown only once) and paste it in the field above.",
     helpCost:
       "Rough cost: about US$0.005 per minute of speech, transcription and clean-up together. " +
       "A full day of dictation usually costs less than a coffee.",
@@ -809,16 +809,16 @@ window.TT_I18N = {
     dictFooter: "Un término por coma o por línea. Las MAYÚSCULAS se tratan como siglas.",
     close: "Cerrar",
 
-    noKeyTitle: "Falta la clave de OpenAI",
-    noKeyBody: "Sin ella, la tecla muestra un error al pulsarla. Se resuelve en dos minutos.",
-    noKeyHow: "¿Cómo consigo una clave?",
-    helpTitle: "Cómo obtener una clave de OpenAI",
+    noKeyTitle: "Pega aquí tu clave de OpenAI",
+    noKeyBody: "Es la que hace la transcripción.",
+    noKeyLead: "¿No tienes una clave? Lleva dos minutos:",
+    keySavedReady: "✓ Clave guardada. Listo para dictar.",
     helpStep1: "Crea una cuenta (o entra) en platform.openai.com.",
     helpStep2:
       "Añade crédito en Billing. La API es de prepago y va aparte de la suscripción de ChatGPT — " +
       "tener ChatGPT Plus NO da acceso a la API.",
     helpStep3: "Ve a API keys y pulsa “Create new secret key”.",
-    helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el campo de aquí abajo.",
+    helpStep4: "Copia la clave (empieza por sk- y solo se muestra una vez) y pégala en el campo de arriba.",
     helpCost:
       "Coste aproximado: unos US$ 0,005 por minuto de voz, sumando la transcripción y la " +
       "limpieza. Un día entero de dictado suele costar menos que un café.",

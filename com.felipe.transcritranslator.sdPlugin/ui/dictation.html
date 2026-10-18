@@ -224,6 +224,22 @@
   /* right after an install, the banner stays a few seconds to say it worked */
   body.ffdone .ffAlert { display: block; background: #20402a; border-color: #2f6b3f; }
   body.ffdone .ffAlert > :not(.status) { display: none; }
+  /* the key banner: field first, then the open help */
+  .keyField { display: flex; gap: 6px; margin-top: 7px; }
+  .alert .keyField button { margin-top: 0; }
+  .keyHelp { border-top: 1px solid #7a5a2a; margin-top: 8px; padding-top: 8px; }
+  .alert .keyHelp b { color: #e8d6b4; font-weight: 600; }
+  .keyHelp ol { margin: 4px 0 8px; padding-left: 18px; color: #d8c9b0; font-size: 8.5pt; }
+  .keyHelp ol li { margin-bottom: 3px; }
+  .keyHelp .links { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .alert .keyHelp .links button { margin-top: 0; }
+  .keyHelp .note {
+    background: rgba(0,0,0,.18); border-left: 3px solid #7a5a2a; padding: 6px 9px;
+    border-radius: 3px; margin-bottom: 6px; color: #c9b897; font-size: 8pt;
+  }
+  /* right after the key is saved, the banner stays a few seconds to say it worked */
+  body.keydone .keyAlert { display: block; background: #20402a; border-color: #2f6b3f; }
+  body.keydone .keyAlert > :not(.status) { display: none; }
 
   /* modals (the PI is a webview: an overlay is more reliable than window.open) */
   .modal {
@@ -304,10 +320,34 @@
   <div class="status" data-ffstatus></div>
 </div>
 
+<!-- The field comes first: whoever already has a key pastes it and never reads the rest.
+     The help sits open below it, so whoever has none scrolls a little and finds every
+     step and link right there. It writes to the same vault as the Machine settings field. -->
 <div class="alert keyAlert">
-  <b data-i18n="noKeyTitle">Falta a chave da OpenAI</b>
+  <b data-i18n="noKeyTitle">Cole aqui sua chave da OpenAI</b>
   <span data-i18n="noKeyBody"></span>
-  <button id="btnHelpKey" class="primary" data-i18n="noKeyHow">Como consigo uma chave?</button>
+  <div class="keyField">
+    <input type="password" id="alertKey" placeholder="sk-…" autocomplete="off">
+    <button id="alertKeySave" class="primary" data-i18n="save">Salvar</button>
+  </div>
+  <div class="status" id="alertKeyStatus"></div>
+  <div class="keyHelp">
+    <b data-i18n="noKeyLead">Não tem uma chave? Leva dois minutos:</b>
+    <ol>
+      <li data-i18n="helpStep1"></li>
+      <li data-i18n="helpStep2"></li>
+      <li data-i18n="helpStep3"></li>
+      <li data-i18n="helpStep4"></li>
+    </ol>
+    <div class="links">
+      <button data-url="https://platform.openai.com/signup" data-i18n="openPlatform"></button>
+      <button data-url="https://platform.openai.com/api-keys" data-i18n="openKeys"></button>
+      <button data-url="https://platform.openai.com/settings/organization/billing/overview" data-i18n="openBilling"></button>
+      <button data-url="https://openai.com/api/pricing/" data-i18n="openPricing"></button>
+    </div>
+    <div class="note" data-i18n="helpCost"></div>
+    <div class="note" data-i18n="helpSafety"></div>
+  </div>
 </div>
 
 <details open>
@@ -690,41 +730,6 @@
   </div>
 </div>
 
-<!-- How to get the OpenAI key, with the right links. -->
-<div class="modal" id="keyModal">
-  <div class="sheet">
-    <h3 data-i18n="helpTitle">Como obter uma chave da OpenAI</h3>
-    <ol>
-      <li data-i18n="helpStep1"></li>
-      <li data-i18n="helpStep2"></li>
-      <li data-i18n="helpStep3"></li>
-      <li data-i18n="helpStep4"></li>
-    </ol>
-    <div class="links">
-      <button data-url="https://platform.openai.com/signup" data-i18n="openPlatform"></button>
-      <button data-url="https://platform.openai.com/api-keys" data-i18n="openKeys"></button>
-      <button data-url="https://platform.openai.com/settings/organization/billing/overview" data-i18n="openBilling"></button>
-      <button data-url="https://openai.com/api/pricing/" data-i18n="openPricing"></button>
-    </div>
-    <div class="note" data-i18n="helpCost"></div>
-    <div class="note" data-i18n="helpSafety"></div>
-
-    <!-- The field sits HERE because this is where the key is on the clipboard: someone
-         who has just copied it in step 4 should not have to close this, find the machine
-         section and open it to paste. It writes to the same vault as the other field. -->
-    <div class="row">
-      <label data-i18n="apiKey">Chave OpenAI</label>
-      <div class="ctl">
-        <input type="password" id="modalKey" placeholder="sk-…" autocomplete="off">
-        <button id="modalKeySave" class="primary" data-i18n="save">Salvar</button>
-      </div>
-    </div>
-    <div class="status" id="modalKeyStatus"></div>
-
-    <div class="foot"><button data-close data-i18n="close">Fechar</button></div>
-  </div>
-</div>
-
 <!-- How to get ffmpeg: the button does it all; the steps are the way by hand, for a
      Windows without winget or an install that failed. -->
 <div class="modal" id="ffModal">
@@ -1082,16 +1087,22 @@ function handlePlugin(p) {
       applyToForm();
       refreshPromptIfOpen();
       break;
-    case "keySaved":
+    case "keySaved": {
       if (p.version) showVersion(p.version, p.versionDate);
+      const hadKey = hasKeyCached;
       hasKeyCached = !!p.hasKey;
       refreshKeyStatus();
       document.getElementById("apiKey").value = "";
-      document.getElementById("modalKey").value = "";
-      // Saved from the modal: the job ended there, so the modal gets out of the way.
-      if (p.hasKey && keyCameFromModal) closeModals();
-      keyCameFromModal = false;
+      document.getElementById("alertKey").value = "";
+      // The first key turns the banner green for a moment instead of just vanishing:
+      // whoever only pasted needs to see that it took.
+      if (p.hasKey && !hadKey) {
+        status(document.getElementById("alertKeyStatus"), t("keySavedReady"), "ok");
+        document.body.classList.add("keydone");
+        setTimeout(() => document.body.classList.remove("keydone"), 6000);
+      }
       break;
+    }
     case "globalSaved":
       status(document.getElementById("globalStatus"), t("saved"), "ok");
       // Changing the content language renames the built-in presets and rewrites their
@@ -1178,7 +1189,6 @@ function refreshKeyStatus() {
   const text = hasKeyCached ? t("keyOk") : t("keyMissing");
   const cls = hasKeyCached ? "ok" : "warn";
   status(document.getElementById("keyStatus"), text, cls);
-  status(document.getElementById("modalKeyStatus"), text, cls);
   // With no key, the warning appears at the top — before any settings.
   document.body.classList.toggle("nokey", !hasKeyCached);
 }
@@ -1186,12 +1196,11 @@ function refreshKeyStatus() {
 /**
  * Save the key, wherever it comes from.
  *
- * Both fields (the one in the help modal and the one in Machine settings) go through here
+ * Both fields (the one in the banner and the one in Machine settings) go through here
  * on purpose: validating in two places is the recipe for the two drifting apart, and they
  * write to the same vault.
  */
-let keyCameFromModal = false;
-function submitKey(inputId, statusId, fromModal) {
+function submitKey(inputId, statusId) {
   const st = document.getElementById(statusId);
   const key = document.getElementById(inputId).value.trim();
   if (!key) { status(st, t("keyEmpty"), "err"); return; }
@@ -1199,7 +1208,6 @@ function submitKey(inputId, statusId, fromModal) {
   // likely mistake can be caught: pasting something else that was on the clipboard.
   if (!/^sk-/.test(key)) { status(st, t("keyBadFormat"), "err"); return; }
   status(st, t("keySaving"));
-  keyCameFromModal = fromModal;
   toPlugin({ cmd: "setKey", key });
 }
 
@@ -1435,7 +1443,6 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("dictModal");
     document.getElementById("canonTerms").focus();
   };
-  document.getElementById("btnHelpKey").onclick = () => openModal("keyModal");
   for (const b of document.querySelectorAll("[data-close]")) b.onclick = closeModals;
   for (const m of document.querySelectorAll(".modal")) {
     m.addEventListener("click", (e) => { if (e.target === m) closeModals(); });
@@ -1491,16 +1498,18 @@ document.addEventListener("DOMContentLoaded", () => {
     toPlugin({ cmd: "testMic", device: document.getElementById("micList").value });
   };
 
-  document.getElementById("keySave").onclick = () => submitKey("apiKey", "keyStatus", false);
-  document.getElementById("modalKeySave").onclick = () => submitKey("modalKey", "modalKeyStatus", true);
+  document.getElementById("keySave").onclick = () => submitKey("apiKey", "keyStatus");
+  document.getElementById("alertKeySave").onclick = () => submitKey("alertKey", "alertKeyStatus");
   // Enter in the field saves: the person has just pasted, their hand is on the keyboard.
-  for (const [input, statusId, fromModal] of [
-    ["apiKey", "keyStatus", false], ["modalKey", "modalKeyStatus", true],
-  ]) {
+  for (const [input, statusId] of [["apiKey", "keyStatus"], ["alertKey", "alertKeyStatus"]]) {
     document.getElementById(input).addEventListener("keydown", (e) => {
-      if (e.key === "Enter") { e.preventDefault(); submitKey(input, statusId, fromModal); }
+      if (e.key === "Enter") { e.preventDefault(); submitKey(input, statusId); }
     });
   }
+  // In the banner, pasting IS the gesture: it saves on its own. The value only holds the
+  // pasted text after the event, hence the timeout.
+  document.getElementById("alertKey").addEventListener("paste", () =>
+    setTimeout(() => submitKey("alertKey", "alertKeyStatus")));
 
   document.getElementById("keyClear").onclick = () => toPlugin({ cmd: "clearKey" });
 

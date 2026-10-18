@@ -77,10 +77,11 @@ streamdeck link com.felipe.transcritranslator.sdPlugin
 streamdeck restart com.felipe.transcritranslator
 ```
 
-No app Stream Deck, arraste **Dictate** (categoria *TranscriTranslator*) para uma tecla. Abra
-a seção **Configuração da máquina** no painel e cole a chave da OpenAI — isso é feito **uma
-vez** e vale para todas as teclas. Se você ainda não tem chave, o painel ensina a obter uma,
-com os links diretos e o custo.
+No app Stream Deck, arraste **Dictate** (categoria *TranscriTranslator*) para uma tecla. Na
+primeira vez, o painel abre com um campo no topo pedindo a chave da OpenAI: cole e ela fica
+salva — **uma vez** só, para todas as teclas. Se você ainda não tem chave, o passo a passo para
+obter uma está logo abaixo desse campo, com os links diretos e o custo. Para trocar ou remover
+a chave depois, use a seção **Configuração da máquina**.
 
 O **ffmpeg** é o programa gratuito que grava o microfone. O painel procura sozinho — inclusive
 um instalado há um minuto, com o app Stream Deck ainda aberto. Se não achar, um aviso no topo

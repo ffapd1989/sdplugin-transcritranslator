@@ -77,10 +77,11 @@ streamdeck link com.felipe.transcritranslator.sdPlugin
 streamdeck restart com.felipe.transcritranslator
 ```
 
-In the Stream Deck app, drag **Dictate** (category *TranscriTranslator*) onto a key. Open the
-**Machine settings** section in the property inspector and paste your OpenAI key — this is done
-**once** and applies to every key. If you do not have a key yet, the panel walks you through
-getting one, with the direct links and the cost.
+In the Stream Deck app, drag **Dictate** (category *TranscriTranslator*) onto a key. The first
+time, the property inspector opens with a field at the top asking for your OpenAI key: paste it
+and it is saved — **once**, for every key. If you do not have a key yet, the steps to get one
+sit right below that field, with the direct links and the cost. To change or remove the key
+later, use the **Machine settings** section.
 
 **ffmpeg** is the free program that records the microphone. The panel looks for it on its
 own — including one installed a minute ago with the Stream Deck app still open. If it is not
