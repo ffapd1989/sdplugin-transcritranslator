@@ -337,10 +337,11 @@ navigate to another page or profile; if the state lived in the key's instance, t
 would die with it. It lives in a global registry indexed by the action id
 ([`sessions.ts`](src/lib/sessions.ts)).
 
-**Ctrl+V only happens if the focused window has not changed.** The focused process is read at
-the start and checked at the end (`UIAutomation`, 75 ms — P/Invoke with `Add-Type
--TypeDefinition` would cost ~1 s because it compiles C#). If you went off to do something else,
-the plugin copies and tells you, instead of pasting in the wrong place.
+**Ctrl+V only happens if the focused window has not changed.** The focused window — its process
+and its handle — is read at the start and checked at the end (`UIAutomation`, ~100 ms — P/Invoke
+with `Add-Type -TypeDefinition` would cost ~1 s because it compiles C#). The handle is what
+catches a switch between two windows of the same app, which share one process. If you went off
+to do something else, the plugin copies and tells you, instead of pasting in the wrong place.
 
 ## Development
 

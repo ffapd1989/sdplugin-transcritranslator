@@ -87,7 +87,7 @@ de i18n e existe nos três idiomas (ver a regra mais abaixo). String em portugu�
 ## Arquitetura
 
 ```
-apertar → captura o processo em foco (UIAutomation, ~75 ms, em paralelo)
+apertar → captura a janela em foco: processo + handle (UIAutomation, ~100 ms, em paralelo)
         → ffmpeg dshow — 1 processo, 2 saídas simultâneas
                ├─ MP3 16 kHz mono 48 kbps → %LOCALAPPDATA%\transcritranslator\audio\
                └─ medidor de nível (RMS) pelo stderr → waveform da tecla + auto-stop

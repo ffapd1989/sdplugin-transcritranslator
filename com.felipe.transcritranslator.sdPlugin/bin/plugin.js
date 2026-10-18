@@ -18123,7 +18123,7 @@ var lockOwner = null;
 function getState(actionId) {
   let s = states.get(actionId);
   if (!s) {
-    s = { phase: "idle", focusPid: 0, levels: [], startedAt: 0 };
+    s = { phase: "idle", focusTarget: "", levels: [], startedAt: 0 };
     states.set(actionId, s);
   }
   return s;
@@ -18726,15 +18726,15 @@ function powershell(script, timeout) {
 async function tempFile(prefix) {
   return join4(tmpdir(), `tt-${prefix}-${process.pid}-${Date.now()}.txt`);
 }
-async function getFocusPid() {
+var FOCUS_SCRIPT = "$el = [System.Windows.Automation.AutomationElement]::FocusedElement;$fpid = $el.Current.ProcessId;$root = [System.Windows.Automation.AutomationElement]::RootElement;$walk = [System.Windows.Automation.TreeWalker]::ControlViewWalker;while ($true) { $p = $walk.GetParent($el);  if ($p -eq $null -or [System.Windows.Automation.Automation]::Compare($p, $root)) { break }  $el = $p }$focus = '{0}:{1}' -f $fpid, $el.Current.NativeWindowHandle;";
+async function getFocusTarget() {
   try {
     const out = await powershell(
-      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes;[System.Windows.Automation.AutomationElement]::FocusedElement.Current.ProcessId"
+      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes;" + FOCUS_SCRIPT + "$focus"
     );
-    const pid = parseInt(out, 10);
-    return Number.isFinite(pid) ? pid : 0;
+    return /^\d+:\d+$/.test(out) ? out : "";
   } catch {
-    return 0;
+    return "";
   }
 }
 async function isForegroundFullscreen() {
@@ -18759,7 +18759,7 @@ async function deliver(text, opts) {
       return "copied";
     }
     const out = await powershell(
-      `Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms;$t = [IO.File]::ReadAllText(${psQuote(file2)}, [Text.Encoding]::UTF8);Set-Clipboard -Value $t;$cur = 0;try { $cur = [System.Windows.Automation.AutomationElement]::FocusedElement.Current.ProcessId } catch {};$expect = ${opts.expectPid};if ($expect -eq 0 -or $cur -eq $expect) {  [System.Windows.Forms.SendKeys]::SendWait('^v'); 'pasted'} else { 'copied' }`
+      `Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms;$t = [IO.File]::ReadAllText(${psQuote(file2)}, [Text.Encoding]::UTF8);Set-Clipboard -Value $t;$focus = '';try { ${FOCUS_SCRIPT} } catch {};$expect = ${psQuote(opts.expectTarget)};if ($expect -eq '' -or $focus -eq $expect) {  [System.Windows.Forms.SendKeys]::SendWait('^v'); 'pasted'} else { 'copied' }`
     );
     return out.includes("pasted") ? "pasted" : "copied";
   } finally {
@@ -20038,8 +20038,8 @@ var Dictation = class extends (_a = SingletonAction) {
     st.audioPath = audioPath;
     st.startedAt = Date.now();
     await this.render(a, raw);
-    void getFocusPid().then((pid) => {
-      getState(a.id).focusPid = pid;
+    void getFocusTarget().then((target) => {
+      getState(a.id).focusTarget = target;
     });
     const rec = new Recorder({
       ffmpegPath: ffmpeg,
@@ -20166,7 +20166,7 @@ var Dictation = class extends (_a = SingletonAction) {
     }
     const st = getState(a.id);
     st.phase = "texting";
-    st.focusPid = await getFocusPid();
+    st.focusTarget = await getFocusTarget();
     await this.render(a, await a.getSettings());
     const input = await readSelectionOrClipboard();
     if (!input) {
@@ -20239,7 +20239,7 @@ var Dictation = class extends (_a = SingletonAction) {
           }
         }
       }
-      const how = await deliver(final, { autoPaste: s.autoPaste, expectPid: st.focusPid });
+      const how = await deliver(final, { autoPaste: s.autoPaste, expectTarget: st.focusTarget });
       if (s.history) {
         await appendHistory(
           {
@@ -20305,8 +20305,8 @@ var Dictation = class extends (_a = SingletonAction) {
             // What "auto" means on this machine, so the panel's selector does not have to
             // guess it with less information than the plugin has.
             autoUiLocale: resolveUiLocale("auto", appLanguage(), osLanguage()),
-            version: "1.6.1.4",
-            versionDate: "2026-10-16",
+            version: "1.6.2.0",
+            versionDate: "2026-10-18",
             swatches: SWATCHES,
             transcribeModels: TRANSCRIBE_MODELS,
             textModels: TEXT_MODELS,

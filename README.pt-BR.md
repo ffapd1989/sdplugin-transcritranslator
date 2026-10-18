@@ -337,10 +337,11 @@ navegar para outra página ou perfil; se o estado morasse na instância da tecla
 morreria junto. Ele vive num registro global indexado pelo id da ação
 ([`sessions.ts`](src/lib/sessions.ts)).
 
-**O Ctrl+V só acontece se a janela em foco não mudou.** O processo em foco é lido no início e
-conferido no fim (`UIAutomation`, 75 ms — P/Invoke com `Add-Type -TypeDefinition` custaria
-~1 s porque compila C#). Se você foi fazer outra coisa, o plugin copia e avisa em vez de colar
-no lugar errado.
+**O Ctrl+V só acontece se a janela em foco não mudou.** A janela em foco — o processo e o handle
+dela — é lida no início e conferida no fim (`UIAutomation`, ~100 ms — P/Invoke com `Add-Type
+-TypeDefinition` custaria ~1 s porque compila C#). É o handle que pega a troca entre duas janelas
+do mesmo app, que dividem um processo só. Se você foi fazer outra coisa, o plugin copia e avisa em
+vez de colar no lugar errado.
 
 ## Desenvolvimento
 

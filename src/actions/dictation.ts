@@ -60,7 +60,7 @@ import {
   deliver,
   readSelectionOrClipboard,
   appendHistory,
-  getFocusPid,
+  getFocusTarget,
   isForegroundFullscreen,
 } from "../lib/deliver.js";
 import { lookup, normalizeAlias, ownerOf, rememberKey, shortcutUrl } from "../lib/shortcuts.js";
@@ -726,7 +726,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
     await this.render(a, raw);
 
     // In parallel, without blocking the recording: where the text should come back to.
-    void getFocusPid().then((pid) => { getState(a.id).focusPid = pid; });
+    void getFocusTarget().then((target) => { getState(a.id).focusTarget = target; });
 
     const rec = new Recorder({
       ffmpegPath: ffmpeg,
@@ -883,7 +883,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
 
     const st = getState(a.id);
     st.phase = "texting";
-    st.focusPid = await getFocusPid();
+    st.focusTarget = await getFocusTarget();
     await this.render(a, await a.getSettings());
 
     const input = await readSelectionOrClipboard();
@@ -976,7 +976,7 @@ export class Dictation extends SingletonAction<ActionSettings> {
       }
 
       // --- delivery ---
-      const how = await deliver(final, { autoPaste: s.autoPaste, expectPid: st.focusPid });
+      const how = await deliver(final, { autoPaste: s.autoPaste, expectTarget: st.focusTarget });
 
       if (s.history) {
         await appendHistory(

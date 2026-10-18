@@ -88,7 +88,7 @@ you fix the encoding rather than dropping the accent.
 ## Architecture
 
 ```
-press   → capture the focused process (UIAutomation, ~75 ms, in parallel)
+press   → capture the focused window: process + handle (UIAutomation, ~100 ms, in parallel)
         → ffmpeg dshow — 1 process, 2 simultaneous outputs
                ├─ MP3 16 kHz mono 48 kbps → %LOCALAPPDATA%\transcritranslator\audio\
                └─ level meter (RMS) over stderr → key waveform + auto-stop

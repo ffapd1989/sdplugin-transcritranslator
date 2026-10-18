@@ -31,7 +31,7 @@ export type KeyState = {
   phase: Phase;
   recorder?: Recorder;
   audioPath?: string;
-  focusPid: number;
+  focusTarget: string;
   /** Level history for the waveform (0..1, most recent last). */
   levels: number[];
   startedAt: number;
@@ -54,7 +54,7 @@ let lockOwner: string | null = null;
 export function getState(actionId: string): KeyState {
   let s = states.get(actionId);
   if (!s) {
-    s = { phase: "idle", focusPid: 0, levels: [], startedAt: 0 };
+    s = { phase: "idle", focusTarget: "", levels: [], startedAt: 0 };
     states.set(actionId, s);
   }
   return s;

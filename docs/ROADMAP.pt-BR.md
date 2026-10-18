@@ -23,7 +23,8 @@ situação que só aparece quando dá errado:
 - [ ] Modo `ptt` (segurar para gravar)
 - [ ] Auto-parar: falar e ficar 3 s calado
 - [ ] Segurar durante a gravação → `SOLTE P/ CANCELAR`, nada é enviado
-- [ ] **Trocar de janela durante o processamento** → não cola, avisa "copiado"
+- [ ] **Trocar de janela durante o processamento** → não cola, avisa "copiado" — inclusive para
+      outra janela do mesmo app
 - [ ] **Trocar de página no XL durante a gravação** → entrega mesmo assim
 - [ ] **Apertar e parar sem falar** → "sem fala", nada colado (blindagem anti-eco)
 - [ ] Dicionário: cadastrar sigla, ditar, conferir a grafia canônica

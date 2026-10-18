@@ -12,7 +12,7 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { Recorder, listAudioDevices } from "../src/lib/recorder.js";
-import { getFocusPid } from "../src/lib/deliver.js";
+import { getFocusTarget } from "../src/lib/deliver.js";
 
 const FFMPEG = "ffmpeg";
 const SECONDS = 3;
@@ -41,7 +41,7 @@ const out = join(tmpdir(), `tt-miccheck-${Date.now()}.mp3`);
 
 console.log(`\nrecording ${SECONDS}s from "${device}" — say something\n`);
 
-const pidPromise = getFocusPid();
+const focusPromise = getFocusTarget();
 const rec = new Recorder({
   ffmpegPath: FFMPEG,
   device,
@@ -77,7 +77,7 @@ process.stdout.write("\n");
 
 const size = await stat(out).then((s) => s.size).catch(() => 0);
 const duration = size ? await probeDuration(out) : -1;
-const pid = await pidPromise;
+const focus = await focusPromise;
 
 console.log("\nresult:");
 console.log(`  exited cleanly     ${result.ok ? "yes" : "NO"}`);
@@ -87,7 +87,7 @@ console.log(`  speech detected    ${rec.speechDetected ? "yes" : "no"}`);
 console.log(`  file               ${size} bytes`);
 console.log(`  mp3 duration       ${duration > 0 ? duration.toFixed(2) + "s" : "invalid"}`);
 console.log(`  effective kbps     ${duration > 0 ? ((size * 8) / duration / 1000).toFixed(0) : "—"}`);
-console.log(`  focused pid        ${pid || "could not read it"}`);
+console.log(`  focused window     ${focus || "could not read it"}`);
 if (result.stderr) console.log(`  stderr             ${result.stderr.slice(0, 300)}`);
 
 await unlink(out).catch(() => {});

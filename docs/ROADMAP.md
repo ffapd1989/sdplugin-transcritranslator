@@ -23,7 +23,8 @@ a situation that only shows up when something goes wrong:
 - [ ] `ptt` mode (hold to record)
 - [ ] Auto-stop: speak and then stay quiet for 3 s
 - [ ] Hold during recording → `RELEASE TO CANCEL`, nothing is sent
-- [ ] **Switch windows during processing** → does not paste, warns "copied"
+- [ ] **Switch windows during processing** → does not paste, warns "copied" — including to
+      another window of the same app
 - [ ] **Switch pages on the XL during recording** → delivers anyway
 - [ ] **Press and stop without speaking** → "no speech", nothing pasted (anti-echo shielding)
 - [ ] Dictionary: register an acronym, dictate, check the canonical spelling

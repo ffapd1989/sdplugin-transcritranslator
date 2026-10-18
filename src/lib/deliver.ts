@@ -1,9 +1,11 @@
 // Text delivery: clipboard, pasting and history.
 //
-// THE FOCUS RULE: the focused window's PID is read at the START of the recording and
-// checked at the END. If it changed, the plugin does NOT paste — it only copies and
-// warns. That is the difference between the text landing where you asked for it and the
-// text landing in the middle of something else you went off to do while the API answered.
+// THE FOCUS RULE: the focused window — process AND window handle — is read at the START
+// of the recording and checked at the END. If it changed, the plugin does NOT paste — it
+// only copies and warns. The PID alone is not enough: two windows of the same app (two
+// VS Code or Word windows) share one process, and switching between them went unseen.
+// That is the difference between the text landing where you asked for it and the text
+// landing in the middle of something else you went off to do while the API answered.
 //
 // Everything involving text goes through a UTF-8 FILE, never through the command line
 // nor through PowerShell's stdout — that is what guarantees "ação", "três" and "coração"
@@ -34,22 +36,33 @@ async function tempFile(prefix: string): Promise<string> {
   return join(tmpdir(), `tt-${prefix}-${process.pid}-${Date.now()}.txt`);
 }
 
+// Leaves "pid:hwnd" of the focused element's top-level window in $focus. Shared by the
+// reading at the start and the check inside deliver(), so both compare the same thing.
+const FOCUS_SCRIPT =
+  "$el = [System.Windows.Automation.AutomationElement]::FocusedElement;" +
+  "$fpid = $el.Current.ProcessId;" +
+  "$root = [System.Windows.Automation.AutomationElement]::RootElement;" +
+  "$walk = [System.Windows.Automation.TreeWalker]::ControlViewWalker;" +
+  "while ($true) { $p = $walk.GetParent($el);" +
+  "  if ($p -eq $null -or [System.Windows.Automation.Automation]::Compare($p, $root)) { break }" +
+  "  $el = $p }" +
+  "$focus = '{0}:{1}' -f $fpid, $el.Current.NativeWindowHandle;";
+
 /**
- * PID of the process owning the focused window.
+ * Identity of the focused window, as "pid:hwnd"; "" if it could not be read.
  *
- * Uses UIAutomation (an already-compiled assembly, ~75 ms) instead of P/Invoke with
- * `Add-Type -TypeDefinition`, which would compile C# on every call and cost ~1 s.
+ * Uses UIAutomation (an already-compiled assembly, ~55–100 ms with the walk up to the
+ * top-level window) instead of P/Invoke with `Add-Type -TypeDefinition`, which would
+ * compile C# on every call and cost ~1 s.
  */
-export async function getFocusPid(): Promise<number> {
+export async function getFocusTarget(): Promise<string> {
   try {
     const out = await powershell(
-      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes;" +
-        "[System.Windows.Automation.AutomationElement]::FocusedElement.Current.ProcessId",
+      "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes;" + FOCUS_SCRIPT + "$focus",
     );
-    const pid = parseInt(out, 10);
-    return Number.isFinite(pid) ? pid : 0;
+    return /^\d+:\d+$/.test(out) ? out : "";
   } catch {
-    return 0;
+    return "";
   }
 }
 
@@ -97,13 +110,13 @@ export type DeliveryResult = "pasted" | "copied";
 /**
  * Copies and — if the focus is still where it was — pastes.
  *
- * expectPid = 0 means we could not read the focus at the start; in that case it pastes
+ * expectTarget = "" means we could not read the focus at the start; in that case it pastes
  * anyway, because the common case is that the focus did not change, and blocking the
  * paste for lack of information would break the main flow.
  */
 export async function deliver(
   text: string,
-  opts: { autoPaste: boolean; expectPid: number },
+  opts: { autoPaste: boolean; expectTarget: string },
 ): Promise<DeliveryResult> {
   const file = await tempFile("out");
   await writeFile(file, text, "utf8");
@@ -120,10 +133,10 @@ export async function deliver(
       "Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms;" +
         `$t = [IO.File]::ReadAllText(${psQuote(file)}, [Text.Encoding]::UTF8);` +
         "Set-Clipboard -Value $t;" +
-        "$cur = 0;" +
-        "try { $cur = [System.Windows.Automation.AutomationElement]::FocusedElement.Current.ProcessId } catch {};" +
-        `$expect = ${opts.expectPid};` +
-        "if ($expect -eq 0 -or $cur -eq $expect) {" +
+        "$focus = '';" +
+        `try { ${FOCUS_SCRIPT} } catch {};` +
+        `$expect = ${psQuote(opts.expectTarget)};` +
+        "if ($expect -eq '' -or $focus -eq $expect) {" +
         "  [System.Windows.Forms.SendKeys]::SendWait('^v'); 'pasted'" +
         "} else { 'copied' }",
     );
